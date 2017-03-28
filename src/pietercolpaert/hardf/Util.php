@@ -70,7 +70,7 @@ class Util
     // Gets the language of a literal in the N3 library
     public static function getLiteralLanguage ($literal)
     {
-        preg_match('/^".*"(?:@([^@"]+)|\^\^[^"]+)?$/', $literal, $match); //TODO: [^] substituted by .
+        preg_match('/^".*"(?:@([^@"]+)|\^\^[^"]+)?$/', $literal, $match);
         if (empty($match))
             throw new Error($literal + ' is not a literal');
         return isset($match[1]) ? strtolower($match[1]) : '';
@@ -92,18 +92,17 @@ class Util
         if (!empty($match)) {
             $prefix = $match[1][0];
             $base = $prefixes[$prefix];
-            $index = $match[1][1];// TODO??
+            $index = $match[1][1];
         }
         if ($base === 'undefined')
             return $prefixedName;
 
         // The match index is non-zero when expanding a literal's type
         if ($index === 0) {
-            return $base . substr($prefixedName, sizeof($prefix) + 1);
+            return $base . substr($prefixedName, strlen($prefix) + 1);
         } else {
-            return substr($prefixedName, 0, $index + 3) . $base . substr($prefixedName, $index + sizeof($prefix) + 4);
-        }
-            
+            return substr($prefixedName, 0, $index + 3) . $base . substr($prefixedName, $index + strlen($prefix) + 4);
+        }   
     }
 
     // Creates an IRI in N3.js representation

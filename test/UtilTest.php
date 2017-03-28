@@ -192,7 +192,7 @@ class UtilTest extends PHPUnit_Framework_TestCase
     }
  
 
-    public function testisPrefixedName () {
+    public function testIsPrefixedName () {
         //it('matches a prefixed name', function () {
         $this->assertEquals(true,Util::isPrefixedName('ex:Test'));
     
@@ -214,27 +214,17 @@ class UtilTest extends PHPUnit_Framework_TestCase
     }    
   
 
-    public function testexpandPrefixedName () {
+    public function testExpandPrefixedName () {
         //it('expands a prefixed name', function () {
         $this->assertEquals('http://ex.org/#Test', Util::expandPrefixedName('ex:Test', [ 'ex' => 'http://ex.org/#' ]));
-    
-
         //it('expands a type with a prefixed name', function () {
         $this->assertEquals('"a"^^http://ex.org/#type', Util::expandPrefixedName('"a"^^ex:type', [ "ex"=> 'http://ex.org/#' ]));
-    
-
         //it('expands a prefixed name with the empty prefix', function () {
         $this->assertEquals('http://ex.org/#Test', Util::expandPrefixedName(':Test', [ '' => 'http://ex.org/#' ]));
-    
-
         //it('does not expand a prefixed name if the prefix is unknown', function () {
         $this->assertEquals('a:Test', Util::expandPrefixedName('a:Test', [ "b"=> 'http://ex.org/#' ]));
-    
-
         //it('returns the input if //it is not a prefixed name', function () {
         $this->assertEquals('abc', Util::expandPrefixedName('abc', null));
-    
-  
     }
 
     public function testCreateIRI () {
