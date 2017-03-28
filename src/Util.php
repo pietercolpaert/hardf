@@ -89,19 +89,29 @@ class Util
         $prefix = "";
         $base = "";
         $index = "";
+        
         if (!empty($match)) {
             $prefix = $match[1][0];
-            $base = $prefixes[$prefix];
+            $base = "";
+            if (isset($prefixes[$prefix]))
+            {
+                $base = $prefixes[$prefix];
+            } else {
+                $base = null;
+            }
             $index = $match[1][1];
         }
-        if ($base === 'undefined')
+        if (!$base) {
             return $prefixedName;
+        }
 
         // The match index is non-zero when expanding a literal's type
         if ($index === 0) {
+            // base + prefixedName.substr(prefix.length + 1)
             return $base . substr($prefixedName, strlen($prefix) + 1);
         } else {
-            return substr($prefixedName, 0, $index + 3) . $base . substr($prefixedName, $index + strlen($prefix) + 4);
+            // prefixedName.substr(0, index + 3) + base + prefixedName.substr(index + prefix.length + 4);
+            return substr($prefixedName, 0, $index) . $base . substr($prefixedName, $index + strlen($prefix) + 1);
         }   
     }
 
