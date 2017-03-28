@@ -123,7 +123,6 @@ class UtilTest extends PHPUnit_Framework_TestCase
     public function testGetLiteralType () {
         //it('gets the type of a literal', function () {
         $this->assertEquals('http://www.w3.org/2001/XMLSchema#string', Util::getLiteralType('"Mickey"'));
-    
 
         //it('gets the type of a literal with a language', function () {
         $this->assertEquals('http://www.w3.org/1999/02/22-rdf-syntax-ns#langString', Util::getLiteralType('"English"@en'));
@@ -282,11 +281,11 @@ class UtilTest extends PHPUnit_Framework_TestCase
     
 
         //it('converts a decimal', function () {
-        $this->assertEquals('"2.3"^^http://www.w3.org/2001/XMLSchema#decimal', Util::createLiteral(2.3));
+        $this->assertEquals('"2.3"^^http://www.w3.org/2001/XMLSchema#double', Util::createLiteral(2.3));
     
 
         //it('converts infinity', function () {
-        $this->assertEquals('"Infinity"', Util::createLiteral(Infinity));
+        $this->assertEquals('"INF"^^http://www.w3.org/2001/XMLSchema#double', Util::createLiteral(INF));
     
 
         //it('converts false', function () {

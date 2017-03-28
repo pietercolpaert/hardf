@@ -6,10 +6,12 @@ namespace pietercolpaert\hardf;
 class Util
 {
     const XSD = 'http://www.w3.org/2001/XMLSchema#';
-    const XSDString  = self::XSD + 'string';
-    const XSDINTEGER = self::XSD + 'integer';
-    const XSDDECIMAL = self::XSD + 'decimal';
-    const XSDBOOLEAN = self::XSD + 'boolean';
+    const XSDSTRING  = self::XSD . 'string';
+    const XSDINTEGER = self::XSD . 'integer';
+    const XSDDECIMAL = self::XSD . 'decimal';
+    const XSDFLOAT = self::XSD . 'float';
+    const XSDDOUBLE = self::XSD . 'double';
+    const XSDBOOLEAN = self::XSD . 'boolean';
     const RDFLANGSTRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#langString';
     
     // Tests whether the given entity (triple object) represents an IRI in the N3 library
@@ -39,13 +41,13 @@ class Util
     // Tests whether the given $triple is in the default graph
     public static function inDefaultGraph ($triple)
     {
-        return !$triple->graph;
+        return !(isset($triple) && $triple["graph"]);
     }
 
     // Gets the string value of a literal in the N3 library
     public static function getLiteralValue ($literal)
     {
-        preg_match("/^\"([^]*)\"/", $literal, $match);
+        preg_match("/^\"(.*)\"/", $literal, $match); //TODO: somehow the copied regex did not work. To be checked. Contained [^]
         if (empty($match)) {
             throw new Error($literal + ' is not a literal');
         }
@@ -54,20 +56,25 @@ class Util
     // Gets the type of a literal in the N3 library
     public static function getLiteralType ($literal)
     {
-        preg_match('/^"[^]*"(?:\^\^([^"]+)|(@)[^@"]+)?$/',$literal,$match);
+        preg_match('/^".*"(?:\^\^([^"]+)|(@)[^@"]+)?$/',$literal,$match);//TODO: somehow the copied regex did not work. To be checked. Contained [^] instead of the .
         if (empty($match))
             throw new Error($literal + ' is not a literal');
-        return $match[1] || ($match[2] ? self::RDFLANGSTRING : self::XSDSTRING);
+        if (isset($match[1])) {
+            
+            return $match[1];
+        } else {
+            return isset($match[2]) ? self::RDFLANGSTRING : self::XSDSTRING;
+        }
     }
     
 
     // Gets the language of a literal in the N3 library
     public static function getLiteralLanguage ($literal)
     {
-        preg_match('/^"[^]*"(?:@([^@"]+)|\^\^[^"]+)?$/', $literal, $match);
+        preg_match('/^".*"(?:@([^@"]+)|\^\^[^"]+)?$/', $literal, $match); //TODO: [^] substituted by .
         if (empty($match))
             throw new Error($literal + ' is not a literal');
-        return $match[1] ? strtolower($match[1]) : '';
+        return isset($match[1]) ? strtolower($match[1]) : '';
     }
             
     // Tests whether the given entity ($triple object) represents a prefixed name
@@ -79,21 +86,25 @@ class Util
     // Expands the prefixed name to a full IRI (also when it occurs as a literal's type)
     public static function expandPrefixedName ($prefixedName, $prefixes)
     {
-        preg_match("/(?:^|\"\^\^)([^:\/#\"'\^_]*):[^\/]*$/",$prefixedName, $match);
+        preg_match("/(?:^|\"\^\^)([^:\/#\"'\^_]*):[^\/]*$/", $prefixedName, $match, PREG_OFFSET_CAPTURE);
         $prefix = "";
         $base = "";
         $index = "";
         if (!empty($match)) {
-            $prefix = $match[1];
+            $prefix = $match[1][0];
             $base = $prefixes[$prefix];
-            $index = $match->index;// TODO??
+            $index = $match[1][1];// TODO??
         }
-        
         if ($base === 'undefined')
             return $prefixedName;
 
         // The match index is non-zero when expanding a literal's type
-        return $index === 0 ? $base . substr($prefixedName, sizeof($prefix) + 1) : substr($prefixedName, 0, $index + 3) . $base . substr($prefixedName, $index + sizeof($prefix) + 4);
+        if ($index === 0) {
+            return $base . substr($prefixedName, sizeof($prefix) + 1);
+        } else {
+            return substr($prefixedName, 0, $index + 3) . $base . substr($prefixedName, $index + sizeof($prefix) + 4);
+        }
+            
     }
 
     // Creates an IRI in N3.js representation
@@ -104,18 +115,23 @@ class Util
     
 
     // Creates a literal in N3.js representation
-    public static function createLiteral ($value, $modifier)
-    {
-        if (!$modifier) {
+    public static function createLiteral ($value, $modifier = null)
+    {        
+        if (!$modifier) {       
             switch (gettype($value)) {
                 case 'boolean':
+                    $value = $value ? "true":"false";
                     $modifier = self::XSDBOOLEAN;
                     break;
-                case 'number':
-                    if (isFinite($value)) {
-                        $modifier = $value % 1 === 0 ? self::XSDINTEGER : self::XSDDECIMAL;
-                        break;
-                    }
+                case 'integer':
+                    $modifier = self::XSDINTEGER;
+                    break;
+                case 'double':
+                    $modifier = self::XSDDOUBLE;
+                    break;
+                case 'float':
+                    $modifier = self::XSDFLOAT;
+                    break;
                 default:
                     return '"' . $value . '"';
             }
