@@ -218,7 +218,7 @@ class UtilTest extends PHPUnit_Framework_TestCase
         //it('expands a prefixed name', function () {
         $this->assertEquals('http://ex.org/#Test', Util::expandPrefixedName('ex:Test', [ 'ex' => 'http://ex.org/#' ]));
         //it('expands a type with a prefixed name', function () {
-        $this->assertEquals('"a"^^http://ex.org/#type', Util::expandPrefixedName('"a"^^ex:type', [ "ex"=> 'http://ex.org/#' ]));
+        $this->assertEquals('"a"^^http://ex.org/#type', Util::expandPrefixedName('"a"^^ex:type', [ "ex" => 'http://ex.org/#' ]));
         //it('expands a prefixed name with the empty prefix', function () {
         $this->assertEquals('http://ex.org/#Test', Util::expandPrefixedName(':Test', [ '' => 'http://ex.org/#' ]));
         //it('does not expand a prefixed name if the prefix is unknown', function () {

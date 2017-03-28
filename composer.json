@@ -10,9 +10,12 @@
         }
     ],
     "autoload": {
-        "psr-0": {
+        "psr-4": {
             "pietercolpaert\\hardf\\": "src/"
         }
     },
-    "require": {}
+    "require": {},
+    "require-dev" : {
+        "phpunit/phpunit": "^5.5"
+    }
 }
