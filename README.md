@@ -45,5 +45,5 @@ composer install pietercolpaert/hardf
 
 Currently, we only have the `pietercolpaert\hardf\Util` class available, that will help you to create and evaluate literals, IRIs, and expand prefixes.
 
-See the documentation at https://github.com/RubenVerborgh/N3.js#utility. Instead of N3Util, you will have to use `pietercolpaert\hardf::Util` instead.
+See the documentation at https://github.com/RubenVerborgh/N3.js#utility. Instead of N3Util, you will have to use `pietercolpaert\hardf::Util`.
 
