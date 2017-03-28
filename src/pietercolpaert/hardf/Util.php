@@ -59,11 +59,10 @@ class Util
         preg_match('/^".*"(?:\^\^([^"]+)|(@)[^@"]+)?$/',$literal,$match);//TODO: somehow the copied regex did not work. To be checked. Contained [^] instead of the .
         if (empty($match))
             throw new Error($literal + ' is not a literal');
-        if (isset($match[1])) {
-            
+        if (!empty($match[1])) {
             return $match[1];
         } else {
-            return isset($match[2]) ? self::RDFLANGSTRING : self::XSDSTRING;
+            return !empty($match[2]) ? self::RDFLANGSTRING : self::XSDSTRING;
         }
     }
     
