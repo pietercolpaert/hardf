@@ -13,13 +13,13 @@ class TriGWriter
     CONST RDF_TYPE   = self::RDF_PREFIX . 'type';
     
     // Characters in literals that require escaping
-#    CONST ESCAPE = '/["\\\t\n\r\b\f\x{0000}-\x{0019}\x{d800}-\x{dbff}]/u';
-    CONST ESCAPE = '//';
+    CONST ESCAPE = "/[\"\\\t\n\r\b\f]/"; #\x{0000}-\x{0019}\x{d800}-\x{dbff}]/u';
+#    CONST ESCAPE = '//';
 #    CONST ESCAPEALL = '//';
     CONST ESCAPEALL = "/[\"\\\t\n\r\b\f]/u";#\x{0000}-\x{0019}  # [\x{d800}-\x{dbff}][\x{dc00}-\x{dfff}]
     CONST ESCAPEREPLACEMENTS = [
-      "\\" => "\\\\", '"'=> '\\"', "\t"=> "\\t",
-      "\n" => "\\n", "\r"=> "\\r", "\b"=> "\\b", "\f"=> "\\f"
+      '\\' => '\\\\', '"' => '\\"', "\t" => "\\t",
+      "\n" => '\\n', "\r" => "\\r", "\b"=> "\\b", "\f"=> "\\f"
     ];
     
     // ### `_prefixRegex` matches a prefixed name or IRI that begins with one of the added prefixes
@@ -45,7 +45,7 @@ class TriGWriter
         $this->characterReplacer = function ($character) {
             // Replace a single character by its escaped version
             $character = $character[0];
-            
+            var_dump($character);
             if (isset($character) && isset(self::ESCAPEREPLACEMENTS[$character])) {
                 return self::ESCAPEREPLACEMENTS[$character];
             } else {
@@ -71,7 +71,7 @@ class TriGWriter
     private function write ($string, $callback = null) {
         //this._outputStream.write(string, 'utf8', callback);
         if ($this->blocked) {
-            throw new Exception('Cannot write because the writer has been closed.');
+            throw new \Exception('Cannot write because the writer has been closed.');
         } else {
             if (isset($callback)) {
                 $callback($string);
@@ -108,7 +108,7 @@ class TriGWriter
             else {
                 $this->write(($this->subject === null ? '' : ".\n") . $this->encodeSubject($this->subject = $subject) . ' ' . $this->encodePredicate($this->predicate = $predicate) . ' ' . $this->encodeObject($object), $done);
             }
-        } catch (Exception $error) {
+        } catch (\Exception $error) {
             if (isset($done)) {
                 $done($error);
             }
@@ -122,7 +122,7 @@ class TriGWriter
         // Write the triple
         try {
             $this->write($this->encodeIriOrBlankNode($subject) . ' ' .$this->encodeIriOrBlankNode($predicate) . ' ' . $this->encodeObject($object) . ($graph ? ' ' . $this->encodeIriOrBlankNode($graph) . ".\n" : ".\n"), $done);
-        } catch (Exception $error) {
+        } catch (\Exception $error) {
             if (isset($done)) {
                 $done($error);
             }
@@ -149,22 +149,36 @@ class TriGWriter
 
     // ### `_encodeLiteral` represents a literal
     private function encodeLiteral ($value, $type = null, $language = null) {
-        // Escape special characters
-        if (preg_match(self::ESCAPE,$value))
-            $value = preg_replace_callback(self::ESCAPEALL, $this->characterReplacer, $value);
+        // Escape special characters - TODO: unicode characters?
+        if (preg_match('/[\t\n\r\f\b]/',$value)) {
+            $value = str_replace(array('\\', '"""'), array('\\\\', '\\"""'), $value);
+            
+            // Check if the last character is a trailing double quote, if so, escape it.
+            $pos = strrpos($value, '"');
+            if ($pos !== false && $pos + 1 == strlen($value)) {
+                $value = substr($value, 0, -1);
+                $value .= '\"';
+            }
+            // enclose between 3 double quotes
+            $value = '"""' . $value . '"""';
+        } else {
+            // enclose in double quotes, while escaping back slashes
+            $value = '"' . str_replace(array('\\', '"'), array('\\\\', '\\"'), $value) . '"';
+        }
+        
         // Write the literal, possibly with type or language
         if (isset($language))
-            return '"' . $value . '"@' . $language;
+            return $value . '@' . $language;
         else if (isset($type))
-            return '"' . $value . '"^^' . $this->encodeIriOrBlankNode($type);
+            return $value . '^^' . $this->encodeIriOrBlankNode($type);
         else
-            return '"' . $value . '"';
+            return $value;
     }
     
     // ### `_encodeSubject` represents a subject
     private function encodeSubject ($subject) {
         if ($subject[0] === '"')
-            throw new Exception('A literal as subject is not allowed: ' . $subject);
+            throw new \Exception('A literal as subject is not allowed: ' . $subject);
         // Don't treat identical blank nodes as repeating subjects
         if ($subject[0] === '[')
             $this->subject = ']';
@@ -175,7 +189,7 @@ class TriGWriter
     // ### `_encodePredicate` represents a predicate
     private function encodePredicate ($predicate) {
         if ($predicate[0] === '"')
-            throw new Exception('A literal as predicate is not allowed: ' . $predicate);
+            throw new \Exception('A literal as predicate is not allowed: ' . $predicate);
         return $predicate === self::RDF_TYPE ? 'a' : $this->encodeIriOrBlankNode($predicate);
     }
 
@@ -189,7 +203,7 @@ class TriGWriter
             return $this->encodeLiteral($matches[1], isset($matches[2])?$matches[2]:null, isset($matches[3])?$matches[3]:null);
         }
         else {
-            throw new Exception('Invalid literal: ' . $object);
+            throw new \Exception('Invalid literal: ' . $object);
         }
     }
 

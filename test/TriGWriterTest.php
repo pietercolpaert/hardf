@@ -58,19 +58,21 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
 
         //should serialize a literal containing a double quote',
         $this->shouldSerialize(['a', 'b', '"c"de"'],
-        '<a> <b> "c\"de".' . "\n");
+        '<a> <b> "c\\"de".' . "\n");
 
-        //should serialize a literal containing a backspace',
+        //should serialize a literal containing a backslash'
         $this->shouldSerialize(['a', 'b', '"c\\de"'],
-        '<a> <b> "c\\de".' . "\n");
+        '<a> <b> "c\\\\de".' . "\n");
 
         //should serialize a literal containing a tab character',
-        $this->shouldSerialize(['a', 'b', '"c\tde"'],
-        "<a> <b> \"c\tde\".\n");
+        $this->shouldSerialize(['a', 'b', "\"c\tde\""],
+        "<a> <b> \"\"\"c\\tde\"\"\".\n");
 
         //should serialize a literal containing a newline character',
+        /*      shouldSerialize(['a', 'b', '"c\nde"'],
+                      '<a> <b> "c\\nde".\n'));*/
         $this->shouldSerialize(['a', 'b', '"c' . "\n" . 'de"'],
-        '<a> <b> "c\\' . "\n" . 'de".' . "\n");
+        '<a> <b> """c' . "\n" . 'de""".' . "\n");
 
         //should serialize a literal containing a cariage return character',
         $this->shouldSerialize(['a', 'b', '"c\rde"'],
