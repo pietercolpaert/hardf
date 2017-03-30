@@ -83,10 +83,13 @@ class TriGWriter
     // ### `_writeTriple` writes the triple to the output stream
     private function writeTriple ($subject, $predicate, $object, $graph, $done = null) {
         try {
+            if (isset($graph) && $graph === ""){
+                $graph = null;
+            }
             // Write the graph's label if it has changed
             if ($this->graph !== $graph) {
                 // Close the previous graph and start the new one
-                $this->write(($this->subject === null ? '' : ($this->graph ? "\n}\n" : ".\n")) . ($graph ? $this->encodeIriOrBlankNode($graph) . " {\n" : ''));
+                $this->write(($this->subject === null ? '' : ($this->graph ? "\n}\n" : ".\n")) . (isset($graph) ? $this->encodeIriOrBlankNode($graph) . " {\n" : ''));
                 $this->subject = null;
                 // Don't treat identical blank nodes as repeating graphs
                 $this->graph = $graph[0] !== '[' ? $graph : ']';
@@ -95,10 +98,11 @@ class TriGWriter
             if ($this->subject === $subject) {
                 // Don't repeat the predicate if it's the same
                 if ($this->predicate === $predicate)
-                    $this->write(', ' + $this->encodeObject($object), $done);
+                    $this->write(', ' . $this->encodeObject($object), $done);
                 // Same subject, different predicate
-                else {    
-                    $this->write(";\n    " . $this->encodePredicate($this->predicate = $predicate) . ' ' . $this->encodeObject($object), $done);
+                else {
+                    $this->predicate = $predicate;
+                    $this->write(";\n    " . $this->encodePredicate($predicate) . ' ' . $this->encodeObject($object), $done);
                 }
             }
             // Different subject; write the whole triple
@@ -118,7 +122,7 @@ class TriGWriter
         delete($this->prefixMatch);
         // Write the triple
         try {
-            $this->write($this->encodeIriOrBlankNode($subject) . ' ' .$this->encodeIriOrBlankNode($predicate) . ' ' . $this->encodeObject($object) . ($graph ? ' ' . $this->encodeIriOrBlankNode($graph) . ".\n" : ".\n"), $done);
+            $this->write($this->encodeIriOrBlankNode($subject) . ' ' .$this->encodeIriOrBlankNode($predicate) . ' ' . $this->encodeObject($object) . (isset($graph) ? ' ' . $this->encodeIriOrBlankNode($graph) . ".\n" : ".\n"), $done);
         } catch (\Exception $error) {
             if (isset($done)) {
                 $done($error);
@@ -146,7 +150,7 @@ class TriGWriter
                 return '<' . $entity . '>';
             }
         } else {
-            return !isset($prefixMatch[1]) ? $entity : $this->prefixIRIs[$prefixMatch[1]] . $prefixMatch[2];    
+            return !isset($prefixMatch[1]) ? $entity : $this->prefixIRIs[$prefixMatch[1]] . $prefixMatch[2];
         }
     }
 

@@ -149,7 +149,7 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         '@prefix b: <http://a.org/b#>.' . "\n" . "\n" .
         'a:bc b:ef <c:bhi>.' . "\n");
     }
-/*
+
     public function testRepitition () 
     {
         //should not repeat the same subjects',
@@ -208,13 +208,14 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         '<abc> {' . "\n" . '<stu> <vwx> <yz>' . "\n" . '}' . "\n");
 
         //should output 8-bit unicode characters as escape sequences',
-        $this->shouldSerialize(['\ud835\udc00', '\ud835\udc00', '"\ud835\udc00"^^\ud835\udc00', '\ud835\udc00'],
+/* SHOULD IT?
+        $this->shouldSerialize(["\u{d835}\u{dc00}", "\u{d835}\u{dc00}", "\"\u{d835}\u{dc00}\"^^\u{d835}\u{dc00}", "\u{d835}\u{dc00}"],
         '<\\U0001d400> {' . "\n" . '<\\U0001d400> <\\U0001d400> "\\U0001d400"^^<\\U0001d400>' . "\n" . '}' . "\n");
-
+*/
         //should not use escape sequences in blank nodes',
-        $this->shouldSerialize(['_:\ud835\udc00', '_:\ud835\udc00', '_:\ud835\udc00', '_:\ud835\udc00'],
-        '_:\ud835\udc00 {' . "\n" . '_:\ud835\udc00 _:\ud835\udc00 _:\ud835\udc00' . "\n" . '}' . "\n");
-        }*/
+        $this->shouldSerialize(["_:\u{d835}\u{dc00}", "_:\u{d835}\u{dc00}", "_:\u{d835}\u{dc00}", "_:\u{d835}\u{dc00}"],
+        "_:\u{d835}\u{dc00} {" . "\n" . "_:\u{d835}\u{dc00} _:\u{d835}\u{dc00} _:\u{d835}\u{dc00}" . "\n" . '}' . "\n");
+        }
     /*
     public function testCallbackOnEnd () {
         //sends output through end
