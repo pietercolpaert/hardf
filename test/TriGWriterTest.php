@@ -103,7 +103,6 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
 
     public function testWrongLiterals()
     {
-        
 /*
         //should not serialize a literal in the subject',
         shouldNotSerialize(['"a"', 'b', '"c"'],
@@ -150,7 +149,7 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         '@prefix b: <http://a.org/b#>.' . "\n" . "\n" .
         'a:bc b:ef <c:bhi>.' . "\n");
     }
-
+/*
     public function testRepitition () 
     {
         //should not repeat the same subjects',
@@ -215,7 +214,7 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         //should not use escape sequences in blank nodes',
         $this->shouldSerialize(['_:\ud835\udc00', '_:\ud835\udc00', '_:\ud835\udc00', '_:\ud835\udc00'],
         '_:\ud835\udc00 {' . "\n" . '_:\ud835\udc00 _:\ud835\udc00 _:\ud835\udc00' . "\n" . '}' . "\n");
-    }
+        }*/
     /*
     public function testCallbackOnEnd () {
         //sends output through end

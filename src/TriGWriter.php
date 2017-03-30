@@ -13,10 +13,8 @@ class TriGWriter
     CONST RDF_TYPE   = self::RDF_PREFIX . 'type';
     
     // Characters in literals that require escaping
-    CONST ESCAPE = "/[\"\\\t\n\r\b\f]/"; #\x{0000}-\x{0019}\x{d800}-\x{dbff}]/u';
-#    CONST ESCAPE = '//';
-#    CONST ESCAPEALL = '//';
-    CONST ESCAPEALL = "/[\"\\\t\n\r\b\f]/u";#\x{0000}-\x{0019}  # [\x{d800}-\x{dbff}][\x{dc00}-\x{dfff}]
+    CONST ESCAPE = "/[\"\\\t\n\r\f]/u"; #/u';
+    CONST ESCAPEALL = "/[\"\\\t\n\r\b\f]/u";
     CONST ESCAPEREPLACEMENTS = [
       '\\' => '\\\\', '"' => '\\"', "\t" => "\\t",
       "\n" => '\\n', "\r" => "\\r", "\b"=> "\\b", "\f"=> "\\f"
@@ -133,14 +131,20 @@ class TriGWriter
     private function encodeIriOrBlankNode ($entity) {
         // A blank node or list is represented as-is
         $firstChar = substr($entity, 0, 1);
-        if ($firstChar === '[' || $firstChar === '(' || $firstChar === '_' && substr($entity, 1, 1) === ':')
+        if ($firstChar === '[' || $firstChar === '(' || $firstChar === '_' && substr($entity, 1, 1) === ':') {
             return $entity;
+        }
         // Escape special characters
         if (preg_match(self::ESCAPE, $entity))
             $entity = preg_replace_callback(self::ESCAPEALL, $this->characterReplacer,$entity);
         // Try to represent the IRI as prefixed name
-        if (preg_match($this->prefixRegex, $entity, $prefixMatch)) {
-            return '<' . $entity . '>';
+        preg_match($this->prefixRegex, $entity, $prefixMatch);
+        if (!isset($prefixMatch[1]) && !isset($prefixMatch[2])) {
+            if (preg_match("/(.*?:)/",$entity,$match) && in_array($match[1], $this->prefixIRIs)) {
+                return $entity;
+            } else {
+                return '<' . $entity . '>';
+            }
         } else {
             return !isset($prefixMatch[1]) ? $entity : $this->prefixIRIs[$prefixMatch[1]] . $prefixMatch[2];    
         }
@@ -246,7 +250,7 @@ class TriGWriter
             // Verify whether the prefix can be used and does not exist yet
             if (preg_match('/[#\/]$/',$iri) && (!isset($this->prefixIRIs[$iri]) || $this->prefixIRIs[$iri] !== ($prefix . ':'))) {
                 $hasPrefixes = true;
-                $this->prefixIRIs[$iri] = $prefix;
+                $this->prefixIRIs[$iri] = $prefix . ":";
                 // Finish a possible pending triple
                 if ($this->subject !== null) {
                     $this->write($this->graph ? "\n}\n" : ".\n");
@@ -264,9 +268,10 @@ class TriGWriter
             foreach ($this->prefixIRIs as $prefixIRI => $iri) {
                 $IRIlist .= $IRIlist ? '|' . $prefixIRI : $prefixIRI;
                 $prefixList .= ($prefixList ? '|' : '') . $iri;
-            }
-            $IRIlist = preg_replace("/[\]\/\(\)\*\+\?\.\\\$]/", '\\$&', $IRIlist);
-            $this->prefixRegex = '/^(?:' . $prefixList . ')[^\/]*$|' . '^(' . $IRIlist . ')([a-zA-Z][\\-_a-zA-Z0-9]*)$/';
+            }            
+            $IRIlist = preg_replace("/([\]\/\(\)\*\+\?\.\\\$])/", '${1}', $IRIlist);
+            $this->prefixRegex = '%^(?:' . $prefixList . ')[^/]*$|' . '^(' . $IRIlist . ')([a-zA-Z][\\-_a-zA-Z0-9]*)$%';
+            
         }
         // End a prefix block with a newline
         $this->write($hasPrefixes ? "\n" : '', $done);
@@ -340,5 +345,6 @@ class TriGWriter
         // Disallow further writing
         $this->blocked = true;
         $callback(null,$this->string);
+        return $this->string;
     }
 }
