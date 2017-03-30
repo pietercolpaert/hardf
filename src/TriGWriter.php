@@ -7,7 +7,7 @@ namespace pietercolpaert\hardf;
 class TriGWriter
 {
     // Matches a literal as represented in memory by the N3 library
-    CONST LITERALMATCHER = '/^"(.*)"(?:\^\^(.+)|@([\-a-z]+))?$/i';
+    CONST LITERALMATCHER = '/^"(.*)"(?:\^\^(.+)|@([\-a-z]+))?$/is';
     // rdf:type predicate (for 'a' abbreviation)
     CONST RDF_PREFIX = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
     CONST RDF_TYPE   = self::RDF_PREFIX . 'type';
@@ -102,7 +102,6 @@ class TriGWriter
                 else {    
                     $this->write(";\n    " . $this->encodePredicate($this->predicate = $predicate) . ' ' . $this->encodeObject($object), $done);
                 }
-                
             }
             // Different subject; write the whole triple
             else {
@@ -150,7 +149,8 @@ class TriGWriter
     // ### `_encodeLiteral` represents a literal
     private function encodeLiteral ($value, $type = null, $language = null) {
         // Escape special characters - TODO: unicode characters?
-        if (preg_match('/[\t\n\r\f\b]/',$value)) {
+        if (preg_match('/[\t\n\r\f]/',$value)) {
+            
             $value = str_replace(array('\\', '"""'), array('\\\\', '\\"""'), $value);
             
             // Check if the last character is a trailing double quote, if so, escape it.
@@ -240,34 +240,30 @@ class TriGWriter
     // ### `addPrefixes` adds the prefixes to the output stream
     public function addPrefixes ($prefixes, $done = null) {
         // Add all useful prefixes
-        $prefixIRIs = $this->prefixIRIs;
         $hasPrefixes = false;
-        foreach ($prefixes as $i => $prefix) {
-            // Verify whether the prefix can be used and does not exist yet
-            if (isset($prefixes[$prefix])) {    
-                $iri = $prefixes[$prefix];
-                if (preg_match('/[#\/]$/',$iri) && $prefixIRIs[$iri] !== ($prefix .= ':')) {
-                    $hasPrefixes = true;
-                    $prefixIRIs[$iri] = $prefix;
-                    // Finish a possible pending triple
-                    if ($this->subject !== null) {
-                        $this->write($this->graph ? "\n}\n" : ".\n");
-                        $this->subject = null;
-                        $this->graph = '';
-                    }
-                    // Write prefix
-                    $this->write('@prefix ' . $prefix . ' <' . $iri . ">.\n");
-                }
-            }
+        foreach ($prefixes as $prefix => $iri) {
             
+            // Verify whether the prefix can be used and does not exist yet
+            if (preg_match('/[#\/]$/',$iri) && (!isset($this->prefixIRIs[$iri]) || $this->prefixIRIs[$iri] !== ($prefix . ':'))) {
+                $hasPrefixes = true;
+                $this->prefixIRIs[$iri] = $prefix;
+                // Finish a possible pending triple
+                if ($this->subject !== null) {
+                    $this->write($this->graph ? "\n}\n" : ".\n");
+                    $this->subject = null;
+                    $this->graph = '';
+                }
+                // Write prefix
+                $this->write('@prefix ' . $prefix . ': <' . $iri . ">.\n");
+            }
         }
         // Recreate the prefix matcher
         if (isset($hasPrefixes)) {
             $IRIlist = '';
             $prefixList = '';
-            foreach ($prefixIRIs as $i => $prefixIRI) {
+            foreach ($this->prefixIRIs as $prefixIRI => $iri) {
                 $IRIlist .= $IRIlist ? '|' . $prefixIRI : $prefixIRI;
-                $prefixList .= ($prefixList ? '|' : '') . $prefixIRIs[$prefixIRI];
+                $prefixList .= ($prefixList ? '|' : '') . $iri;
             }
             $IRIlist = preg_replace("/[\]\/\(\)\*\+\?\.\\\$]/", '\\$&', $IRIlist);
             $this->prefixRegex = '/^(?:' . $prefixList . ')[^\/]*$|' . '^(' . $IRIlist . ')([a-zA-Z][\\-_a-zA-Z0-9]*)$/';
