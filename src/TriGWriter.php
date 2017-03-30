@@ -30,7 +30,7 @@ class TriGWriter
     // Replaces a character by its escaped version
     private $characterReplacer;
     
-    public function __construct($options = []) 
+    public function __construct($options = [])
     {
         /* Initialize writer, depending on the format*/
         $this->subject = null;
@@ -305,14 +305,19 @@ class TriGWriter
       return contents + "\n]";
     }
   }
-
-  // ### `list` creates a list node with the given content
-  public function list (elements) {
-    $length = elements && elements.length || 0, contents = new Array(length);
-    for ($i = 0; i < length; i++)
-      contents[i] = $this->encodeObject(elements[i]);
-    return '(' + contents.join(' ') + ')';
-    }*/
+*/
+    // ### `list` creates a list node with the given content
+    public function list ($elements) {
+        $length = 0;
+        if (isset($elements)) {
+            $length = strlen($elements);
+        }
+        $contents = [];
+        for ($i = 0; $i < $length; $i++) {
+            $contents[$i] = $this->encodeObject($elements[$i]);
+        }
+        return '(' . join($contents, ' ') . ')';
+    }
 
     // ### `end` signals the end of the output stream
     public function end($callback)
