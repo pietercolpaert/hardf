@@ -216,13 +216,13 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         $this->shouldSerialize(["_:\u{d835}\u{dc00}", "_:\u{d835}\u{dc00}", "_:\u{d835}\u{dc00}", "_:\u{d835}\u{dc00}"],
         "_:\u{d835}\u{dc00} {" . "\n" . "_:\u{d835}\u{dc00} _:\u{d835}\u{dc00} _:\u{d835}\u{dc00}" . "\n" . '}' . "\n");
         }
-    /*
+    
     public function testCallbackOnEnd () {
         //sends output through end
         $writer = new TriGWriter();
         $writer->addTriple(['subject' => 'a','predicate' => 'b','object' => 'c' ]);
         $writer->end(function ($error, $output) {
-            $this->assertEquals("<a> <b> <c>.' . "\n" . '",$output);
+            $this->assertEquals("<a> <b> <c>.\n",$output);
         });
     }
 
@@ -232,351 +232,283 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         $writer = new TriGWriter([ "prefixes" => ['a' => 'b#' ]]);
         $writer->addTriple(['subject' => 'b#a','predicate' => 'b#b','object' => 'b#c' ]);
         $writer->end(function ($error, $output) {
-            $this->assertEquals("@prefix a: <b#>.' . "\n" . "\n" . 'a:a a:b a:c.' . "\n" . '",$output);
+            $this->assertEquals("@prefix a: <b#>.\n\na:a a:b a:c.\n",$output);
         });
-        }*/
+    }
 
-/*
+    public function testOtherPrefixes () 
+    {
+        
+        //does not repeat identical prefixes', function (done) {
+        $writer = new TriGWriter();
+        $writer->addPrefix('a', 'b#');
+        $writer->addPrefix('a', 'b#');
+        $writer->addTriple(['subject' => 'b#a','predicate' => 'b#b','object' => 'b#c' ]);
+        $writer->addPrefix('a', 'b#');
+        $writer->addPrefix('a', 'b#');
+        $writer->addPrefix('b', 'b#');
+        $writer->addPrefix('a', 'c#');
+        $writer->end(function ($error, $output) {
+            $this->assertEquals('@prefix a: <b#>.' . "\n" . "\n" . 'a:a a:b a:c.' . "\n" .            '@prefix b: <b#>.' . "\n" . "\n" . '@prefix a: <c#>.' . "\n" . "\n",$output);
+        });
 
-//does not repeat identical prefixes', function (done) {
-$writer = new TriGWriter();
-$writer->addPrefix('a', 'b#');
-$writer->addPrefix('a', 'b#');
-$writer->addTriple({'subject' => 'b#a','predicate' => 'b#b','object' => 'b#c' });
-$writer->addPrefix('a', 'b#');
-$writer->addPrefix('a', 'b#');
-$writer->addPrefix('b', 'b#');
-$writer->addPrefix('a', 'c#');
-$writer->end(function (error, output) {
-    output.should.equal('@prefix a: <b#>.' . "\n" . "\n" . 'a:a a:b a:c.' . "\n" .
-    '@prefix b: <b#>.' . "\n" . "\n" . '@prefix a: <c#>.' . "\n" . "\n");
-    done(error);
-});
-});
-
-//serializes triples of a graph with a prefix declaration in between', function (done) {
-$writer = new TriGWriter();
-$writer->addPrefix('a', 'b#');
-$writer->addTriple({'subject' => 'b#a','predicate' => 'b#b','object' => 'b#c','graph' => 'b#g' });
-$writer->addPrefix('d', 'e#');
-$writer->addTriple({'subject' => 'b#a','predicate' => 'b#b','object' => 'b#d','graph' => 'b#g' });
-$writer->end(function (error, output) {
-    output.should.equal('@prefix a: <b#>.' . "\n" . "\n" . 'a:g {' . "\n" . 'a:a a:b a:c' . "\n" . '}' . "\n" .
-    '@prefix d: <e#>.' . "\n" . "\n" . 'a:g {' . "\n" . 'a:a a:b a:d' . "\n" . '}' . "\n");
-    done(error);
-});
-});
+        //serializes triples of a graph with a prefix declaration in between', function (done) {
+        $writer = new TriGWriter();
+        $writer->addPrefix('a', 'b#');
+        $writer->addTriple(['subject' => 'b#a','predicate' => 'b#b','object' => 'b#c','graph' => 'b#g' ]);
+        $writer->addPrefix('d', 'e#');
+        $writer->addTriple(['subject' => 'b#a','predicate' => 'b#b','object' => 'b#d','graph' => 'b#g' ]);
+        $writer->end(function ($error, $output) {
+            $this->assertEquals('@prefix a: <b#>.' . "\n" . "\n" . 'a:g {' . "\n" . 'a:a a:b a:c' . "\n" . '}' . "\n" .    '@prefix d: <e#>.' . "\n" . "\n" . 'a:g {' . "\n" . 'a:a a:b a:d' . "\n" . '}' . "\n",$output);
+        });
 
         //should accept triples with separated components', function (done) {
-$writer = TriGWriter();
-$writer->addTriple('a', 'b', 'c');
-$writer->addTriple('a', 'b', 'd');
-$writer->end(function (error, output) {
-    output.should.equal('<a> <b> <c>, <d>.' . "\n");
-    done(error);
-});
-});
+        $writer = new TriGWriter();
+        $writer->addTriple('a', 'b', 'c');
+        $writer->addTriple('a', 'b', 'd');
+        $writer->end(function ($error, $output) {
+            $this->assertEquals('<a> <b> <c>, <d>.' . "\n",$output);
+        });
 
         //should accept quads with separated components', function (done) {
-$writer = TriGWriter();
-$writer->addTriple('a', 'b', 'c', 'g');
-$writer->addTriple('a', 'b', 'd', 'g');
-$writer->end(function (error, output) {
-    output.should.equal('<g> {' . "\n" . '<a> <b> <c>, <d>' . "\n" . '}' . "\n");
-    done(error);
-});
-});
+        $writer = new TriGWriter();
+        $writer->addTriple('a', 'b', 'c', 'g');
+        $writer->addTriple('a', 'b', 'd', 'g');
+        $writer->end(function ($error, $output) {
+            $this->assertEquals('<g> {' . "\n" . '<a> <b> <c>, <d>' . "\n" . '}' . "\n",$output);
+        });
+    }
 
+    public function testBlankNodes2 () 
+    {
+
+    }
+    
+/*
         //should serialize triples with an empty blank node as object', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple('a1', 'b', $writer->blank());
 $writer->addTriple('a2', 'b', $writer->blank([]));
 $writer->end(function (error, output) {
-    output.should.equal('<a1> <b> [].' . "\n" .
-    '<a2> <b> [].' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a1> <b> [].' . "\n" .    '<a2> <b> [].' . "\n",$output);
+
 });
 
         //should serialize triples with a one-triple blank node as object', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple('a1', 'b', $writer->blank('d', 'e'));
-$writer->addTriple('a2', 'b', $writer->blank({'predicate' => 'd','object' => 'e' }));
-$writer->addTriple('a3', 'b', $writer->blank([{'predicate' => 'd','object' => 'e' }]));
+$writer->addTriple('a2', 'b', $writer->blank(['predicate' => 'd','object' => 'e' ]));
+$writer->addTriple('a3', 'b', $writer->blank([['predicate' => 'd','object' => 'e' ]]));
 $writer->end(function (error, output) {
-    output.should.equal('<a1> <b> [ <d> <e> ].' . "\n" .
-    '<a2> <b> [ <d> <e> ].' . "\n" .
-    '<a3> <b> [ <d> <e> ].' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a1> <b> [ <d> <e> ].' . "\n" .    '<a2> <b> [ <d> <e> ].' . "\n" .    '<a3> <b> [ <d> <e> ].' . "\n",$output);
+
 });
 
         //should serialize triples with a two-triple blank node as object', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple('a', 'b', $writer->blank([
-    {'predicate' => 'd','object' => 'e' },
-    {'predicate' => 'f','object' => '"g"' },
+    ['predicate' => 'd','object' => 'e' ],
+    ['predicate' => 'f','object' => '"g"' ],
 ]));
 $writer->end(function (error, output) {
-    output.should.equal('<a> <b> [' . "\n" .
-    '  <d> <e>;' . "\n" .
-    '  <f> "g"' . "\n" .
-    '].' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a> <b> [' . "\n" .    '  <d> <e>;' . "\n" .    '  <f> "g"' . "\n" .    '].' . "\n",$output);
+
 });
 
         //should serialize triples with a three-triple blank node as object', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple('a', 'b', $writer->blank([
-    {'predicate' => 'd','object' => 'e' },
-    {'predicate' => 'f','object' => '"g"' },
-    {'predicate' => 'h','object' => 'i' },
+    ['predicate' => 'd','object' => 'e' ],
+    ['predicate' => 'f','object' => '"g"' ],
+    ['predicate' => 'h','object' => 'i' ],
 ]));
 $writer->end(function (error, output) {
-    output.should.equal('<a> <b> [' . "\n" .
-    '  <d> <e>;' . "\n" .
-    '  <f> "g";' . "\n" .
-    '  <h> <i>' . "\n" .
-    '].' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a> <b> [' . "\n" .    '  <d> <e>;' . "\n" .    '  <f> "g";' . "\n" .    '  <h> <i>' . "\n" .    '].' . "\n",$output);
+
 });
 
         //should serialize triples with predicate-sharing blank node triples as object', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple('a', 'b', $writer->blank([
-    {'predicate' => 'd','object' => 'e' },
-    {'predicate' => 'd','object' => 'f' },
-    {'predicate' => 'g','object' => 'h' },
-    {'predicate' => 'g','object' => 'i' },
+    ['predicate' => 'd','object' => 'e' ],
+    ['predicate' => 'd','object' => 'f' ],
+    ['predicate' => 'g','object' => 'h' ],
+    ['predicate' => 'g','object' => 'i' ],
 ]));
 $writer->end(function (error, output) {
-    output.should.equal('<a> <b> [' . "\n" .
-    '  <d> <e>, <f>;' . "\n" .
-    '  <g> <h>, <i>' . "\n" .
-    '].' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a> <b> [' . "\n" .    '  <d> <e>, <f>;' . "\n" .    '  <g> <h>, <i>' . "\n" .    '].' . "\n",$output);
+
 });
 
         //should serialize triples with nested blank nodes as object', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple('a1', 'b', $writer->blank([
-    {'predicate' => 'd', object: $writer->blank() },
+    ['predicate' => 'd', object: $writer->blank() ],
 ]));
 $writer->addTriple('a2', 'b', $writer->blank([
-    {'predicate' => 'd', object: $writer->blank('e', 'f') },
-    {'predicate' => 'g', object: $writer->blank('h', '"i"') },
+    ['predicate' => 'd', object: $writer->blank('e', 'f') ],
+    ['predicate' => 'g', object: $writer->blank('h', '"i"') ],
 ]));
 $writer->addTriple('a3', 'b', $writer->blank([
-    {'predicate' => 'd', object: $writer->blank([
-            {'predicate' => 'g', object: $writer->blank('h', 'i') },
-            {'predicate' => 'j', object: $writer->blank('k', '"l"') },
-        ]) },
+    ['predicate' => 'd', object: $writer->blank([
+            ['predicate' => 'g', object: $writer->blank('h', 'i') ],
+            ['predicate' => 'j', object: $writer->blank('k', '"l"') ],
+        ]) ],
 ]));
 $writer->end(function (error, output) {
-    output.should.equal('<a1> <b> [' . "\n" .
-    '  <d> []' . "\n" .
-    '].' . "\n" .
-    '<a2> <b> [' . "\n" .
-    '  <d> [ <e> <f> ];' . "\n" .
-    '  <g> [ <h> "i" ]' . "\n" .
-    '].' . "\n" .
-    '<a3> <b> [' . "\n" .
-    '  <d> [' . "\n" .
-    '  <g> [ <h> <i> ];' . "\n" .
-    '  <j> [ <k> "l" ]' . "\n" .
-    ']' . "\n" .
-    '].' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a1> <b> [' . "\n" .    '  <d> []' . "\n" .    '].' . "\n" .    '<a2> <b> [' . "\n" .    '  <d> [ <e> <f> ];' . "\n" .    '  <g> [ <h> "i" ]' . "\n" .    '].' . "\n" .    '<a3> <b> [' . "\n" .    '  <d> [' . "\n" .    '  <g> [ <h> <i> ];' . "\n" .    '  <j> [ <k> "l" ]' . "\n" .    ']' . "\n" .    '].' . "\n",$output);
+
 });
 
         //should serialize triples with an empty blank node as subject', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple($writer->blank(), 'b', 'c');
 $writer->addTriple($writer->blank([]), 'b', 'c');
 $writer->end(function (error, output) {
-    output.should.equal('[] <b> <c>.' . "\n" .
-    '[] <b> <c>.' . "\n");
-    done(error);
-});
+    $this->assertEquals('[] <b> <c>.' . "\n" .    '[] <b> <c>.' . "\n",$output);
+
 });
 
         //should serialize triples with a one-triple blank node as subject', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple($writer->blank('a', 'b'), 'c', 'd');
-$writer->addTriple($writer->blank({'predicate' => 'a','object' => 'b' }), 'c', 'd');
-$writer->addTriple($writer->blank([{'predicate' => 'a','object' => 'b' }]), 'c', 'd');
+$writer->addTriple($writer->blank(['predicate' => 'a','object' => 'b' ]), 'c', 'd');
+$writer->addTriple($writer->blank([['predicate' => 'a','object' => 'b' ]]), 'c', 'd');
 $writer->end(function (error, output) {
-    output.should.equal('[ <a> <b> ] <c> <d>.' . "\n" .
-    '[ <a> <b> ] <c> <d>.' . "\n" .
-    '[ <a> <b> ] <c> <d>.' . "\n");
-    done(error);
-});
+    $this->assertEquals('[ <a> <b> ] <c> <d>.' . "\n" .    '[ <a> <b> ] <c> <d>.' . "\n" .    '[ <a> <b> ] <c> <d>.' . "\n",$output);
+
 });
 
         //should serialize triples with an empty blank node as graph', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple('a', 'b', 'c', $writer->blank());
 $writer->addTriple('a', 'b', 'c', $writer->blank([]));
 $writer->end(function (error, output) {
-    output.should.equal('[] {' . "\n" . '<a> <b> <c>' . "\n" . '}' . "\n" .
-    '[] {' . "\n" . '<a> <b> <c>' . "\n" . '}' . "\n");
-    done(error);
-});
+    $this->assertEquals('[] {' . "\n" . '<a> <b> <c>' . "\n" . '}' . "\n" .    '[] {' . "\n" . '<a> <b> <c>' . "\n" . '}' . "\n",$output);
+
 });
 
         //should serialize triples with an empty list as object', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple('a1', 'b', $writer->list());
 $writer->addTriple('a2', 'b', $writer->list([]));
 $writer->end(function (error, output) {
-    output.should.equal('<a1> <b> ().' . "\n" .
-    '<a2> <b> ().' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a1> <b> ().' . "\n" .    '<a2> <b> ().' . "\n",$output);
+
 });
 
         //should serialize triples with a one-element list as object', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple('a1', 'b', $writer->list(['c']));
 $writer->addTriple('a2', 'b', $writer->list(['"c"']));
 $writer->end(function (error, output) {
-    output.should.equal('<a1> <b> (<c>).' . "\n" .
-    '<a2> <b> ("c").' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a1> <b> (<c>).' . "\n" .    '<a2> <b> ("c").' . "\n",$output);
+
 });
 
         //should serialize triples with a three-element list as object', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple('a1', 'b', $writer->list(['c', 'd', 'e']));
 $writer->addTriple('a2', 'b', $writer->list(['"c"', '"d"', '"e"']));
 $writer->end(function (error, output) {
-    output.should.equal('<a1> <b> (<c> <d> <e>).' . "\n" .
-    '<a2> <b> ("c" "d" "e").' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a1> <b> (<c> <d> <e>).' . "\n" .    '<a2> <b> ("c" "d" "e").' . "\n",$output);
+
 });
 
         //should serialize triples with an empty list as subject', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple($writer->list(),   'b1', 'c');
 $writer->addTriple($writer->list([]), 'b2', 'c');
 $writer->end(function (error, output) {
-    output.should.equal('() <b1> <c>;' . "\n" .
-    '    <b2> <c>.' . "\n");
-    done(error);
-});
+    $this->assertEquals('() <b1> <c>;' . "\n" .    '    <b2> <c>.' . "\n",$output);
+
 });
 
         //should serialize triples with a one-element list as subject', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple($writer->list(['a']), 'b1', 'c');
 $writer->addTriple($writer->list(['a']), 'b2', 'c');
 $writer->end(function (error, output) {
-    output.should.equal('(<a>) <b1> <c>;' . "\n" .
-    '    <b2> <c>.' . "\n");
-    done(error);
-});
+    $this->assertEquals('(<a>) <b1> <c>;' . "\n" .    '    <b2> <c>.' . "\n",$output);
+
 });
 
         //should serialize triples with a three-element list as subject', function (done) {
-$writer = TriGWriter();
+$writer = new TriGWriter();
 $writer->addTriple($writer->list(['a', '"b"', '"c"']), 'd', 'e');
 $writer->end(function (error, output) {
-    output.should.equal('(<a> "b" "c") <d> <e>.' . "\n");
-    done(error);
-});
+    $this->assertEquals('(<a> "b" "c") <d> <e>.' . "\n",$output);
+
 });
 
         //should accept triples in bulk', function (done) {
-$writer = TriGWriter();
-$writer->addTriples([{'subject' => 'a','predicate' => 'b','object' => 'c' },
-{'subject' => 'a','predicate' => 'b','object' => 'd' }]);
+$writer = new TriGWriter();
+$writer->addTriples([['subject' => 'a','predicate' => 'b','object' => 'c' ],
+['subject' => 'a','predicate' => 'b','object' => 'd' }]);
 $writer->end(function (error, output) {
-    output.should.equal('<a> <b> <c>, <d>.' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a> <b> <c>, <d>.' . "\n",$output);
+
 });
 
         //should not allow writing after end', function (done) {
-$writer = TriGWriter();
-$writer->addTriple({'subject' => 'a','predicate' => 'b','object' => 'c' });
+$writer = new TriGWriter();
+$writer->addTriple(['subject' => 'a','predicate' => 'b','object' => 'c' ]);
 $writer->end();
-$writer->addTriple({'subject' => 'd','predicate' => 'e','object' => 'f' }, function (error) {
+$writer->addTriple(['subject' => 'd','predicate' => 'e','object' => 'f' ], function (error) {
     error.should.be.an.instanceof(Exception);
     error.should.have.property('message', 'Cannot write because the writer has been closed.');
-    done();
-});
 });
 
         //should write simple triples in N-Triples mode', function (done) {
-$writer = TriGWriter({'format' => 'N-Triples' });
+$writer = new TriGWriter({'format' => 'N-Triples' });
 $writer->addTriple('a', 'b', 'c');
 $writer->addTriple('a', 'b', 'd');
 $writer->end(function (error, output) {
-    output.should.equal('<a> <b> <c>.' . "\n" . '<a> <b> <d>.' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a> <b> <c>.' . "\n" . '<a> <b> <d>.' . "\n",$output);
 });
 
         //should not write an invalid literal in N-Triples mode', function (done) {
-$writer = TriGWriter({'format' => 'N-Triples' });
+$writer = new TriGWriter({'format' => 'N-Triples' });
 $writer->addTriple('a', 'b', '"c', function (error) {
     error.should.be.an.instanceof(Exception);
     error.should.have.property('message', 'Invalid literal: "c');
-    done();
-});
 });
 
         //should write simple quads in N-Quads mode', function (done) {
-$writer = TriGWriter({'format' => 'N-Quads' });
+$writer = new TriGWriter({'format' => 'N-Quads' });
 $writer->addTriple('a', 'b', 'c');
 $writer->addTriple('a', 'b', 'd', 'g');
 $writer->end(function (error, output) {
-    output.should.equal('<a> <b> <c>.' . "\n" . '<a> <b> <d> <g>.' . "\n");
-    done(error);
-});
+    $this->assertEquals('<a> <b> <c>.' . "\n" . '<a> <b> <d> <g>.' . "\n",$output);
+
 });
 
         //should not write an invalid literal in N-Quads mode', function (done) {
-$writer = TriGWriter({'format' => 'N-Triples' });
+$writer = new TriGWriter({'format' => 'N-Triples' });
 $writer->addTriple('a', 'b', '"c', function (error) {
     error.should.be.an.instanceof(Exception);
     error.should.have.property('message', 'Invalid literal: "c');
-    done();
-});
 });
 
         //should end when the end option is not set', function (done) {
-$outputStream = new QuickStream(), writer = TriGWriter(outputStream, {});
+$outputStream = new QuickStream(), writer = new TriGWriter(outputStream, {});
 outputStream.should.have.property('ended', false);
 $writer->end(function () {
     outputStream.should.have.property('ended', true);
-    done();
-});
 });
 
         //should end when the end option is set to true', function (done) {
-$outputStream = new QuickStream(), writer = TriGWriter(outputStream, { end: true });
+$outputStream = new QuickStream(), writer = new TriGWriter(outputStream, { end: true });
 outputStream.should.have.property('ended', false);
 $writer->end(function () {
     outputStream.should.have.property('ended', true);
-    done();
-});
 });
 
         //should not end when the end option is set to false', function (done) {
-$outputStream = new QuickStream(), writer = TriGWriter(outputStream, { end: false });
-outputStream.should.have.property('ended', false);
-$writer->end(function () {
-    outputStream.should.have.property('ended', false);
-    done();
-});
-});
+        $outputStream = new QuickStream(), writer = new TriGWriter(outputStream, { end: false });
+        outputStream.should.have.property('ended', false);
+        $writer->end(function () {
+        outputStream.should.have.property('ended', false);
 });
 */
 

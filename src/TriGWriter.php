@@ -238,7 +238,7 @@ class TriGWriter
     }
 
     // ### `addPrefix` adds the prefix to the output stream
-    public function addPrefix($prefix, $iri, $done)
+    public function addPrefix($prefix, $iri, $done = null)
     {
         $prefixes = [];
         $prefixes[$prefix] = $iri;
