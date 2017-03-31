@@ -30,7 +30,7 @@ $triple = [
 
 Encode literals as follows (similar to N3.js)
 
-```
+```php
 '"Tom"@en-gb' // lowercase language
 '"1"^^http://www.w3.org/2001/XMLSchema#integer' // no angular brackets <>
 ```
@@ -43,7 +43,66 @@ Install this library using [composer](http://getcomposer.org):
 composer install pietercolpaert/hardf
 ```
 
-Currently, we only have the `pietercolpaert\hardf\Util` class available, that will help you to create and evaluate literals, IRIs, and expand prefixes.
+### Util class
+```php
+use pietercolpaert\hardf\Util;
+```
 
-See the documentation at https://github.com/RubenVerborgh/N3.js#utility. Instead of N3Util, you will have to use `pietercolpaert\hardf::Util`.
+A static class with a couple of helpful functions for handling our specific triple representation. It will help you to create and evaluate literals, IRIs, and expand prefixes.
 
+```php
+$bool = isIRI($term);
+$bool = isLiteral($term);
+$bool = isBlank($term);
+$bool = isDefaultGraph($term);
+$bool = inDefaultGraph($triple);
+$value = getLiteralValue($literal);
+$literalType = getLiteralType($literal);
+$lang = getLiteralLanguage($literal);
+$bool = isPrefixedName($term);
+$expanded = expandPrefixedName($prefixedName, $prefixes);
+$iri = createIRI($iri);
+$literalObject = createLiteral($value, $modifier = null);
+```
+
+See the documentation at https://github.com/RubenVerborgh/N3.js#utility for more information about what the functions exactly do.
+
+### TriGWriter class
+```php
+use pietercolpaert\hardf\TriGWriter
+```
+
+A class that should be instantiated and can write TriG or Turtle
+
+Example use:
+```php
+$writer = new TriGWriter([
+    "prefixes" => [
+        "schema" =>"http://schema.org/",
+        "dct" =>"http://purl.org/dc/terms/",
+        "geo" =>"http://www.w3.org/2003/01/geo/wgs84_pos#",
+        "rdf" => "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "rdfs"=> "http://www.w3.org/2000/01/rdf-schema#"
+        ]
+]);
+
+$writer->addPrefix("ex","http://example.org/");
+$writer->addTriple("schema:Person","dct:title","\"Person\"@en","http://example.org/#test");
+$writer->addTriple("schema:Person","schema:label","\"Person\"@en","http://example.org/#test");
+$writer->addTriple("ex:1","dct:title","\"Person1\"@en","http://example.org/#test");
+$writer->addTriple("ex:1","http://www.w3.org/1999/02/22-rdf-syntax-ns#type","schema:Person","http://example.org/#test");
+$writer->addTriple("ex:2","dct:title","\"Person2\"@en","http://example.org/#test");
+$writer->addTriple("schema:Person","dct:title","\"Person\"@en","http://example.org/#test2");
+echo $writer->end();
+```
+
+All methods:
+```php
+addTriple ($subject, $predicate, $object, $graphl);
+addTriples ($triples);
+addPrefix($prefix, $iri);
+addPrefixes ($prefixes, $done);
+blank ($predicate, $object);
+list ($elements);
+end();
+```
