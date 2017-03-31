@@ -233,8 +233,8 @@ class TriGWriter
     
     // ### `addTriples` adds the triples to the output stream
     public function addTriples ($triples) {
-        for ($i = 0; $i < strlen($triples); $i++)
-            $this->addTriple(triples[$i]);
+        for ($i = 0; $i < sizeof($triples); $i++)
+            $this->addTriple($triples[$i]);
     }
 
     // ### `addPrefix` adds the prefix to the output stream
@@ -281,7 +281,7 @@ class TriGWriter
         $this->write($hasPrefixes ? "\n" : '', $done);
     }
 
-  // ### `blank` creates a blank node with the given content
+    // ### `blank` creates a blank node with the given content
     public function blank ($predicate = null, $object = null) {
         $children = $predicate;
         $child = "";
@@ -292,10 +292,9 @@ class TriGWriter
         // Blank node passed as blank("$predicate", "object")
         else if (is_string($predicate))
             $children = [[ "predicate" => $predicate, "object" => $object ]];
-        // Blank node passed as blank({ $predicate: $predicate, object: object })
-        else if (!is_array($predicate))
-            $children = [$predicate];
-
+        // Blank node passed as blank({ predicate: $predicate, object: $object })
+        else if (is_array($predicate) && isset($predicate["predicate"]))
+            $children = [$predicate];        
         switch ($length = sizeof($children)) {
             // Generate an empty blank node
             case 0:
@@ -328,10 +327,10 @@ class TriGWriter
     }
 
     // ### `list` creates a list node with the given content
-    public function list ($elements) {
+    public function list ($elements = null) {
         $length = 0;
         if (isset($elements)) {
-            $length = strlen($elements);
+            $length = sizeof($elements);
         }
         $contents = [];
         for ($i = 0; $i < $length; $i++) {
