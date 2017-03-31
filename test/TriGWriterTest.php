@@ -281,25 +281,24 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
 
     public function testBlankNodes2 () 
     {
-
+        //should serialize triples with an empty blank node as object', function (done) {
+        $writer = new TriGWriter();
+        $writer->addTriple('a1', 'b', $writer->blank());
+        $writer->addTriple('a2', 'b', $writer->blank([]));
+        $writer->end(function ($error, $output) {
+            $this->assertEquals('<a1> <b> [].' . "\n" .    '<a2> <b> [].' . "\n",$output);
+        });
     }
     
 /*
-        //should serialize triples with an empty blank node as object', function (done) {
-$writer = new TriGWriter();
-$writer->addTriple('a1', 'b', $writer->blank());
-$writer->addTriple('a2', 'b', $writer->blank([]));
-$writer->end(function (error, output) {
-    $this->assertEquals('<a1> <b> [].' . "\n" .    '<a2> <b> [].' . "\n",$output);
-
-});
+        
 
         //should serialize triples with a one-triple blank node as object', function (done) {
 $writer = new TriGWriter();
 $writer->addTriple('a1', 'b', $writer->blank('d', 'e'));
 $writer->addTriple('a2', 'b', $writer->blank(['predicate' => 'd','object' => 'e' ]));
 $writer->addTriple('a3', 'b', $writer->blank([['predicate' => 'd','object' => 'e' ]]));
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('<a1> <b> [ <d> <e> ].' . "\n" .    '<a2> <b> [ <d> <e> ].' . "\n" .    '<a3> <b> [ <d> <e> ].' . "\n",$output);
 
 });
@@ -310,7 +309,7 @@ $writer->addTriple('a', 'b', $writer->blank([
     ['predicate' => 'd','object' => 'e' ],
     ['predicate' => 'f','object' => '"g"' ],
 ]));
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('<a> <b> [' . "\n" .    '  <d> <e>;' . "\n" .    '  <f> "g"' . "\n" .    '].' . "\n",$output);
 
 });
@@ -322,7 +321,7 @@ $writer->addTriple('a', 'b', $writer->blank([
     ['predicate' => 'f','object' => '"g"' ],
     ['predicate' => 'h','object' => 'i' ],
 ]));
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('<a> <b> [' . "\n" .    '  <d> <e>;' . "\n" .    '  <f> "g";' . "\n" .    '  <h> <i>' . "\n" .    '].' . "\n",$output);
 
 });
@@ -335,7 +334,7 @@ $writer->addTriple('a', 'b', $writer->blank([
     ['predicate' => 'g','object' => 'h' ],
     ['predicate' => 'g','object' => 'i' ],
 ]));
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('<a> <b> [' . "\n" .    '  <d> <e>, <f>;' . "\n" .    '  <g> <h>, <i>' . "\n" .    '].' . "\n",$output);
 
 });
@@ -355,7 +354,7 @@ $writer->addTriple('a3', 'b', $writer->blank([
             ['predicate' => 'j', object: $writer->blank('k', '"l"') ],
         ]) ],
 ]));
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('<a1> <b> [' . "\n" .    '  <d> []' . "\n" .    '].' . "\n" .    '<a2> <b> [' . "\n" .    '  <d> [ <e> <f> ];' . "\n" .    '  <g> [ <h> "i" ]' . "\n" .    '].' . "\n" .    '<a3> <b> [' . "\n" .    '  <d> [' . "\n" .    '  <g> [ <h> <i> ];' . "\n" .    '  <j> [ <k> "l" ]' . "\n" .    ']' . "\n" .    '].' . "\n",$output);
 
 });
@@ -364,7 +363,7 @@ $writer->end(function (error, output) {
 $writer = new TriGWriter();
 $writer->addTriple($writer->blank(), 'b', 'c');
 $writer->addTriple($writer->blank([]), 'b', 'c');
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('[] <b> <c>.' . "\n" .    '[] <b> <c>.' . "\n",$output);
 
 });
@@ -374,7 +373,7 @@ $writer = new TriGWriter();
 $writer->addTriple($writer->blank('a', 'b'), 'c', 'd');
 $writer->addTriple($writer->blank(['predicate' => 'a','object' => 'b' ]), 'c', 'd');
 $writer->addTriple($writer->blank([['predicate' => 'a','object' => 'b' ]]), 'c', 'd');
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('[ <a> <b> ] <c> <d>.' . "\n" .    '[ <a> <b> ] <c> <d>.' . "\n" .    '[ <a> <b> ] <c> <d>.' . "\n",$output);
 
 });
@@ -383,7 +382,7 @@ $writer->end(function (error, output) {
 $writer = new TriGWriter();
 $writer->addTriple('a', 'b', 'c', $writer->blank());
 $writer->addTriple('a', 'b', 'c', $writer->blank([]));
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('[] {' . "\n" . '<a> <b> <c>' . "\n" . '}' . "\n" .    '[] {' . "\n" . '<a> <b> <c>' . "\n" . '}' . "\n",$output);
 
 });
@@ -392,7 +391,7 @@ $writer->end(function (error, output) {
 $writer = new TriGWriter();
 $writer->addTriple('a1', 'b', $writer->list());
 $writer->addTriple('a2', 'b', $writer->list([]));
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('<a1> <b> ().' . "\n" .    '<a2> <b> ().' . "\n",$output);
 
 });
@@ -401,7 +400,7 @@ $writer->end(function (error, output) {
 $writer = new TriGWriter();
 $writer->addTriple('a1', 'b', $writer->list(['c']));
 $writer->addTriple('a2', 'b', $writer->list(['"c"']));
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('<a1> <b> (<c>).' . "\n" .    '<a2> <b> ("c").' . "\n",$output);
 
 });
@@ -410,7 +409,7 @@ $writer->end(function (error, output) {
 $writer = new TriGWriter();
 $writer->addTriple('a1', 'b', $writer->list(['c', 'd', 'e']));
 $writer->addTriple('a2', 'b', $writer->list(['"c"', '"d"', '"e"']));
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('<a1> <b> (<c> <d> <e>).' . "\n" .    '<a2> <b> ("c" "d" "e").' . "\n",$output);
 
 });
@@ -419,7 +418,7 @@ $writer->end(function (error, output) {
 $writer = new TriGWriter();
 $writer->addTriple($writer->list(),   'b1', 'c');
 $writer->addTriple($writer->list([]), 'b2', 'c');
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('() <b1> <c>;' . "\n" .    '    <b2> <c>.' . "\n",$output);
 
 });
@@ -428,7 +427,7 @@ $writer->end(function (error, output) {
 $writer = new TriGWriter();
 $writer->addTriple($writer->list(['a']), 'b1', 'c');
 $writer->addTriple($writer->list(['a']), 'b2', 'c');
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('(<a>) <b1> <c>;' . "\n" .    '    <b2> <c>.' . "\n",$output);
 
 });
@@ -436,7 +435,7 @@ $writer->end(function (error, output) {
         //should serialize triples with a three-element list as subject', function (done) {
 $writer = new TriGWriter();
 $writer->addTriple($writer->list(['a', '"b"', '"c"']), 'd', 'e');
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('(<a> "b" "c") <d> <e>.' . "\n",$output);
 
 });
@@ -445,7 +444,7 @@ $writer->end(function (error, output) {
 $writer = new TriGWriter();
 $writer->addTriples([['subject' => 'a','predicate' => 'b','object' => 'c' ],
 ['subject' => 'a','predicate' => 'b','object' => 'd' }]);
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('<a> <b> <c>, <d>.' . "\n",$output);
 
 });
@@ -463,7 +462,7 @@ $writer->addTriple(['subject' => 'd','predicate' => 'e','object' => 'f' ], funct
 $writer = new TriGWriter({'format' => 'N-Triples' });
 $writer->addTriple('a', 'b', 'c');
 $writer->addTriple('a', 'b', 'd');
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('<a> <b> <c>.' . "\n" . '<a> <b> <d>.' . "\n",$output);
 });
 
@@ -478,7 +477,7 @@ $writer->addTriple('a', 'b', '"c', function (error) {
 $writer = new TriGWriter({'format' => 'N-Quads' });
 $writer->addTriple('a', 'b', 'c');
 $writer->addTriple('a', 'b', 'd', 'g');
-$writer->end(function (error, output) {
+$writer->end(function ($error, $output) {
     $this->assertEquals('<a> <b> <c>.' . "\n" . '<a> <b> <d> <g>.' . "\n",$output);
 
 });

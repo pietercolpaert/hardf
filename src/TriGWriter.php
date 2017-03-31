@@ -280,51 +280,53 @@ class TriGWriter
         // End a prefix block with a newline
         $this->write($hasPrefixes ? "\n" : '', $done);
     }
-/*
-  // ### `blank` creates a blank node with the given content
-  public function   blank (predicate, object) {
-    $children = predicate, child, length;
-    // Empty blank node
-    if (predicate === undefined)
-      children = [];
-    // Blank node passed as blank("predicate", "object")
-    else if (typeof predicate === 'string')
-      children = [{ predicate: predicate, object: object }];
-    // Blank node passed as blank({ predicate: predicate, object: object })
-    else if (!('length' in predicate))
-      children = [predicate];
 
-    switch (length = children.length) {
-    // Generate an empty blank node
-    case 0:
-      return '[]';
-    // Generate a non-nested one-triple blank node
-    case 1:
-      child = children[0];
-      if (child.object[0] !== '[')
-        return '[ ' + $this->encodePredicate(child.predicate) + ' ' +
-                      $this->encodeObject(child.object) + ' ]';
-    // Generate a multi-triple or nested blank node
-    default:
-      $contents = '[';
-      // Write all triples in order
-      for ($i = 0; i < length; i++) {
-        child = children[i];
-        // Write only the object is the predicate is the same as the previous
-        if (child.predicate === predicate)
-          contents += ', ' + $this->encodeObject(child.object);
-        // Otherwise, write the predicate and the object
-        else {
-          contents += (i ? ";\n  " : "\n  ") +
-                      $this->encodePredicate(child.predicate) + ' ' +
-                      $this->encodeObject(child.object);
-          predicate = child.predicate;
+  // ### `blank` creates a blank node with the given content
+    public function blank ($predicate = null, $object = null) {
+        $children = $predicate;
+        $child = "";
+        $length="";
+        // Empty blank node
+        if (!isset($predicate))
+            $children = [];
+        // Blank node passed as blank("$predicate", "object")
+        else if (is_string($predicate))
+            $children = [[ "predicate" => $predicate, "object" => $object ]];
+        // Blank node passed as blank({ $predicate: $predicate, object: object })
+        else if (!is_array($predicate))
+            $children = [$predicate];
+
+        switch ($length = sizeof($children)) {
+            // Generate an empty blank node
+            case 0:
+                return '[]';
+                // Generate a non-nested one-triple blank node
+            case 1:
+                $child = $children[0];
+                if ($child["object"][0] !== '[')
+                    return '[ ' . $this->encodePredicate($child["predicate"]) . ' ' .
+                        $this->encodeObject($child["object"]) . ' ]';
+                // Generate a multi-triple or nested blank node
+            default:
+                $contents = '[';
+                // Write all triples in order
+                for ($i = 0; $i < $length; $i++) {
+                    $child = $children[$i];
+                    // Write only the object is the $predicate is the same as the previous
+                    if ($child["predicate"] === $predicate)
+                        $contents .= ', ' . $this->encodeObject($child["object"]);
+                    // Otherwise, write the $predicate and the object
+                    else {
+                        $contents .= ($i ? ";\n  " : "\n  ") .
+                            $this->encodePredicate($child["predicate"]) . ' ' .
+                            $this->encodeObject($child["object"]);
+                        $predicate = $child["predicate"];
+                    }
+                }
+                return $contents . "\n]";
         }
-      }
-      return contents + "\n]";
     }
-  }
-*/
+
     // ### `list` creates a list node with the given content
     public function list ($elements) {
         $length = 0;
