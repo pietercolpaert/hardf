@@ -43,7 +43,6 @@ class TriGWriter
         $this->characterReplacer = function ($character) {
             // Replace a single character by its escaped version
             $character = $character[0];
-            var_dump($character);
             if (isset($character) && isset(self::ESCAPEREPLACEMENTS[$character])) {
                 return self::ESCAPEREPLACEMENTS[$character];
             } else {
@@ -340,7 +339,7 @@ class TriGWriter
     }
 
     // ### `end` signals the end of the output stream
-    public function end($callback)
+    public function end($callback = null)
     {
         // Finish a possible pending triple
         if ($this->subject !== null) {
@@ -349,7 +348,8 @@ class TriGWriter
         }
         // Disallow further writing
         $this->blocked = true;
-        $callback(null,$this->string);
+        if ($callback)
+            $callback(null,$this->string);
         return $this->string;
     }
 }
