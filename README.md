@@ -96,13 +96,20 @@ $writer->addTriple("schema:Person","dct:title","\"Person\"@en","http://example.o
 echo $writer->end();
 ```
 
-All methods:
+All methods (some may throw an exception):
 ```php
-addTriple ($subject, $predicate, $object, $graphl);
-addTriples ($triples);
-addPrefix($prefix, $iri);
-addPrefixes ($prefixes, $done);
-blank ($predicate, $object);
-list ($elements);
-end();
+//The method names should speak for themselves:
+$writer = new TriGWriter(["prefixes": [ /* ... */]]);
+$writer->addTriple($subject, $predicate, $object, $graphl);
+$writer->addTriples($triples);
+$writer->addPrefix($prefix, $iri);
+$writer->addPrefixes($prefixes);
+//Creates blank node($predicate and/or $object are optional)
+$writer->blank($predicate, $object);
+//Creates rdf:list with $elements
+$list = $writer->list($elements);
+//Returns the current output it is already able to create and clear the internal memory use (useful for streaming)
+$out .= $writer->read();
+//Call this at the end. The return value will be the full triple output, or the rest of the output such as closing dots and brackets
+$out .= $writer->end();
 ```

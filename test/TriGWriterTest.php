@@ -429,11 +429,23 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         //should serialize triples with a three-element list as subject', function (done) {
         $writer = new TriGWriter();
         $writer->addTriple($writer->list(['a', '"b"', '"c"']), 'd', 'e');
-        $writer->end(function ($error, $output) {
-            $this->assertEquals('(<a> "b" "c") <d> <e>.' . "\n",$output);
-        });
+        $output = $writer->end();
+        $this->assertEquals('(<a> "b" "c") <d> <e>.' . "\n",$output);
     }
 
+    
+    public function testPartialRead () 
+    {
+        //should only partially output the already given data and then continue writing until end
+        $writer = new TriGWriter();
+        $writer->addTriple($writer->list(['a', '"b"', '"c"']), 'd', 'e');
+        $output = $writer->read();
+        $this->assertEquals('(<a> "b" "c") <d> <e>', $output);
+        $writer->addTriple('a', 'b', 'c');
+        $output = $writer->end();
+        $this->assertEquals(".\n<a> <b> <c>.\n",$output);
+    }
+    
     public function testTriplesBulk () 
     {   
         //should accept triples in bulk', function (done) {

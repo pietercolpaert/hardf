@@ -39,7 +39,8 @@ class TriGWriter
                 $this->addPrefixes($options["prefixes"]);
             }
         }
-        
+
+        // TODO: I think we could do without this...
         $this->characterReplacer = function ($character) {
             // Replace a single character by its escaped version
             $character = $character[0];
@@ -76,6 +77,18 @@ class TriGWriter
                 //buffer all
                 $this->string .= $string;
             }
+        }
+    }
+
+    // ### Reads a bit of the string
+    public function read ()
+    {
+        if ($this->blocked) {
+            throw new \Exception('Cannot write because the writer has been closed.');
+        } else {
+            $string = $this->string;
+            $this->string = "";
+            return $string;
         }
     }
     
