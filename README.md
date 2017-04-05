@@ -69,7 +69,7 @@ See the documentation at https://github.com/RubenVerborgh/N3.js#utility for more
 
 ### TriGWriter class
 ```php
-use pietercolpaert\hardf\TriGWriter
+use pietercolpaert\hardf\TriGWriter;
 ```
 
 A class that should be instantiated and can write TriG or Turtle
@@ -113,3 +113,33 @@ $out .= $writer->read();
 //Call this at the end. The return value will be the full triple output, or the rest of the output such as closing dots and brackets
 $out .= $writer->end();
 ```
+
+### TriGParser class
+
+Next to TriG, the TriGParser class also parses Turtle, N-Triples, N-Quads and the W3C “Team Submission” N3
+
+Basic example:
+```php
+use pietercolpaert\hardf\TriGParser;
+use pietercolpaert\hardf\TriGWriter;
+
+echo "--- First, simple implementation ---\n";
+$parser = new TriGParser();
+$writer = new TriGWriter(["format"=>"trig"]);
+$triples = $parser->parse("<A> <B> <C> <G> .");
+$writer->addTriples($triples);
+echo $writer->end();
+
+echo "--- Second streaming implementation with callbacks ---\n";
+$parser = new TriGParser();
+$writer = new TriGWriter(["format"=>"trig"]);
+$parser->parse("<http://A> <https://B> <http://C> <http://G> . <A2> <https://B2> <http://C2> <http://G3> .", function ($e, $triple) use ($writer) {
+    if (!$e && $triple)
+        $writer->addTriple($triple);
+    else if (!$triple)
+        echo $writer->end();
+    else
+        echo "Error occured: " . $e;
+});
+```
+

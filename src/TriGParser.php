@@ -1,0 +1,964 @@
+<?php
+
+namespace pietercolpaert\hardf;
+use pietercolpaert\hardf\N3Lexer;
+/** a clone of the N3Parser class from the N3js code by Ruben Verborgh **/
+/** TriGParser parses Turtle, TriG, N-Quads, N-Triples and N3 to our triple representation (see README.md) */
+class TriGParser
+{
+
+    CONST RDF_PREFIX = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
+    CONST RDF_NIL    = self::RDF_PREFIX . 'nil';
+    CONST RDF_FIRST  = self::RDF_PREFIX . 'first';
+    CONST RDF_REST   = self::RDF_PREFIX . 'rest';
+    CONST QUANTIFIERS_GRAPH = 'urn:n3:quantifiers';
+
+    private $absoluteIRI = '/^[a-z][a-z0-9+.-]*:/i';
+    private $schemeAuthority = '/^(?:([a-z][a-z0-9+.-]*:))?(?:\/\/[^\/]*)?/i';
+    private $dotSegments = '/(?:^|\/)\.\.?(?:$|[\/#?])/';
+
+    // The next ID for new blank nodes
+    private $blankNodePrefix = 0;
+    private $blankNodeCount = 0;
+    
+    private $contextStack;
+    private $graph;
+    
+    private $readInTopContext;
+    private $readCallback;
+    
+    // ## Constructor
+    public function __construct($options = []) {
+        $this->contextStack = [];
+        $this->graph = null;
+
+        // Set the document IRI
+        $this->setBase(isset($options["documentIRI"]) ? $options["documentIRI"]:null);
+        
+        // Set supported features depending on the format
+        if (!isset($options["format"])) {
+            $options["format"] = "";
+        }
+        $format = strtolower($options["format"]);
+        $isTurtle = $format === 'turtle';
+        $isTriG = $format === 'trig';
+        
+        $isNTriples = strpos($format,"triple")?true:false;
+        $isNQuads = strpos($format, "quad")?true:false;
+        $isN3 = strpos($format, "n3")?true:false;
+        $isLineMode = $isNTriples || $isNQuads;
+        if (!($this->supportsNamedGraphs = !($isTurtle || $isN3)))
+            $this->readPredicateOrNamedGraph = $this->readPredicate;
+        $this->supportsQuads = !($isTurtle || $isTriG || $isNTriples || $isN3);
+        // Disable relative IRIs in N-Triples or N-Quads mode
+        if ($isLineMode) {
+            $this->base = '';
+            $this->resolveIRI = function ($token) {
+                $this->error('Disallowed relative IRI', $token);
+                return $this->callback = function () {};
+                $this->subject = null;
+            };
+        }
+        $this->blankNodePrefix = !isset($options["blankNodePrefix"]) ? '' :
+            '_:' . preg_replace('/^_:/', '', $options["blankNodePrefix"]);
+        
+        $this->lexer = isset($options["lexer"])? $options["lexer"] : new N3Lexer([ "lineMode"=> $isLineMode, "n3"=> $isN3 ]);
+        // Disable explicit quantifiers by default - TODO: is !! same in PHP?
+        $this->explicitQuantifiers = isset($options["explicitQuantifiers"])?$options["explicitQuantifiers"]:null;
+        
+        //This will initiate the callback methods
+        $this->initReaders();
+    }
+    
+    // ## Private class methods
+    // ### `_resetBlankNodeIds` restarts blank node identification
+    public function _resetBlankNodeIds () {
+        $this->blankNodePrefix = 0;
+        $this->blankNodeCount = 0;
+    }
+
+    // ### `_setBase` sets the base IRI to resolve relative IRIs
+    private function setBase ($baseIRI = null) {
+        if (!$baseIRI)
+            $this->base = null;
+        else {
+            // Remove fragment if present
+            $fragmentPos = strpos($baseIRI,'#');
+            if ($fragmentPos)
+                $baseIRI = substr($baseIRI,0, $fragmentPos);
+            // Set base IRI and its components
+            $this->base = $baseIRI;
+            $this->basePath = strpos($baseIRI,'/') ? $baseIRI : preg_replace('/[^\/?]*(?:\?.*)?$/', '',$baseIRI);
+            preg_match($schemeAuthority, $baseIRI, $matches);
+            $this->baseRoot   = $matches[0];
+            $this->baseScheme = $matches[1];
+        }
+    }
+
+    // ### `_saveContext` stores the current parsing context
+    // when entering a new scope (list, blank node, formula)
+    private function saveContext($type, $graph, $subject, $predicate, $object) {
+        $n3Mode = $this->n3Mode;
+        $this->contextStack.push([
+            "subject"=> $subject, "predicate"=> $predicate,"object"=> $object,
+            "graph" => $graph, "type"=> $type,
+            "inverse" => $n3Mode ? $this->inversePredicate : false,
+            "blankPrefix"=> $n3Mode ? $this->prefixes["_"] : '',
+            "quantified"=> $n3Mode ? $this->quantified : null
+        ]);
+        // The settings below only apply to N3 streams
+        if ($n3Mode) {
+            // Every new scope resets the predicate direction
+            $this->inversePredicate = false;
+            // In N3, blank nodes are scoped to a formula
+            // (using a dot as separator, as a blank node label cannot start with it)
+            $this->prefixes["_"] = $this->graph . '.';
+            // Quantifiers are scoped to a formula TODO: is this correct?
+            //$this->quantified = Object.create($this->quantified);
+        }
+    }
+
+    // ### `_restoreContext` restores the parent context
+    // when leaving a scope (list, blank node, formula)
+    private function restoreContext() {
+        $context = $this->contextStack.pop();
+        $n3Mode = $this->n3Mode;
+        $this->subject   = $context["subject"];
+        $this->predicate = $context["predicate"];
+        $this->object    = $context["object"];
+        $this->graph     = $context["graph"];
+        // The settings below only apply to N3 streams
+        if ($n3Mode) {
+            $this->inversePredicate = $context["inverse"];
+            $this->prefixes["_"] = $context["blankPrefix"];
+            $this->quantified = $context["quantified"];
+        }
+    }
+
+
+    private function initReaders () 
+    {
+        // ### `_readInTopContext` reads a token when in the top context
+        $this->readInTopContext =  function ($token) {
+            if (!isset($token["type"])) {
+                $token["type"] = "";
+            }
+            switch ($token["type"]) {
+                // If an EOF token arrives in the top context, signal that we're done
+                case 'eof':
+                if ($this->graph !== null)
+                    return $this->error('Unclosed graph', $token);
+                unset($this->prefixes["_"]);
+                return call_user_func($this->callback,null, null, $this->prefixes);
+                // It could be a prefix declaration
+                case 'PREFIX':
+                $this->sparqlStyle = true;
+                case '@prefix':
+                return $this->readPrefix;
+                // It could be a base declaration
+                case 'BASE':
+                $this->sparqlStyle = true;
+                case '@base':
+                return $this->readBaseIRI;
+                // It could be a graph
+                case '{':
+                if ($this->supportsNamedGraphs) {
+                    $this->graph = '';
+                    $this->subject = null;
+                    return $this->readSubject;
+                }
+                case 'GRAPH':
+                if ($this->supportsNamedGraphs)
+                    return $this->readNamedGraphLabel;
+                // Otherwise, the next token must be a subject
+                default:
+                return call_user_func($this->readSubject,$token);
+            }
+        };
+        
+        // ### `_readEntity` reads an IRI, prefixed name, blank node, or variable
+        $this->readEntity = function ($token, $quantifier = null) {
+            $value;
+            switch ($token["type"]) {
+                // Read a relative or absolute IRI
+                case 'IRI':
+                case 'typeIRI':
+                    $value = ($this->base === null || preg_match($this->absoluteIRI,$token["value"])) ? $token["value"] : $this->resolveIRI($token);
+                    break;
+                    // Read a blank node or prefixed name
+                case 'type':
+                case 'blank':
+                case 'prefixed':
+                    $prefix = $this->prefixes[$token["prefix"]];
+                    if (!isset($prefix))
+                        return call_user_func($this->error,'Undefined prefix "' . $token["prefix"] . ':"', $token);
+                    $value = $prefix . $token["value"];
+                    break;
+                    // Read a variable
+                case 'var':
+                    return $token["value"];
+                    // Everything else is not an entity
+                default:
+                    return $this->error('Expected entity but got ' . $token["type"], $token);
+            }
+            // In N3 mode, replace the entity if it is quantified
+            if (!isset($quantifier) && isset($this->n3Mode) && isset($this->quantified[$value]))
+                $value = $this->quantified[$value];
+            return $value;
+        };
+
+        // ### `_readSubject` reads a triple's subject
+        $this->readSubject = function ($token) {
+            $this->predicate = null;
+            switch ($token["type"]) {
+                case '[':
+                    // Start a new triple with a new blank node as subject
+                    $this->saveContext('blank', $this->graph,
+                    $this->subject = '_:b' . $this->blankNodeCount++, null, null);
+                    return $this->readBlankNodeHead;
+                case '(':
+                    // Start a new list
+                    $this->saveContext('list', $this->graph, self::RDF_NIL, null, null);
+                    $this->subject = null;
+                    return $this->readListItem;
+                case '{':
+                    // Start a new formula
+                    if (!$this->n3Mode)
+                        return $this->error('Unexpected graph', $token);
+                    $this->saveContext('formula', $this->graph,
+                    $this->graph = '_:b' . $this->blankNodeCount++, null, null);
+                    return $this->readSubject;
+                case '}':
+                    // No subject; the graph in which we are reading is closed instead
+                    return $this->readPunctuation($token);
+                case '@forSome':
+                    $this->subject = null;
+                    $this->predicate = 'http://www.w3.org/2000/10/swap/reify#forSome';
+                    $this->quantifiedPrefix = '_:b';
+                    return $this->readQuantifierList;
+                case '@forAll':
+                    $this->subject = null;
+                    $this->predicate = 'http://www.w3.org/2000/10/swap/reify#forAll';
+                    $this->quantifiedPrefix = '?b-';
+                    return $this->readQuantifierList;
+                default:
+                    // Read the subject entity
+                    $this->subject = call_user_func($this->readEntity,$token);
+                    if ($this->subject == null) 
+                        return;
+                    // In N3 mode, the subject might be a path
+                    if (isset($this->n3Mode))
+                        return $this->getPathReader($this->readPredicateOrNamedGraph);
+            }
+
+            // The next token must be a predicate,
+            // or, if the subject was actually a graph IRI, a named graph
+            return $this->readPredicateOrNamedGraph;
+        };
+        
+        // ### `_readPredicate` reads a triple's predicate
+        $this->readPredicate = function ($token) {
+            $type = $token["type"];
+            switch ($type) {
+                case 'inverse':
+                    $this->inversePredicate = true;
+                case 'abbreviation':
+                    $this->predicate = $token["value"];
+                    break;
+                case '.':
+                case ']':
+                case '}':
+                    // Expected predicate didn't come, must have been trailing semicolon
+                    if ($this->predicate === null)
+                        return $this->error('Unexpected ' . $type, $token);
+                    $this->subject = null;
+                    return $type === ']' ? $this->readBlankNodeTail($token) : $this->readPunctuation($token);
+                case ';':
+                    // Extra semicolons can be safely ignored
+                    return $this->readPredicate;
+                case 'blank':
+                    if (!$this->n3Mode)
+                        return $this->error('Disallowed blank node as predicate', $token);
+                default:
+                    $this->predicate = call_user_func($this->readEntity,$token);
+                    if ($this->predicate == null)
+                        return;
+            }
+            // The next token must be an object
+            return $this->readObject;
+        };
+
+        // ### `_readObject` reads a triple's object
+        $this->readObject = function ($token) {
+            switch ($token["type"]) {
+                case 'literal':
+                $this->object = $token["value"];
+                return $this->readDataTypeOrLang;
+                case '[':
+                // Start a new triple with a new blank node as subject
+                $this->saveContext('blank', $this->graph, $this->subject, $this->predicate,
+                $this->subject = '_:b' . $this->blankNodeCount++);
+                return $this->readBlankNodeHead;
+                case '(':
+                // Start a new list
+                $this->saveContext('list', $this->graph, $this->subject, $this->predicate, self::RDF_NIL);
+                $this->subject = null;
+                return $this->readListItem;
+                case '{':
+                // Start a new formula
+                if (!$this->n3Mode)
+                    return $this->error('Unexpected graph', $token);
+                $this->saveContext('formula', $this->graph, $this->subject, $this->predicate,
+                $this->graph = '_:b' . $this->blankNodeCount++);
+                return $this->readSubject;
+                default:
+                // Read the object entity
+                $this->object =  call_user_func($this->readEntity, $token);
+                if ($this->object == null)
+                    return;
+                // In N3 mode, the object might be a path
+                if (isset($this->n3Mode))
+                    return $this->getPathReader($this->getContextEndReader());
+            }
+            return call_user_func($this->getContextEndReader);
+        };
+
+        // ### `_readPredicateOrNamedGraph` reads a triple's predicate, or a named graph
+        $this->readPredicateOrNamedGraph = function ($token) {
+            return $token["type"] === '{' ? call_user_func($this->readGraph,$token) : call_user_func($this->readPredicate,$token);
+        };
+
+        // ### `_readGraph` reads a graph
+        $this->readGraph = function ($token) {
+            if ($token["type"] !== '{')
+                return $this->error('Expected graph but got ' . $token["type"], $token);
+            // The "subject" we read is actually the GRAPH's label
+            $this->graph = $this->subject;
+            $this->subject = null;
+            return $this->readSubject;
+        };
+
+        // ### `_readBlankNodeHead` reads the head of a blank node
+        $this->readBlankNodeHead = function ($token) {
+            if ($token["type"] === ']') {
+                $this->subject = null;
+                return $this->readBlankNodeTail($token);
+            }
+            else {
+                $this->predicate = null;
+                return $this->readPredicate($token);
+            }
+        };
+
+        // ### `_readBlankNodeTail` reads the end of a blank node
+        $this->readBlankNodeTail = function ($token) {
+            if ($token["type"] !== ']')
+                return $this->readBlankNodePunctuation($token);
+
+            // Store blank node triple
+            if ($this->subject !== null)
+                $this->triple($this->subject, $this->predicate, $this->object, $this->graph);
+
+            // Restore the parent context containing this blank node
+            $empty = $this->predicate === null;
+            $this->restoreContext();
+            // If the blank node was the subject, continue reading the predicate
+            if ($this->object === null)
+                // If the blank node was empty, it could be a named graph label
+                return $empty ? $this->readPredicateOrNamedGraph : $this->readPredicateAfterBlank;
+            // If the blank node was the object, restore previous context and read punctuation
+            else
+                return $this->getContextEndReader();
+        };
+
+        // ### `_readPredicateAfterBlank` reads a predicate after an anonymous blank node
+        $this->readPredicateAfterBlank = function ($token) {
+            // If a dot follows a blank node in top context, there is no predicate
+            if ($token["type"] === '.' && sizeof($this->contextStack) === 0) {
+                $this->subject = null; // cancel the current triple
+                return $this->readPunctuation($token);
+            }
+            return $this->readPredicate($token);
+        };
+        
+        // ### `_readListItem` reads items from a list
+        $this->readListItem = function ($token) {
+            $item = null;                        // The item of the list
+            $list = null;                        // The list itself
+            $prevList = $this->subject;          // The previous list that contains this list
+            $stack = $this->contextStack;        // The stack of parent contexts
+            $parent = $stack[sizeof($stack) - 1];// The parent containing the current list
+            $next = $this->readListItem;         // The next function to execute
+            $itemComplete = true;                // Whether the item has been read fully
+
+            switch ($token["type"]) {
+                case '[':
+                    // Stack the current list triple and start a new triple with a blank node as subject
+                    $item = '_:b' . $this->blankNodeCount++;
+                    $this->subject = $item;
+                    $this->saveContext('blank', $this->graph, $list = '_:b' . $this->blankNodeCount++, self::RDF_FIRST, $this->subject);
+                    $next = $this->readBlankNodeHead;
+                    break;
+                case '(':
+                    // Stack the current list triple and start a new list
+                    $this->saveContext('list', $this->graph, $list = '_:b' . $this->blankNodeCount++,
+                    self::RDF_FIRST, self::RDF_NIL);
+                    $this->subject = null;
+                    break;
+                case ')':
+                    // Closing the list; restore the parent context
+                    $this->restoreContext();
+                    // If this list is contained within a parent list, return the membership triple here.
+                    // This will be `<parent list element> rdf:first <this list>.`.
+                    if (sizeof($stack) !== 0 && $stack[sizeof($stack) - 1] === 'list')
+                        $this->triple($this->subject, $this->predicate, $this->object, $this->graph);
+                    // Was this list the parent's subject?
+                    if ($this->predicate === null) {
+                        // The next token is the predicate
+                        $next = $this->readPredicate;
+                        // No list tail if this was an empty list
+                        if ($this->subject === self::RDF_NIL)
+                            return $next;
+                    }
+                    // The list was in the parent context's object
+                    else {
+                        $next = $this->getContextEndReader();
+                        // No list tail if this was an empty list
+                        if ($this->object === self::RDF_NIL)
+                            return $next;
+                    }
+                    // Close the list by making the head nil
+                    $list = self::RDF_NIL;
+                    break;
+                case 'literal':
+                    $item = $token["value"];
+                    $itemComplete = false; // Can still have a datatype or language
+                    $next = $this->readListItemDataTypeOrLang;
+                    break;
+                default:
+                    $item = $this->readEntity($token);
+                    if ($item == null)
+                        return;
+            }
+
+            // Create a new blank node if no item head was assigned yet
+            if ($list === null)
+                $list = '_:b' . $this->blankNodeCount++;
+            $this->subject = $list;
+
+            // Is this the first element of the list?
+            if ($prevList === null) {
+                // This list is either the subject or the object of its parent
+                if ($parent['predicate'] === null)
+                    $parent['subject'] = $list;
+                else
+                    $parent['object'] = $list;
+            }
+            else {
+                // Continue the previous list with the current list
+                $this->triple($prevList, self::RDF_REST, $list, $this->graph);
+            }
+            // Add the item's value
+            if ($item !== null) {
+                // In N3 mode, the item might be a path
+                if ($this->n3Mode && ($token["type"] === 'IRI' || $token["type"] === 'prefixed')) {
+                    // Create a new context to add the item's path
+                    $this->saveContext('item', $this->graph, $list, self::RDF_FIRST, $item);
+                    $this->subject = $item;
+                    $this->predicate = null;
+                    // _readPath will restore the context and output the item
+                    return $this->getPathReader($this->readListItem);
+                }
+                // Output the item if it is complete
+                if ($itemComplete)
+                    $this->triple($list, self::RDF_FIRST, $item, $this->graph);
+                // Otherwise, save it for completion
+                else
+                    $this->object = $item;
+            }
+            return $next;
+        };
+        
+        // ### `_readDataTypeOrLang` reads an _optional_ data type or language
+        $this->readDataTypeOrLang = function ($token) {
+            return $this->completeLiteral($token, false);
+        };
+
+        // ### `_readListItemDataTypeOrLang` reads an _optional_ data type or language in a list
+        $this->readListItemDataTypeOrLang = function ($token) {
+            return $this->completeLiteral($token, true);
+        };
+
+        // ### `_completeLiteral` completes the object with a data type or language
+        $this->completeLiteral = function ($token, $listItem) {
+            $suffix = false;
+            switch ($token["type"]) {
+                // Add a "^^type" suffix for types (IRIs and blank nodes)
+                case 'type':
+                case 'typeIRI':
+                    $suffix = true;
+                    $this->object .= '^^' . $this->readEntity($token);
+                    break;
+                    // Add an "@lang" suffix for language tags
+                case 'langcode':
+                    $suffix = true;
+                    $this->object .= '@' . strtolower($token["value"]);
+                    break;
+            }
+            // If this literal was part of a list, write the item
+            // (we could also check the context stack, but passing in a flag is faster)
+            if ($listItem)
+                $this->triple($this->subject, self::RDF_FIRST, $this->object, $this->graph);
+            // Continue with the rest of the input
+            if ($suffix)
+                return $this->getContextEndReader();
+            else {
+                $this->readCallback = $this->getContextEndReader();
+                return $this->readCallback($token);
+            }
+        };
+
+        // ### `_readFormulaTail` reads the end of a formula
+        $this->readFormulaTail = function ($token) {
+            if ($token["type"] !== '}')
+                return $this->readPunctuation($token);
+
+            // Store the last triple of the formula
+            if ($this->subject !== null)
+                $this->triple($this->subject, $this->predicate, $this->object, $this->graph);
+
+            // Restore the parent context containing this formula
+            $this->restoreContext();
+            // If the formula was the subject, continue reading the predicate.
+            // If the formula was the object, read punctuation.
+            return $this->object === null ? $this->readPredicate : $this->getContextEndReader();
+        };
+
+        // ### `_readPunctuation` reads punctuation between triples or triple parts
+        $this->readPunctuation = function ($token) {
+            $next;
+            $subject = $this->subject;
+            $graph = $this->graph;
+            $inversePredicate = $this->inversePredicate;
+            switch ($token["type"]) {
+                // A closing brace ends a graph
+                case '}':
+                    if ($this->graph === null)
+                        return $this->error('Unexpected graph closing', $token);
+                    if ($this->n3Mode)
+                        return $this->readFormulaTail($token);
+                    $this->graph = null;
+                    // A dot just ends the statement, without sharing anything with the next
+                case '.':
+                    $this->subject = null;
+                    $next = sizeof($this->contextStack) ? $this->readSubject : $this->readInTopContext;
+                    if ($inversePredicate) $this->inversePredicate = false;//TODO: What’s this?
+                    break;
+                    // Semicolon means the subject is shared; predicate and object are different
+                case ';':
+                    $next = $this->readPredicate;
+                    break;
+                    // Comma means both the subject and predicate are shared; the object is different
+                case ',':
+                    $next = $this->readObject;
+                    break;
+                default:
+                    // An entity means this is a quad (only allowed if not already inside a graph)
+                    $graph = call_user_func($this->readEntity,$token);
+                    if ($this->supportsQuads && $this->graph === null && $graph) {
+                        $next = $this->readQuadPunctuation;
+                        break;
+                    }
+                    return $this->error('Expected punctuation to follow "' . $this->object . '"', $token);
+            }
+            // A triple has been completed now, so return it
+            if ($subject !== null) {
+                $predicate = $this->predicate;
+                $object = $this->object;
+                if (!$inversePredicate)
+                    call_user_func($this->triple,$subject, $predicate, $object,  $graph);
+                else
+                    call_user_func($this->triple,$object,  $predicate, $subject, $graph);
+            }
+            return $next;
+        };
+
+        // ### `_readBlankNodePunctuation` reads punctuation in a blank node
+        $this->readBlankNodePunctuation = function ($token) {
+            $next;
+            switch ($token["type"]) {
+                // Semicolon means the subject is shared; predicate and object are different
+                case ';':
+                    $next = $this->readPredicate;
+                    break;
+                    // Comma means both the subject and predicate are shared; the object is different
+                case ',':
+                    $next = $this->readObject;
+                    break;
+                default:
+                    return $this->error('Expected punctuation to follow "' . $this->object . '"', $token);
+            }
+            // A triple has been completed now, so return it
+            $this->triple($this->subject, $this->predicate, $this->object, $this->graph);
+            return $next;
+        };
+
+        // ### `_readQuadPunctuation` reads punctuation after a quad
+        $this->readQuadPunctuation = function ($token) {
+            if ($token["type"] !== '.')
+                return call_user_func($this->error,'Expected dot to follow quad', $token);
+            return $this->readInTopContext;
+        };
+
+        // ### `_readPrefix` reads the prefix of a prefix declaration
+        $this->readPrefix = function ($token) {
+            if ($token["type"] !== 'prefix')
+                return $this->error('Expected prefix to follow @prefix', $token);
+            $this->prefix = $token["value"];
+            return $this->readPrefixIRI;
+        };
+
+        // ### `_readPrefixIRI` reads the IRI of a prefix declaration
+        $this->readPrefixIRI = function ($token) {
+            if ($token["type"] !== 'IRI')
+                return $this->error('Expected IRI to follow prefix "' . $this->prefix . ':"', $token);
+            $prefixIRI = $this->readEntity($token);
+            $this->prefixes[$this->prefix] = $prefixIRI;
+            $this->prefixCallback($this->prefix, $prefixIRI);
+            return $this->readDeclarationPunctuation;
+        };
+
+        // ### `_readBaseIRI` reads the IRI of a base declaration
+        $this->readBaseIRI = function ($token) {
+            if ($token["type"] !== 'IRI')
+                return $this->error('Expected IRI to follow base declaration', $token);
+            $this->setBase($this->base === null || preg_match($this->absoluteIRI,$token["value"]) ?
+            $token["value"] : $this->resolveIRI($token));
+            return $this->readDeclarationPunctuation;
+        };
+
+        // ### `_readNamedGraphLabel` reads the label of a named graph
+        $this->readNamedGraphLabel = function ($token) {
+            switch ($token["type"]) {
+                case 'IRI':
+                case 'blank':
+                case 'prefixed':
+                $this->readGraph; //TODO: what’s this?
+                return $this->readSubject($token);
+                case '[':
+                return $this->readNamedGraphBlankLabel;
+                default:
+                return $this->error('Invalid graph label', $token);
+            }
+        };
+
+        // ### `_readNamedGraphLabel` reads a blank node label of a named graph
+        $this->readNamedGraphBlankLabel = function ($token) {
+            if ($token["type"] !== ']')
+                return $this->error('Invalid graph label', $token);
+            $this->subject = '_:b' . $this->blankNodeCount++;
+            return $this->readGraph;
+        };
+
+        // ### `_readDeclarationPunctuation` reads the punctuation of a declaration
+        $this->readDeclarationPunctuation = function ($token) {
+            // SPARQL-style declarations don't have punctuation
+            if ($this->sparqlStyle) {
+                $this->sparqlStyle = false;
+                return $this->readInTopContext($token);
+            }
+
+            if ($token["type"] !== '.')
+                return $this->error('Expected declaration to end with a dot', $token);
+            return $this->readInTopContext;
+        };
+
+        // Reads a list of quantified symbols from a @forSome or @forAll statement
+        $this->readQuantifierList = function ($token) {
+            $entity;
+            switch ($token["type"]) {
+                case 'IRI':
+                case 'prefixed':
+                    $entity = $this->readEntity($token, true);
+                    if (!$entity)
+                        break;
+                default:
+                    return $this->error('Unexpected ' . $token["type"], $token);
+            }
+            // Without explicit quantifiers, map entities to a quantified entity
+            if (!$this->explicitQuantifiers)
+                $this->quantified[$entity] = $this->quantifiedPrefix . $this->blankNodeCount++;
+            // With explicit quantifiers, output the reified quantifier
+            else {
+                // If this is the first item, start a new quantifier list
+                if ($this->subject === null) {   
+                    $this->subject = '_:b' . $this->blankNodeCount++;
+                    $this->triple(isset($this->graph)?$this->graph:'', $this->predicate, $this->subject, self::QUANTIFIERS_GRAPH);
+                }
+                // Otherwise, continue the previous list
+                else
+                    $this->triple($this->subject, self::RDF_REST,
+                    $this->subject = '_:b' . $this->blankNodeCount++, self::QUANTIFIERS_GRAPH);
+                // Output the list item
+                $this->triple($this->subject, self::RDF_FIRST, $entity, self::QUANTIFIERS_GRAPH);
+            }
+            return $this->readQuantifierPunctuation;
+        };
+
+        // Reads punctuation from a @forSome or @forAll statement
+        $this->readQuantifierPunctuation = function ($token) {
+            // Read more quantifiers
+            if ($token["type"] === ',')
+                return $this->readQuantifierList;
+            // End of the quantifier list
+            else {
+                // With explicit quantifiers, close the quantifier list
+                if ($this->explicitQuantifiers) {
+                    $this->triple($this->subject, self::RDF_REST, self::RDF_NIL, self::QUANTIFIERS_GRAPH);
+                    $this->subject = null;
+                }
+                // Read a dot
+                $this->readCallback = $this->getContextEndReader();
+                return $this->readCallback($token);
+            }
+        };
+
+        // ### `_getPathReader` reads a potential path and then resumes with the given function
+        $this->getPathReader = function ($afterPath) {
+            $this->afterPath = $afterPath;
+            return $this->readPath;
+        };
+
+        // ### `_readPath` reads a potential path
+        $this->readPath = function ($token) {
+            switch ($token["type"]) {
+                // Forward path
+                case '!': return $this->readForwardPath;
+                // Backward path
+                case '^': return $this->readBackwardPath;
+                // Not a path; resume reading where we left off
+                default:
+                $stack = $this->contextStack;
+                $parent = is_array($stack) && $stack[sizeof($stack) - 1];
+                // If we were reading a list item, we still need to output it
+                if ($parent && $parent["type"] === 'item') {
+                    // The list item is the remaining subejct after reading the path
+                    $item = $this->subject;
+                    // Switch back to the context of the list
+                    $this->restoreContext();
+                    // Output the list item
+                    $this->triple($this->subject, self::RDF_FIRST, $item, $this->graph);
+                }
+                return $this->afterPath($token);
+            }
+        };
+
+        // ### `_readForwardPath` reads a '!' path
+        $this->readForwardPath = function ($token) {
+            $subject; $predicate; $object = '_:b' . $this->blankNodeCount++;
+            // The next token is the predicate
+            $predicate = $this->readEntity($token);
+            if (!$predicate)
+                return;
+            // If we were reading a subject, replace the subject by the path's object
+            if ($this->predicate === null) {
+                $subject = $this->subject;
+                $this->subject = $object;
+            }
+            // If we were reading an object, replace the subject by the path's object
+            else {
+                $subject = $this->object;
+                $this->object = $object;
+            }
+            // Emit the path's current triple and read its next section
+            $this->triple($subject, $predicate, $object, $this->graph);
+            return $this->readPath;
+        };
+
+        // ### `_readBackwardPath` reads a '^' path
+        $this->readBackwardPath = function ($token) {
+            $subject = '_:b' . $this->blankNodeCount++;
+            $predicate; $object;
+            // The next token is the predicate
+            $predicate = $this->readEntity($token);
+            if ($predicate)
+                return;
+            // If we were reading a subject, replace the subject by the path's subject
+            if ($this->predicate === null) {
+                $object = $this->subject;
+                $this->subject = $subject;
+            }
+            // If we were reading an object, replace the subject by the path's subject
+            else {   
+                $object = $this->object;
+                $this->object  = $subject;
+            }
+            // Emit the path's current triple and read its next section
+            $this->triple($subject, $predicate, $object, $this->graph);
+            return $this->readPath;
+        };
+
+        // ### `_getContextEndReader` gets the next reader function at the end of a context
+        $this->getContextEndReader = function () {
+            $contextStack = $this->contextStack;
+            if (!sizeof($contextStack))
+                return $this->readPunctuation;
+
+            switch ($contextStack[sizeof($contextStack) - 1]["type"]) {
+                case 'blank':
+                    return $this->readBlankNodeTail;
+                case 'list':
+                    return $this->readListItem;
+                case 'formula':
+                    return $this->readFormulaTail;
+            }
+        };
+
+        // ### `_triple` emits a triple through the callback
+        $this->triple = function ($subject, $predicate, $object, $graph) {
+            call_user_func($this->callback,null, [ 'subject'=> $subject, 'predicate'=> $predicate, 'object'=> $object, 'graph'=> isset($graph)?$graph:'' ]);
+        };
+
+        // ### `_error` emits an error message through the callback
+        $this->error = function ($message, $token) {
+            call_user_func($this->callback, new \Exception($message . ' on line ' . $token['line'] . '.'));
+        };
+
+        // ### `_resolveIRI` resolves a relative IRI token against the base path,
+        // assuming that a base path has been set and that the IRI is indeed relative
+        $this->resolveIRI = function ($token) {
+            $iri = $token["value"];
+            switch ($iri[0]) {
+                // An empty relative IRI indicates the base IRI
+                case undefined: return $this->base;
+                    // Resolve relative fragment IRIs against the base IRI
+                case '#': return $this->base . $iri;
+                    // Resolve relative query string IRIs by replacing the query string
+                case '?': return preg_replace('/(?:\?.*)?$/', $iri, $this->base);
+                    // Resolve root-relative IRIs at the root of the base IRI
+                case '/':
+                    // Resolve scheme-relative IRIs to the scheme
+                    return ($iri[1] === '/' ? $this->baseScheme : $this->baseRoot) . $this->removeDotSegments($iri);
+                    // Resolve all other IRIs at the base IRI's path
+                default:
+                    return $this->removeDotSegments($this->basePath . $iri);
+            }
+        };
+
+        // ### `_removeDotSegments` resolves './' and '../' path segments in an IRI as per RFC3986
+        $this->removeDotSegments = function ($iri) {
+            // Don't modify the IRI if it does not contain any dot segments
+            if (!preg_match($this->dotSegments,$iri))
+                return $iri;
+
+            // Start with an imaginary slash before the IRI in order to resolve trailing './' and '../'
+            $result = '';
+            $length = strlen($iri);
+            $i = -1;
+            $pathStart = -1;
+            $segmentStart = 0;
+            $next = '/';
+
+            while ($i < $length) {
+                switch ($next) {
+                    // The path starts with the first slash after the authority
+                    case ':':
+                        if ($pathStart < 0) {
+                            // Skip two slashes before the authority
+                            if ($iri[++$i] === '/' && $iri[++$i] === '/')
+                                // Skip to slash after the authority
+                                while (($pathStart = $i + 1) < $length && $iri[$pathStart] !== '/')
+                                    $i = $pathStart;
+                        }
+                        break;
+                        // Don't modify a query string or fragment
+                    case '?':
+                    case '#':
+                        $i = $length;
+                        break;
+                        // Handle '/.' or '/..' path segments
+                    case '/':
+                        if ($iri[$i + 1] === '.') {
+                            $next = $iri[++$i + 1];
+                            switch ($next) {
+                                // Remove a '/.' segment
+                                case '/':
+                                    $result .= substr($iri, $segmentStart, $i - 1);
+                                    $segmentStart = $i + 1;
+                                    break;
+                                    // Remove a trailing '/.' segment
+                                case undefined:
+                                case '?':
+                                case '#':
+                                    return $result . substr($iri, $segmentStart, $i) . substr($iri,$i + 1);
+                                    // Remove a '/..' segment
+                                case '.':
+                                    if (!isset($iri[++$i + 1]) || $iri[++$i + 1] === '/' || $iri[++$i + 1] === '?' || $iri[++$i + 1] === '#') {
+                                        $next = $iri[++$i + 1];
+                                        $result .= substr($iri, $segmentStart, $i - 2);
+                                        // Try to remove the parent path from result
+                                        if (($segmentStart = $result.lastIndexOf('/')) >= $pathStart) //TODO
+                                            $result = substr($result,0, $segmentStart);
+                                        // Remove a trailing '/..' segment
+                                        if ($next !== '/')
+                                            return $result . '/' . substr($iri,$i + 1);
+                                        $segmentStart = $i + 1;
+                                    }
+                            }
+                        }
+                }
+                $next = $iri[++$i];
+            }
+            return $result . substr($iri, $segmentStart);
+        };
+    }
+    
+    // ## Public methods
+
+    // ### `parse` parses the N3 input and emits each parsed triple through the callback
+    public function parse($input, $tripleCallback = null, $prefixCallback = null) {
+        $self = $this;
+        // The read callback is the next function to be executed when a token arrives.
+        // We start reading in the top context.
+        $this->readCallback = $this->readInTopContext;
+        $this->sparqlStyle = false;
+        $this->prefixes = [];
+        $this->prefixes["_"] = isset($this->blankNodePrefix)?$this->blankNodePrefix:'_:b' . $this->blankNodePrefix++ . '_';
+        $this->prefixCallback = isset($prefixCallback)?$prefixCallback:function () {};
+        $this->inversePredicate = false;
+        $this->quantified = [];
+        
+        // Parse synchronously if no triple callback is given
+        if (!isset($tripleCallback)) {
+            $triples = [];
+            $error= null;
+            $this->callback = function ($e, $t = null) use (&$triples, &$error) {
+                if (!$e && $t) {
+                    array_push($triples,$t);
+                } else if (!$e) {
+                    //DONE
+                } else {
+                    $error = $e;
+                }   
+            };
+            $tokens = $this->lexer->tokenize($input);
+            foreach($tokens as $token) {
+                $this->readCallback = call_user_func($this->readCallback,$token);
+            }
+            if ($error) throw $error;
+            return $triples;
+        }
+        // Parse asynchronously otherwise, executing the read callback when a token arrives
+        $this->callback = $tripleCallback;
+        try {
+            $tokens = $this->lexer->tokenize($input);
+            foreach($tokens as $token) {
+                $this->readCallback = call_user_func($this->readCallback, $token);
+            }
+        } catch (Exception $e) {
+            call_user_func($this->callback,$error, null);
+            $this->callback = function () {};
+        }
+    }
+    
+}

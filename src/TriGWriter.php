@@ -1,7 +1,6 @@
 <?php
 
 namespace pietercolpaert\hardf;
-
 /** a clone of the N3Writer class from the N3js code by Ruben Verborgh **/
 /** TriGWriter writes both Turtle and TriG from our triple representation depending on the options */
 class TriGWriter
@@ -131,7 +130,7 @@ class TriGWriter
     // ### `_writeTripleLine` writes the triple or quad to the output stream as a single line
     private function writeTripleLine ($subject, $predicate, $object, $graph, $done = null) {
         // Don't use prefixes
-        delete($this->prefixMatch);
+        unset($this->prefixMatch);
         // Write the triple
         try {
             $this->write($this->encodeIriOrBlankNode($subject) . ' ' .$this->encodeIriOrBlankNode($predicate) . ' ' . $this->encodeObject($object) . (isset($graph) ? ' ' . $this->encodeIriOrBlankNode($graph) . ".\n" : ".\n"), $done);
@@ -156,7 +155,7 @@ class TriGWriter
         // Try to represent the IRI as prefixed name
         preg_match($this->prefixRegex, $entity, $prefixMatch);
         if (!isset($prefixMatch[1]) && !isset($prefixMatch[2])) {
-            if (preg_match("/(.*?:)/",$entity,$match) && in_array($match[1], $this->prefixIRIs)) {
+            if (preg_match("/(.*?:)/",$entity,$match) && isset($this->prefixIRIs) && in_array($match[1], $this->prefixIRIs)) {
                 return $entity;
             } else {
                 return '<' . $entity . '>';
