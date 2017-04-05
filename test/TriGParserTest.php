@@ -79,23 +79,23 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['a', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 't']);
 
         // ### should parse triples with prefixes
-        $this->shouldParse('@prefix : <#>.\n' +
-        '@prefix a: <a#>.\n' +
+        $this->shouldParse('@prefix : <#>.\n' .
+        '@prefix a: <a#>.\n' .
         ':x a:a a:b.',
         ['#x', 'a#a', 'a#b']);
 
         // ### should parse triples with the prefix "prefix"
-        $this->shouldParse('@prefix prefix: <http://prefix.cc/>.' +
+        $this->shouldParse('@prefix prefix: <http://prefix.cc/>.' .
         'prefix:a prefix:b prefix:c.',
         ['http://prefix.cc/a', 'http://prefix.cc/b', 'http://prefix.cc/c']);
 
         // ### should parse triples with the prefix "base"
-        $this->shouldParse('PREFIX base: <http://prefix.cc/>' +
+        $this->shouldParse('PREFIX base: <http://prefix.cc/>' .
         'base:a base:b base:c.',
         ['http://prefix.cc/a', 'http://prefix.cc/b', 'http://prefix.cc/c']);
 
         // ### should parse triples with the prefix "graph"
-        $this->shouldParse('PREFIX graph: <http://prefix.cc/>' +
+        $this->shouldParse('PREFIX graph: <http://prefix.cc/>' .
         'graph:a graph:b graph:c.',
         ['http://prefix.cc/a', 'http://prefix.cc/b', 'http://prefix.cc/c']);
 
@@ -104,8 +104,8 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         'Expected entity but got @PREFIX on line 1.');
 
         // ### should parse triples with prefixes and different punctuation
-        $this->shouldParse('@prefix : <#>.\n' +
-        '@prefix a: <a#>.\n' +
+        $this->shouldParse('@prefix : <#>.\n' .
+        '@prefix a: <a#>.\n' .
         ':x a:a a:b;a:c a:d,a:e.',
         ['#x', 'a#a', 'a#b'],
         ['#x', 'a#c', 'a#d'],

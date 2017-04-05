@@ -622,9 +622,9 @@ class TriGParser
         $this->readPrefixIRI = function ($token) {
             if ($token["type"] !== 'IRI')
                 return $this->error('Expected IRI to follow prefix "' . $this->prefix . ':"', $token);
-            $prefixIRI = $this->readEntity($token);
+            $prefixIRI = call_user_func($this->readEntity,$token);
             $this->prefixes[$this->prefix] = $prefixIRI;
-            $this->prefixCallback($this->prefix, $prefixIRI);
+            call_user_func($this->prefixCallback,$this->prefix, $prefixIRI);
             return $this->readDeclarationPunctuation;
         };
 
