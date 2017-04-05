@@ -27,7 +27,7 @@ class N3Lexer
     public function __construct($options = []) {
         
         // In line mode (N-Triples or N-Quads), only simple features may be parsed
-        if (isset($options["lineMode"])) {
+        if ($options["lineMode"]) {
             // Don't tokenize special literals
             $this->tripleQuotedString = '/$0^/';
             $this->number = '/$0^/';
@@ -52,7 +52,7 @@ class N3Lexer
     // ## Regular expressions
     private $iri ='/^<((?:[^ <>{}\\]|\\[uU])+)>[ \t]*/'; // IRI with escape sequences; needs sanity check after unescaping
     private $unescapedIri =  '/^<([^\x00-\x20<>\\"\{\}\|\^\`]*)>[ \t]*/'; // IRI without escape sequences; no unescaping
-    private $unescapedString= '/^"[^"\\]+"(?=[^"\\])/'; // non-empty string without escape sequences 
+    private $unescapedString= '/^"[^"\\\]+"(?=[^"\\\])/'; // non-empty string without escape sequences 
     private $singleQuotedString= '/^"[^"\\]*(?:\\.[^"\\]*)*"(?=[^"\\])|^\'[^\'\\]*(?:\\.[^\'\\]*)*\'(?=[^\'\\])/';
     private $tripleQuotedString = '/^""("[^"\\]*(?:(?:\\.|"(?!""))[^"\\]*)*")""|^\'\'(\'[^\'\\]*(?:(?:\\.|\'(?!\'\'))[^\'\\]*)*\')\'\'/';
     private $langcode =  '/^@([a-z]+(?:-[a-z0-9]+)*)(?=[^a-z0-9\-])/i';
@@ -64,7 +64,8 @@ class N3Lexer
     private $variable = '/^\?(?:(?:[A-Z_a-z\xc0-\xd6\xd8-\xf6\xf8-\u02ff\u0370-\u037d\u037f-\u1fff\u200c\u200d\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff])(?:[\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff])*)(?=[.,;!\^\s#()\[\]\{\}"\'<])/';
     
     private $blank = '/^_:((?:[0-9A-Z_a-z\xc0-\xd6\xd8-\xf6\xf8-\u02ff\u0370-\u037d\u037f-\u1fff\u200c\u200d\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff])*)(?:[ \t]+|(?=\.?[,;:\s#()\[\]\{\}"\'<]))/';
-    private $number = '/^[\-+]?(?:\d+\.?\d*([eE](?:[\-\+])?\d+)|\d*\.?\d+)(?=[.,;:\s#()\[\]\{\}"\'<])/';
+    //TODO: this doesn't work
+    private $number = "/^[\-+]?(?:\d+\.?\d*([eE](?:[\-\+])?\d+)|\d*\.?\d+)(?=[.,;:\s#()\[\]\{\}\"'<])/";
     private $boolean = '/^(?:true|false)(?=[.,;\s#()\[\]\{\}"\'<])/';
     private $keyword = '/^@[a-z]+(?=[\s#<])/i';
     private $sparqlKeyword= '/^(?:PREFIX|BASE|GRAPH)(?=[\s#<])/i';
@@ -255,7 +256,7 @@ class N3Lexer
                     // Try to find a number
                     if (preg_match($this->number, $input, $match)) {
                         $type = 'literal';
-                        $value = '"' . $match[0] . '"^^http://www.w3.org/2001/XMLSchema#' . ($match[1] ? 'double' : (preg_match("/^[+\-]?\d+$/",$match[0]) ? 'integer' : 'decimal'));
+                        $value = '"' . $match[0] . '"^^http://www.w3.org/2001/XMLSchema#' . (isset($match[1]) ? 'double' : (preg_match("/^[+\-]?\d+$/",$match[0]) ? 'integer' : 'decimal'));
                     }
                     break;
                 case 'B':

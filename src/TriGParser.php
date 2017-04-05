@@ -481,12 +481,12 @@ class TriGParser
         
         // ### `_readDataTypeOrLang` reads an _optional_ data type or language
         $this->readDataTypeOrLang = function ($token) {
-            return $this->completeLiteral($token, false);
+            return call_user_func($this->completeLiteral,$token, false);
         };
 
         // ### `_readListItemDataTypeOrLang` reads an _optional_ data type or language in a list
         $this->readListItemDataTypeOrLang = function ($token) {
-            return $this->completeLiteral($token, true);
+            return call_user_func($this->completeLiteral,$token, true);
         };
 
         // ### `_completeLiteral` completes the object with a data type or language
@@ -497,7 +497,7 @@ class TriGParser
                 case 'type':
                 case 'typeIRI':
                     $suffix = true;
-                    $this->object .= '^^' . $this->readEntity($token);
+                    $this->object .= '^^' . call_user_func($this->readEntity,$token);
                     break;
                     // Add an "@lang" suffix for language tags
                 case 'langcode':
@@ -508,30 +508,30 @@ class TriGParser
             // If this literal was part of a list, write the item
             // (we could also check the context stack, but passing in a flag is faster)
             if ($listItem)
-                $this->triple($this->subject, self::RDF_FIRST, $this->object, $this->graph);
+                call_user_func($this->triple,$this->subject, self::RDF_FIRST, $this->object, $this->graph);
             // Continue with the rest of the input
             if ($suffix)
-                return $this->getContextEndReader();
+                return call_user_func($this->getContextEndReader);
             else {
-                $this->readCallback = $this->getContextEndReader();
-                return $this->readCallback($token);
+                $this->readCallback = call_user_func($this->getContextEndReader);
+                return call_user_func($this->readCallback,$token);
             }
         };
 
         // ### `_readFormulaTail` reads the end of a formula
         $this->readFormulaTail = function ($token) {
             if ($token["type"] !== '}')
-                return $this->readPunctuation($token);
+                return call_user_func($this->readPunctuation,$token);
 
             // Store the last triple of the formula
             if ($this->subject !== null)
-                $this->triple($this->subject, $this->predicate, $this->object, $this->graph);
+                call_user_func($this->triple,$this->subject, $this->predicate, $this->object, $this->graph);
 
             // Restore the parent context containing this formula
             $this->restoreContext();
             // If the formula was the subject, continue reading the predicate.
             // If the formula was the object, read punctuation.
-            return $this->object === null ? $this->readPredicate : $this->getContextEndReader();
+            return $this->object === null ? $this->readPredicate : call_user_func($this->getContextEndReader);
         };
 
         // ### `_readPunctuation` reads punctuation between triples or triple parts
@@ -951,7 +951,7 @@ class TriGParser
         // Parse asynchronously otherwise, executing the read callback when a token arrives
         $this->callback = $tripleCallback;
         try {
-            $tokens = $this->lexer->tokenize($input);
+            $tokens = $this->lexer->tokenize($input);            
             foreach($tokens as $token) {
                 $this->readCallback = call_user_func($this->readCallback, $token);
             }
