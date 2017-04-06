@@ -81,9 +81,14 @@ class N3Lexer
         
         // Continue parsing as far as possible; the loop will return eventually
         $input = $this->input;
-        // Signals the syntax error through the callback
-        $reportSyntaxError = function ($self)  use ($callback, $input) { $callback($self->syntaxError(preg_match("/^\S*/", $input)[0]), null); };
 
+
+        // Signals the syntax error through the callback
+        $reportSyntaxError = function ($self)  use ($callback, $input) {
+            preg_match("/^\S*/", $input, $match);
+            $callback($self->syntaxError($match[0], $self->line), null);
+        };
+        
         $outputComments = $this->comments;
         while (true) { //TODO
             // Count and skip whitespace lines
