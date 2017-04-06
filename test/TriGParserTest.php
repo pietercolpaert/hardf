@@ -79,9 +79,9 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['a', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 't']);
 
         // ### should parse triples with prefixes
-        $this->shouldParse('@prefix : <#>.\n' .
-        '@prefix a: <a#>.\n' .
-        ':x a:a a:b.',
+        $this->shouldParse("@prefix : <#>.\n" .
+        "@prefix a: <a#>.\n" .
+        ":x a:a a:b.",
         ['#x', 'a#a', 'a#b']);
 
         // ### should parse triples with the prefix "prefix"
@@ -100,67 +100,67 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['http://prefix.cc/a', 'http://prefix.cc/b', 'http://prefix.cc/c']);
 
         // ### should not parse @PREFIX
-        shouldNotParse('@PREFIX : <#>.',
+        $this->shouldNotParse('@PREFIX : <#>.',
         'Expected entity but got @PREFIX on line 1.');
 
         // ### should parse triples with prefixes and different punctuation
-        $this->shouldParse('@prefix : <#>.\n' .
-        '@prefix a: <a#>.\n' .
+        $this->shouldParse("@prefix : <#>.\n" .
+        "@prefix a: <a#>.\n" .
         ':x a:a a:b;a:c a:d,a:e.',
         ['#x', 'a#a', 'a#b'],
         ['#x', 'a#c', 'a#d'],
         ['#x', 'a#c', 'a#e']);
 
         // ### should not parse undefined empty prefix in subject
-        shouldNotParse(':a ',
+        $this->shouldNotParse(':a ',
         'Undefined prefix ":" on line 1.');
 
         // ### should not parse undefined prefix in subject
-        shouldNotParse('a:a ',
+        $this->shouldNotParse('a:a ',
         'Undefined prefix "a:" on line 1.');
 
         // ### should not parse undefined prefix in predicate
-        shouldNotParse('<a> b:c ',
+        $this->shouldNotParse('<a> b:c ',
         'Undefined prefix "b:" on line 1.');
 
         // ### should not parse undefined prefix in object
-        shouldNotParse('<a> <b> c:d ',
+        $this->shouldNotParse('<a> <b> c:d ',
         'Undefined prefix "c:" on line 1.');
 
         // ### should not parse undefined prefix in datatype
-        shouldNotParse('<a> <b> "c"^^d:e ',
+        $this->shouldNotParse('<a> <b> "c"^^d:e ',
         'Undefined prefix "d:" on line 1.');
 
         // ### should parse triples with SPARQL prefixes
-        $this->shouldParse('PREFIX : <#>\n' +
-        'PrEfIX a: <a#> ' +
+        $this->shouldParse("PREFIX : <#>\n" .
+        'PrEfIX a: <a#> ' .
         ':x a:a a:b.',
         ['#x', 'a#a', 'a#b']);
 
         // ### should not parse prefix declarations without prefix
-        shouldNotParse('@prefix <a> ',
+        $this->shouldNotParse('@prefix <a> ',
         'Expected prefix to follow @prefix on line 1.');
 
         // ### should not parse prefix declarations without IRI
-        shouldNotParse('@prefix : .',
+        $this->shouldNotParse('@prefix : .',
         'Expected IRI to follow prefix ":" on line 1.');
 
         // ### should not parse prefix declarations without a dot
-        shouldNotParse('@prefix : <a> ;',
+        $this->shouldNotParse('@prefix : <a> ;',
         'Expected declaration to end with a dot on line 1.');
 
         // ### should parse statements with shared subjects
-        $this->shouldParse('<a> <b> <c>;\n<d> <e>.',
+        $this->shouldParse("<a> <b> <c>;\n<d> <e>.",
         ['a', 'b', 'c'],
         ['a', 'd', 'e']);
 
         // ### should parse statements with shared subjects and trailing semicolon
-        $this->shouldParse('<a> <b> <c>;\n<d> <e>;\n.',
+        $this->shouldParse("<a> <b> <c>;\n<d> <e>;\n.",
         ['a', 'b', 'c'],
         ['a', 'd', 'e']);
 
         // ### should parse statements with shared subjects and multiple semicolons
-        $this->shouldParse('<a> <b> <c>;;\n<d> <e>.',
+        $this->shouldParse("<a> <b> <c>;;\n<d> <e>.",
         ['a', 'b', 'c'],
         ['a', 'd', 'e']);
 
@@ -170,7 +170,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['a', 'b', 'd']);
 
         // ### should parse diamonds
-        $this->shouldParse('<> <> <> <>.\n(<>) <> (<>) <>.',
+        $this->shouldParse("<> <> <> <>.\n(<>) <> (<>) <>.",
         ['', '', '', ''],
         ['_:b0', '', '_:b1', ''],
         ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', ''],
@@ -183,7 +183,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['_:b0_a', 'b', '_:b0_c']);
 
         // ### should not parse statements with blank predicates
-        shouldNotParse('<a> _:b <c>.',
+        $this->shouldNotParse('<a> _:b <c>.',
         'Disallowed blank node as predicate on line 1.');
 
         // ### should parse statements with empty blank nodes
@@ -206,11 +206,11 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['_:b0', 'c', '"x"']);
 
         // ### should not parse a blank node with missing subject
-        shouldNotParse('<a> <b> [<c>].',
+        $this->shouldNotParse('<a> <b> [<c>].',
         'Expected entity but got ] on line 1.');
 
         // ### should not parse a blank node with only a semicolon
-        shouldNotParse('<a> <b> [;].',
+        $this->shouldNotParse('<a> <b> [;].',
         'Unexpected ] on line 1.');
 
         // ### should parse a blank node with a trailing semicolon
@@ -311,11 +311,35 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         });
     }
 
+    
+    function shouldNotParse($createParser, $input, $expectedError = null) {
+        $expected = array_slice(func_get_args(),1);
+        // Shift parameters as necessary
+        if (!is_callable($createParser)) {
+            $expectedError = $input;
+            $input = $createParser;
+            $createParser = function () {
+                return new TriGParser();
+            };
+        }
+        $parser = $createParser();
+        $parser->_resetBlankNodeIds();
+        $parser->parse($input, function ($error, $triple = null) use ($expectedError){
+            //expect($error).not.to.exist;
+            if (isset($error)) {
+                $this->assertEquals($expectedError, $error->getMessage());
+            } else if (!isset($triple)) {
+                throw new \Exception('Expected error ' . $expectedError);
+            }
+        });
+    }
+
+
     private static function toSortedJSON ($items) 
     {
         $triples = array_map("json_encode", $items);
         sort($triples);
-        return '[\n  ' . join('\n  ', $triples) . '\n]';
+        return "[\n  " . join("\n  ", $triples) . "\n]";
     }
 }
 /*
@@ -323,7 +347,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
   describe('An N3Parser instance', function () {
 
                 // ### should not parse an invalid blank node
-      shouldNotParse('[ <a> <b> .',
+      $this->shouldNotParse('[ <a> <b> .',
                      'Expected punctuation to follow "b" on line 1.'));
 
                 // ### should parse a statements with only an anonymous node
@@ -331,11 +355,11 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b0', 'p', 'o']));
 
                 // ### should not parse a statement with only a blank anonymous node
-      shouldNotParse('[].',
+      $this->shouldNotParse('[].',
                      'Unexpected . on line 1.'));
 
                 // ### should not parse an anonymous node with only an anonymous node inside
-      shouldNotParse('[[<p> <o>]].',
+      $this->shouldNotParse('[[<p> <o>]].',
                      'Expected entity but got [ on line 1.'));
 
                 // ### should parse statements with an empty list in the subject
@@ -411,7 +435,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil']));
 
                 // ### should not parse statements with undefined prefixes in lists
-      shouldNotParse('<a> <b> (a:x a:y).',
+      $this->shouldNotParse('<a> <b> (a:x a:y).',
                      'Undefined prefix "a:" on line 1.'));
 
                 // ### should parse statements with blank nodes in lists
@@ -463,57 +487,57 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil']));
 
                 // ### should not parse an invalid list
-      shouldNotParse('<a> <b> (]).',
+      $this->shouldNotParse('<a> <b> (]).',
                      'Expected entity but got ] on line 1.'));
 
                 // ### should resolve IRIs against @base
-      shouldParse('@base <http://ex.org/>.\n' +
-                  '<a> <b> <c>.\n' +
-                  '@base <d/>.\n' +
-                  '<e> <f> <g>.',
+      shouldParse("@base <http://ex.org/>.\n" .
+                  "<a> <b> <c>.\n" .
+                  "@base <d/>.\n" .
+                  "<e> <f> <g>.",
                   ['http://ex.org/a', 'http://ex.org/b', 'http://ex.org/c'],
                   ['http://ex.org/d/e', 'http://ex.org/d/f', 'http://ex.org/d/g']));
 
                 // ### should not resolve IRIs against @BASE
-      shouldNotParse('@BASE <http://ex.org/>.',
+      $this->shouldNotParse('@BASE <http://ex.org/>.',
                      'Expected entity but got @BASE on line 1.'));
 
                 // ### should resolve IRIs against SPARQL base
-      shouldParse('BASE <http://ex.org/>\n' +
-                  '<a> <b> <c>. ' +
-                  'BASE <d/> ' +
+      shouldParse("BASE <http://ex.org/>\n" .
+                  '<a> <b> <c>. ' .
+                  'BASE <d/> ' .
                   '<e> <f> <g>.',
                   ['http://ex.org/a', 'http://ex.org/b', 'http://ex.org/c'],
                   ['http://ex.org/d/e', 'http://ex.org/d/f', 'http://ex.org/d/g']));
 
                 // ### should resolve IRIs against a @base with query string
-      shouldParse('@base <http://ex.org/?foo>.\n' +
-                  '<> <b> <c>.\n' +
-                  '@base <d/?bar>.\n' +
+      shouldParse("@base <http://ex.org/?foo>.\n" .
+                  "<> <b> <c>.\n" .
+                  "@base <d/?bar>.\n" .
                   '<> <f> <g>.',
                   ['http://ex.org/?foo', 'http://ex.org/b', 'http://ex.org/c'],
                   ['http://ex.org/d/?bar', 'http://ex.org/d/f', 'http://ex.org/d/g']));
 
                 // ### should resolve IRIs with query string against @base
-      shouldParse('@base <http://ex.org/>.\n' +
-                  '<?> <?a> <?a=b>.\n' +
-                  '@base <d>.\n' +
-                  '<?> <?a> <?a=b>.' +
-                  '@base <?e>.\n' +
+      shouldParse("@base <http://ex.org/>.\n" . 
+                  "<?> <?a> <?a=b>.\n". 
+                  "@base <d>.\n" .
+                  "<?> <?a> <?a=b>.".
+                  "@base <?e>.\n" .
                   '<> <?a> <?a=b>.',
                   ['http://ex.org/?', 'http://ex.org/?a', 'http://ex.org/?a=b'],
                   ['http://ex.org/d?', 'http://ex.org/d?a', 'http://ex.org/d?a=b'],
                   ['http://ex.org/d?e', 'http://ex.org/d?a', 'http://ex.org/d?a=b']));
 
                 // ### should not resolve IRIs with colons
-      shouldParse('@base <http://ex.org/>.\n' +
-                  '<a>   <b>   <c>.\n' +
-                  '<A:>  <b:>  <c:>.\n' +
-                  '<a:a> <b:B> <C-D:c>.',
+      shouldParse("@base <http://ex.org/>.\n" . 
+                  "<a>   <b>   <c>.\n" . 
+                  "<A:>  <b:>  <c:>.\n" .
+                  "<a:a> <b:B> <C-D:c>.",
                   ['http://ex.org/a', 'http://ex.org/b', 'http://ex.org/c'],
                   ['A:',  'b:',  'c:'],
                   ['a:a', 'b:B', 'C-D:c']));
-
+//TODO : solve plus to dot and newlines
                 // ### should resolve datatype IRIs against @base
       shouldParse('@base <http://ex.org/>.\n' +
                   '<a> <b> "c"^^<d>.\n' +
@@ -661,47 +685,47 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['\ud835\udC00', '\ud835\udc00', '"\ud835\udc00"^^\ud835\udc00', '\ud835\udc00']));
 
                 // ### should not parse a single closing brace
-      shouldNotParse('}',
+      $this->shouldNotParse('}',
                      'Unexpected graph closing on line 1.'));
 
                 // ### should not parse a single opening brace
-      shouldNotParse('{',
+      $this->shouldNotParse('{',
                      'Expected entity but got eof on line 1.'));
 
                 // ### should not parse a superfluous closing brace 
-      shouldNotParse('{}}',
+      $this->shouldNotParse('{}}',
                      'Unexpected graph closing on line 1.'));
 
                 // ### should not parse a graph with only a dot
-      shouldNotParse('{.}',
+      $this->shouldNotParse('{.}',
                      'Expected entity but got . on line 1.'));
 
                 // ### should not parse a graph with only a semicolon
-      shouldNotParse('{;}',
+      $this->shouldNotParse('{;}',
                      'Expected entity but got ; on line 1.'));
 
                 // ### should not parse an unclosed graph
-      shouldNotParse('{<a> <b> <c>.',
+      $this->shouldNotParse('{<a> <b> <c>.',
                      'Unclosed graph on line 1.'));
 
                 // ### should not parse a named graph with a list node as label
-      shouldNotParse('() {}',
+      $this->shouldNotParse('() {}',
                      'Expected entity but got { on line 1.'));
 
                 // ### should not parse a named graph with a non-empty blank node as label
-      shouldNotParse('[<a> <b>] {}',
+      $this->shouldNotParse('[<a> <b>] {}',
                      'Expected entity but got { on line 1.'));
 
                 // ### should not parse a named graph with the GRAPH keyword and a non-empty blank node as label
-      shouldNotParse('GRAPH [<a> <b>] {}',
+      $this->shouldNotParse('GRAPH [<a> <b>] {}',
                      'Invalid graph label on line 1.'));
 
                 // ### should not parse a triple after the GRAPH keyword
-      shouldNotParse('GRAPH <a> <b> <c>.',
+      $this->shouldNotParse('GRAPH <a> <b> <c>.',
                      'Expected graph but got IRI on line 1.'));
 
                 // ### should not parse repeated GRAPH keywords
-      shouldNotParse('GRAPH GRAPH <g> {}',
+      $this->shouldNotParse('GRAPH GRAPH <g> {}',
                      'Invalid graph label on line 1.'));
 
                 // ### should parse a quad with 4 IRIs
@@ -713,7 +737,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['p#a', 'p#b', 'p#c', 'p#g']));
 
                 // ### should not parse a quad with an undefined prefix
-      shouldNotParse('<a> <b> <c> p:g.',
+      $this->shouldNotParse('<a> <b> <c> p:g.',
                      'Undefined prefix "p:" on line 1.'));
 
                 // ### should parse a quad with 3 IRIs and a literal
@@ -725,47 +749,47 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b0_a', 'b', '"c"^^d', '_:b0_g']));
 
                 // ### should not parse a quad in a graph
-      shouldNotParse('{<a> <b> <c> <g>.}',
+      $this->shouldNotParse('{<a> <b> <c> <g>.}',
                      'Expected punctuation to follow "c" on line 1.'));
 
                 // ### should not parse a quad with different punctuation
-      shouldNotParse('<a> <b> <c> <g>;',
+      $this->shouldNotParse('<a> <b> <c> <g>;',
                      'Expected dot to follow quad on line 1.'));
 
                 // ### should not parse base declarations without IRI
-      shouldNotParse('@base a: ',
+      $this->shouldNotParse('@base a: ',
                      'Expected IRI to follow base declaration on line 1.'));
 
                 // ### should not parse improperly nested parentheses and brackets
-      shouldNotParse('<a> <b> [<c> (<d>]).',
+      $this->shouldNotParse('<a> <b> [<c> (<d>]).',
                      'Expected entity but got ] on line 1.'));
 
                 // ### should not parse improperly nested square brackets
-      shouldNotParse('<a> <b> [<c> <d>]].',
+      $this->shouldNotParse('<a> <b> [<c> <d>]].',
                      'Expected entity but got ] on line 1.'));
 
                 // ### should error when an object is not there
-      shouldNotParse('<a> <b>.',
+      $this->shouldNotParse('<a> <b>.',
                      'Expected entity but got . on line 1.'));
 
                 // ### should error when a dot is not there
-      shouldNotParse('<a> <b> <c>',
+      $this->shouldNotParse('<a> <b> <c>',
                      'Expected entity but got eof on line 1.'));
 
                 // ### should error with an abbreviation in the subject
-      shouldNotParse('a <a> <a>.',
+      $this->shouldNotParse('a <a> <a>.',
                      'Expected entity but got abbreviation on line 1.'));
 
                 // ### should error with an abbreviation in the object
-      shouldNotParse('<a> <a> a .',
+      $this->shouldNotParse('<a> <a> a .',
                      'Expected entity but got abbreviation on line 1.'));
 
                 // ### should error if punctuation follows a subject
-      shouldNotParse('<a> .',
+      $this->shouldNotParse('<a> .',
                      'Unexpected . on line 1.'));
 
                 // ### should error if an unexpected token follows a subject
-      shouldNotParse('<a> [',
+      $this->shouldNotParse('<a> [',
                      'Expected entity but got [ on line 1.'));
 
                 // ### should not error if there is no triple callback function () {
@@ -955,31 +979,31 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
       shouldParse(parser, '<a> <b> <c>.', ['a', 'b', 'c']));
 
                 // ### should not parse a default graph
-      shouldNotParse(parser, '{}', 'Unexpected graph on line 1.'));
+      $this->shouldNotParse(parser, '{}', 'Unexpected graph on line 1.'));
 
                 // ### should not parse a named graph
-      shouldNotParse(parser, '<g> {}', 'Expected entity but got { on line 1.'));
+      $this->shouldNotParse(parser, '<g> {}', 'Expected entity but got { on line 1.'));
 
                 // ### should not parse a named graph with the GRAPH keyword
-      shouldNotParse(parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.'));
+      $this->shouldNotParse(parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.'));
 
                 // ### should not parse a quad
-      shouldNotParse(parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.'));
+      $this->shouldNotParse(parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.'));
 
                 // ### should not parse a variable
-      shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
+      $this->shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
 
                 // ### should not parse an equality statement
-      shouldNotParse(parser, '<a> = <b>.', 'Unexpected "=" on line 1.'));
+      $this->shouldNotParse(parser, '<a> = <b>.', 'Unexpected "=" on line 1.'));
 
                 // ### should not parse a right implication statement
-      shouldNotParse(parser, '<a> => <b>.', 'Unexpected "=>" on line 1.'));
+      $this->shouldNotParse(parser, '<a> => <b>.', 'Unexpected "=>" on line 1.'));
 
                 // ### should not parse a left implication statement
-      shouldNotParse(parser, '<a> <= <b>.', 'Unexpected "<=" on line 1.'));
+      $this->shouldNotParse(parser, '<a> <= <b>.', 'Unexpected "<=" on line 1.'));
 
                 // ### should not parse a formula as object
-      shouldNotParse(parser, '<a> <b> {}.', 'Unexpected graph on line 1.'));
+      $this->shouldNotParse(parser, '<a> <b> {}.', 'Unexpected graph on line 1.'));
   });
 
   describe('An N3Parser instance for the TriG format', function () {
@@ -998,22 +1022,22 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
       shouldParse(parser, 'GRAPH <g> {}'));
 
                 // ### should not parse a quad
-      shouldNotParse(parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.'));
+      $this->shouldNotParse(parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.'));
 
                 // ### should not parse a variable
-      shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
+      $this->shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
 
                 // ### should not parse an equality statement
-      shouldNotParse(parser, '<a> = <b>.', 'Unexpected "=" on line 1.'));
+      $this->shouldNotParse(parser, '<a> = <b>.', 'Unexpected "=" on line 1.'));
 
                 // ### should not parse a right implication statement
-      shouldNotParse(parser, '<a> => <b>.', 'Unexpected "=>" on line 1.'));
+      $this->shouldNotParse(parser, '<a> => <b>.', 'Unexpected "=>" on line 1.'));
 
                 // ### should not parse a left implication statement
-      shouldNotParse(parser, '<a> <= <b>.', 'Unexpected "<=" on line 1.'));
+      $this->shouldNotParse(parser, '<a> <= <b>.', 'Unexpected "<=" on line 1.'));
 
                 // ### should not parse a formula as object
-      shouldNotParse(parser, '<a> <b> {}.', 'Unexpected graph on line 1.'));
+      $this->shouldNotParse(parser, '<a> <b> {}.', 'Unexpected graph on line 1.'));
   });
 
   describe('An N3Parser instance for the N-Triples format', function () {
@@ -1024,29 +1048,29 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                           ['http://ex.org/a', 'http://ex.org/b', '"c"']));
 
                 // ### should not parse a single quad
-      shouldNotParse(parser, '<http://ex.org/a> <http://ex.org/b> "c" <http://ex.org/g>.',
+      $this->shouldNotParse(parser, '<http://ex.org/a> <http://ex.org/b> "c" <http://ex.org/g>.',
                              'Expected punctuation to follow ""c"" on line 1.'));
 
                 // ### should not parse relative IRIs
-      shouldNotParse(parser, '<a> <b> <c>.', 'Disallowed relative IRI on line 1.'));
+      $this->shouldNotParse(parser, '<a> <b> <c>.', 'Disallowed relative IRI on line 1.'));
 
                 // ### should not parse a prefix declaration
-      shouldNotParse(parser, '@prefix : <p#>.', 'Unexpected "@prefix" on line 1.'));
+      $this->shouldNotParse(parser, '@prefix : <p#>.', 'Unexpected "@prefix" on line 1.'));
 
                 // ### should not parse a variable
-      shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
+      $this->shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
 
                 // ### should not parse an equality statement
-      shouldNotParse(parser, '<urn:a:a> = <urn:b:b>.', 'Unexpected "=" on line 1.'));
+      $this->shouldNotParse(parser, '<urn:a:a> = <urn:b:b>.', 'Unexpected "=" on line 1.'));
 
                 // ### should not parse a right implication statement
-      shouldNotParse(parser, '<urn:a:a> => <urn:b:b>.', 'Unexpected "=>" on line 1.'));
+      $this->shouldNotParse(parser, '<urn:a:a> => <urn:b:b>.', 'Unexpected "=>" on line 1.'));
 
                 // ### should not parse a left implication statement
-      shouldNotParse(parser, '<urn:a:a> <= <urn:b:b>.', 'Unexpected "<=" on line 1.'));
+      $this->shouldNotParse(parser, '<urn:a:a> <= <urn:b:b>.', 'Unexpected "<=" on line 1.'));
 
                 // ### should not parse a formula as object
-      shouldNotParse(parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.'));
+      $this->shouldNotParse(parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.'));
   });
 
   describe('An N3Parser instance for the N-Quads format', function () {
@@ -1061,25 +1085,25 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                           ['http://ex.org/a', 'http://ex.org/b', '"c"', 'http://ex.org/g']));
 
                 // ### should not parse relative IRIs
-      shouldNotParse(parser, '<a> <b> <c>.', 'Disallowed relative IRI on line 1.'));
+      $this->shouldNotParse(parser, '<a> <b> <c>.', 'Disallowed relative IRI on line 1.'));
 
                 // ### should not parse a prefix declaration
-      shouldNotParse(parser, '@prefix : <p#>.', 'Unexpected "@prefix" on line 1.'));
+      $this->shouldNotParse(parser, '@prefix : <p#>.', 'Unexpected "@prefix" on line 1.'));
 
                 // ### should not parse a variable
-      shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
+      $this->shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
 
                 // ### should not parse an equality statement
-      shouldNotParse(parser, '<urn:a:a> = <urn:b:b>.', 'Unexpected "=" on line 1.'));
+      $this->shouldNotParse(parser, '<urn:a:a> = <urn:b:b>.', 'Unexpected "=" on line 1.'));
 
                 // ### should not parse a right implication statement
-      shouldNotParse(parser, '<urn:a:a> => <urn:b:b>.', 'Unexpected "=>" on line 1.'));
+      $this->shouldNotParse(parser, '<urn:a:a> => <urn:b:b>.', 'Unexpected "=>" on line 1.'));
 
                 // ### should not parse a left implication statement
-      shouldNotParse(parser, '<urn:a:a> <= <urn:b:b>.', 'Unexpected "<=" on line 1.'));
+      $this->shouldNotParse(parser, '<urn:a:a> <= <urn:b:b>.', 'Unexpected "<=" on line 1.'));
 
                 // ### should not parse a formula as object
-      shouldNotParse(parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.'));
+      $this->shouldNotParse(parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.'));
   });
 
   describe('An N3Parser instance for the N3 format', function () {
@@ -1089,16 +1113,16 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
       shouldParse(parser, '<a> <b> <c>.', ['a', 'b', 'c']));
 
                 // ### should not parse a default graph
-      shouldNotParse(parser, '{}', 'Expected entity but got eof on line 1.'));
+      $this->shouldNotParse(parser, '{}', 'Expected entity but got eof on line 1.'));
 
                 // ### should not parse a named graph
-      shouldNotParse(parser, '<g> {}', 'Expected entity but got { on line 1.'));
+      $this->shouldNotParse(parser, '<g> {}', 'Expected entity but got { on line 1.'));
 
                 // ### should not parse a named graph with the GRAPH keyword
-      shouldNotParse(parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.'));
+      $this->shouldNotParse(parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.'));
 
                 // ### should not parse a quad
-      shouldNotParse(parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.'));
+      $this->shouldNotParse(parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.'));
 
                 // ### allows a blank node label in predicate position
       shouldParse(parser, '<a> _:b <c>.', ['a', '_:b0_b', 'c']));
@@ -1188,15 +1212,15 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b0', '_:b1', '_:b2']));
 
                 // ### should not parse a @forSome statement with an invalid prefix
-      shouldNotParse(parser, '@forSome a:b.',
+      $this->shouldNotParse(parser, '@forSome a:b.',
                      'Undefined prefix "a:" on line 1.'));
 
                 // ### should not parse a @forSome statement with a blank node
-      shouldNotParse(parser, '@forSome _:a.',
+      $this->shouldNotParse(parser, '@forSome _:a.',
                      'Unexpected blank on line 1.'));
 
                 // ### should not parse a @forSome statement with a variable
-      shouldNotParse(parser, '@forSome ?a.',
+      $this->shouldNotParse(parser, '@forSome ?a.',
                      'Unexpected $on line 1.'));
 
                 // ### should correctly scope @forSome statements
@@ -1214,15 +1238,15 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['?b-0', '?b-1', '?b-2']));
 
                 // ### should not parse a @forAll statement with an invalid prefix
-      shouldNotParse(parser, '@forAll a:b.',
+      $this->shouldNotParse(parser, '@forAll a:b.',
                      'Undefined prefix "a:" on line 1.'));
 
                 // ### should not parse a @forAll statement with a blank node
-      shouldNotParse(parser, '@forAll _:a.',
+      $this->shouldNotParse(parser, '@forAll _:a.',
                      'Unexpected blank on line 1.'));
 
                 // ### should not parse a @forAll statement with a variable
-      shouldNotParse(parser, '@forAll ?a.',
+      $this->shouldNotParse(parser, '@forAll ?a.',
                      'Unexpected $on line 1.'));
 
                 // ### should correctly scope @forAll statements
@@ -1378,10 +1402,10 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b2', 'f:son', 'ex:joe']));
 
                 // ### should not parse an invalid ! path
-      shouldNotParse(parser, '<a>!"invalid" ', 'Expected entity but got literal on line 1.'));
+      $this->shouldNotParse(parser, '<a>!"invalid" ', 'Expected entity but got literal on line 1.'));
 
                 // ### should not parse an invalid ^ path
-      shouldNotParse(parser, '<a>^"invalid" ', 'Expected entity but got literal on line 1.'));
+      $this->shouldNotParse(parser, '<a>^"invalid" ', 'Expected entity but got literal on line 1.'));
   });
 
   describe('An N3Parser instance for the N3 format with the explicitQuantifiers option', function () {
@@ -1901,25 +1925,6 @@ function shouldParse(createParser, input) {
   };
 }
 
-
-function shouldNotParse(createParser, input, expectedError) {
-  // Shift parameters if necessary
-  if (!createParser.call)
-    expectedError = input, input = createParser, createParser = N3Parser;
-
-  return function (done) {
-    createParser().parse(input, function ($error, $triple) {
-      if (error) {
-        expect(triple).not.to.exist;
-        error.should.be.an.instanceof(Error);
-        error.message.should.eql(expectedError);
-        done();
-      }
-      else if (!triple)
-        throw new Error('Expected error ' + expectedError);
-    });
-  };
-}
 
 function itShouldResolve(baseIri, relativeIri, expected) {
   $result;

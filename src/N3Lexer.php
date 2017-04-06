@@ -129,6 +129,7 @@ class N3Lexer
             $matchLength = 0;
             $unescaped = null;
             $inconclusive = false;
+                        
             switch ($firstChar) {
                 case '^':
                     // We need at least 3 tokens lookahead to distinguish ^^<IRI> and ^^pre:fixed
@@ -226,8 +227,6 @@ class N3Lexer
                     break;
 
                 case '@':
-                    var_dump($input);
-                    
                     // Try to find a language code
                     if ($this->prevTokenType === 'literal' && preg_match($this->langcode, $input, $match)){   
                         $type = 'langcode';

@@ -189,9 +189,9 @@ class TriGParser
                 case 'type':
                 case 'blank':
                 case 'prefixed':
-                    $prefix = $this->prefixes[$token["prefix"]];
-                    if (!isset($prefix))
+                    if (!isset($this->prefixes[$token["prefix"]]))
                         return call_user_func($this->error,'Undefined prefix "' . $token["prefix"] . ':"', $token);
+                    $prefix = $this->prefixes[$token["prefix"]];
                     $value = $prefix . $token["value"];
                     break;
                     // Read a variable
@@ -199,7 +199,7 @@ class TriGParser
                     return $token["value"];
                     // Everything else is not an entity
                 default:
-                    return $this->error('Expected entity but got ' . $token["type"], $token);
+                    return call_user_func($this->error,'Expected entity but got ' . $token["type"], $token);
             }
             // In N3 mode, replace the entity if it is quantified
             if (!isset($quantifier) && isset($this->n3Mode) && isset($this->quantified[$value]))
@@ -224,7 +224,7 @@ class TriGParser
                 case '{':
                     // Start a new formula
                     if (!$this->n3Mode)
-                        return $this->error('Unexpected graph', $token);
+                        return call_user_func($this->error,'Unexpected graph', $token);
                     $this->saveContext('formula', $this->graph,
                     $this->graph = '_:b' . $this->blankNodeCount++, null, null);
                     return $this->readSubject;
@@ -270,7 +270,7 @@ class TriGParser
                 case '}':
                     // Expected predicate didn't come, must have been trailing semicolon
                     if ($this->predicate === null)
-                        return $this->error('Unexpected ' . $type, $token);
+                        return call_user_func($this->error,'Unexpected ' . $type, $token);
                     $this->subject = null;
                     return $type === ']' ? $this->readBlankNodeTail($token) : $this->readPunctuation($token);
                 case ';':
@@ -278,7 +278,7 @@ class TriGParser
                     return $this->readPredicate;
                 case 'blank':
                     if (!$this->n3Mode)
-                        return $this->error('Disallowed blank node as predicate', $token);
+                        return call_user_func($this->error,'Disallowed blank node as predicate', $token);
                 default:
                     $this->predicate = call_user_func($this->readEntity,$token);
                     if ($this->predicate == null)
@@ -307,7 +307,7 @@ class TriGParser
                 case '{':
                 // Start a new formula
                 if (!$this->n3Mode)
-                    return $this->error('Unexpected graph', $token);
+                    return call_user_func($this->error,'Unexpected graph', $token);
                 $this->saveContext('formula', $this->graph, $this->subject, $this->predicate,
                 $this->graph = '_:b' . $this->blankNodeCount++);
                 return $this->readSubject;
@@ -331,7 +331,7 @@ class TriGParser
         // ### `_readGraph` reads a graph
         $this->readGraph = function ($token) {
             if ($token["type"] !== '{')
-                return $this->error('Expected graph but got ' . $token["type"], $token);
+                return call_user_func($this->error,'Expected graph but got ' . $token["type"], $token);
             // The "subject" we read is actually the GRAPH's label
             $this->graph = $this->subject;
             $this->subject = null;
@@ -544,7 +544,7 @@ class TriGParser
                 // A closing brace ends a graph
                 case '}':
                     if ($this->graph === null)
-                        return $this->error('Unexpected graph closing', $token);
+                        return call_user_func($this->error,'Unexpected graph closing', $token);
                     if ($this->n3Mode)
                         return $this->readFormulaTail($token);
                     $this->graph = null;
@@ -569,7 +569,7 @@ class TriGParser
                         $next = $this->readQuadPunctuation;
                         break;
                     }
-                    return $this->error('Expected punctuation to follow "' . $this->object . '"', $token);
+                    return call_user_func($this->error,'Expected punctuation to follow "' . $this->object . '"', $token);
             }
             // A triple has been completed now, so return it
             if ($subject !== null) {
@@ -596,7 +596,7 @@ class TriGParser
                     $next = $this->readObject;
                     break;
                 default:
-                    return $this->error('Expected punctuation to follow "' . $this->object . '"', $token);
+                    return call_user_func($this->error,'Expected punctuation to follow "' . $this->object . '"', $token);
             }
             // A triple has been completed now, so return it
             $this->triple($this->subject, $this->predicate, $this->object, $this->graph);
@@ -613,7 +613,7 @@ class TriGParser
         // ### `_readPrefix` reads the prefix of a prefix declaration
         $this->readPrefix = function ($token) {
             if ($token["type"] !== 'prefix')
-                return $this->error('Expected prefix to follow @prefix', $token);
+                return call_user_func($this->error,'Expected prefix to follow @prefix', $token);
             $this->prefix = $token["value"];
             return $this->readPrefixIRI;
         };
@@ -621,7 +621,7 @@ class TriGParser
         // ### `_readPrefixIRI` reads the IRI of a prefix declaration
         $this->readPrefixIRI = function ($token) {
             if ($token["type"] !== 'IRI')
-                return $this->error('Expected IRI to follow prefix "' . $this->prefix . ':"', $token);
+                return call_user_func($this->error,'Expected IRI to follow prefix "' . $this->prefix . ':"', $token);
             $prefixIRI = call_user_func($this->readEntity,$token);
             $this->prefixes[$this->prefix] = $prefixIRI;
             call_user_func($this->prefixCallback,$this->prefix, $prefixIRI);
@@ -631,7 +631,7 @@ class TriGParser
         // ### `_readBaseIRI` reads the IRI of a base declaration
         $this->readBaseIRI = function ($token) {
             if ($token["type"] !== 'IRI')
-                return $this->error('Expected IRI to follow base declaration', $token);
+                return call_user_func($this->error,'Expected IRI to follow base declaration', $token);
             $this->setBase($this->base === null || preg_match($this->absoluteIRI,$token["value"]) ?
             $token["value"] : $this->resolveIRI($token));
             return $this->readDeclarationPunctuation;
@@ -644,18 +644,18 @@ class TriGParser
                 case 'blank':
                 case 'prefixed':
                 $this->readGraph; //TODO: what’s this?
-                return $this->readSubject($token);
+                return call_user_func($this->readSubject,$token);
                 case '[':
                 return $this->readNamedGraphBlankLabel;
                 default:
-                return $this->error('Invalid graph label', $token);
+                return call_user_func($this->error,'Invalid graph label', $token);
             }
         };
 
         // ### `_readNamedGraphLabel` reads a blank node label of a named graph
         $this->readNamedGraphBlankLabel = function ($token) {
             if ($token["type"] !== ']')
-                return $this->error('Invalid graph label', $token);
+                return call_user_func($this->error,'Invalid graph label', $token);
             $this->subject = '_:b' . $this->blankNodeCount++;
             return $this->readGraph;
         };
@@ -665,11 +665,11 @@ class TriGParser
             // SPARQL-style declarations don't have punctuation
             if ($this->sparqlStyle) {
                 $this->sparqlStyle = false;
-                return $this->readInTopContext($token);
+                return call_user_func($this->readInTopContext,$token);
             }
 
             if ($token["type"] !== '.')
-                return $this->error('Expected declaration to end with a dot', $token);
+                return call_user_func($this->error,'Expected declaration to end with a dot', $token);
             return $this->readInTopContext;
         };
 
@@ -679,11 +679,11 @@ class TriGParser
             switch ($token["type"]) {
                 case 'IRI':
                 case 'prefixed':
-                    $entity = $this->readEntity($token, true);
+                    $entity = call_user_func($this->readEntity,$token, true);
                     if (!$entity)
                         break;
                 default:
-                    return $this->error('Unexpected ' . $token["type"], $token);
+                    return call_user_func($this->error,'Unexpected ' . $token["type"], $token);
             }
             // Without explicit quantifiers, map entities to a quantified entity
             if (!$this->explicitQuantifiers)
@@ -691,16 +691,16 @@ class TriGParser
             // With explicit quantifiers, output the reified quantifier
             else {
                 // If this is the first item, start a new quantifier list
-                if ($this->subject === null) {   
+                if ($this->subject === null) {
                     $this->subject = '_:b' . $this->blankNodeCount++;
-                    $this->triple(isset($this->graph)?$this->graph:'', $this->predicate, $this->subject, self::QUANTIFIERS_GRAPH);
+                    call_user_func($this->triple,isset($this->graph)?$this->graph:'', $this->predicate, $this->subject, self::QUANTIFIERS_GRAPH);
                 }
                 // Otherwise, continue the previous list
                 else
-                    $this->triple($this->subject, self::RDF_REST,
+                    call_user_func($this->triple,$this->subject, self::RDF_REST,
                     $this->subject = '_:b' . $this->blankNodeCount++, self::QUANTIFIERS_GRAPH);
                 // Output the list item
-                $this->triple($this->subject, self::RDF_FIRST, $entity, self::QUANTIFIERS_GRAPH);
+                call_user_func($this->triple,$this->subject, self::RDF_FIRST, $entity, self::QUANTIFIERS_GRAPH);
             }
             return $this->readQuantifierPunctuation;
         };
@@ -714,12 +714,12 @@ class TriGParser
             else {
                 // With explicit quantifiers, close the quantifier list
                 if ($this->explicitQuantifiers) {
-                    $this->triple($this->subject, self::RDF_REST, self::RDF_NIL, self::QUANTIFIERS_GRAPH);
+                    call_user_func($this->triple,$this->subject, self::RDF_REST, self::RDF_NIL, self::QUANTIFIERS_GRAPH);
                     $this->subject = null;
                 }
                 // Read a dot
-                $this->readCallback = $this->getContextEndReader();
-                return $this->readCallback($token);
+                $this->readCallback = call_user_func($this->getContextEndReader);
+                return call_user_func($this->readCallback, $token);
             }
         };
 
@@ -747,9 +747,9 @@ class TriGParser
                     // Switch back to the context of the list
                     $this->restoreContext();
                     // Output the list item
-                    $this->triple($this->subject, self::RDF_FIRST, $item, $this->graph);
+                    call_user_func($this->triple,$this->subject, self::RDF_FIRST, $item, $this->graph);
                 }
-                return $this->afterPath($token);
+                return call_user_func($this->afterPath,$token);
             }
         };
 
@@ -757,7 +757,7 @@ class TriGParser
         $this->readForwardPath = function ($token) {
             $subject; $predicate; $object = '_:b' . $this->blankNodeCount++;
             // The next token is the predicate
-            $predicate = $this->readEntity($token);
+            $predicate = call_user_func($this->readEntity,$token);
             if (!$predicate)
                 return;
             // If we were reading a subject, replace the subject by the path's object
@@ -771,7 +771,7 @@ class TriGParser
                 $this->object = $object;
             }
             // Emit the path's current triple and read its next section
-            $this->triple($subject, $predicate, $object, $this->graph);
+            call_user_func($this->triple,$subject, $predicate, $object, $this->graph);
             return $this->readPath;
         };
 
@@ -780,7 +780,7 @@ class TriGParser
             $subject = '_:b' . $this->blankNodeCount++;
             $predicate; $object;
             // The next token is the predicate
-            $predicate = $this->readEntity($token);
+            $predicate = call_user_func($this->readEntity,$token);
             if ($predicate)
                 return;
             // If we were reading a subject, replace the subject by the path's subject
@@ -794,7 +794,7 @@ class TriGParser
                 $this->object  = $subject;
             }
             // Emit the path's current triple and read its next section
-            $this->triple($subject, $predicate, $object, $this->graph);
+            call_user_func($this->triple,$subject, $predicate, $object, $this->graph);
             return $this->readPath;
         };
 
@@ -841,7 +841,7 @@ class TriGParser
                     return ($iri[1] === '/' ? $this->baseScheme : $this->baseRoot) . $this->removeDotSegments($iri);
                     // Resolve all other IRIs at the base IRI's path
                 default:
-                    return $this->removeDotSegments($this->basePath . $iri);
+                    return call_user_func($this->removeDotSegments, $this->basePath . $iri);
             }
         };
 
@@ -953,7 +953,12 @@ class TriGParser
         try {
             $tokens = $this->lexer->tokenize($input);            
             foreach($tokens as $token) {
-                $this->readCallback = call_user_func($this->readCallback, $token);
+                if (isset($this->readCallback)) {
+                    $this->readCallback = call_user_func($this->readCallback, $token);
+                } else {
+                    //error occured in parser
+                    break;
+                }
             }
         } catch (Exception $e) {
             call_user_func($this->callback,$error, null);
