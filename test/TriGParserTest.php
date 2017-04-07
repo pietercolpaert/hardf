@@ -496,7 +496,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['http://ex.org/foo#', 'http://ex.org/b#', 'http://ex.org/foo#c']);
 //TODO : solve plus to dot and newlines
         // ### should not resolve prefixed names
-        $this->shouldParse('PREFIX ex: <http://ex.org/a/bb/ccc/../>\n' .
+        $this->shouldParse('PREFIX ex: <http://ex.org/a/bb/ccc/../>' . "\n" .
         'ex:a ex:b ex:c .',
         ['http://ex.org/a/bb/ccc/../a', 'http://ex.org/a/bb/ccc/../b', 'http://ex.org/a/bb/ccc/../c']);
 
@@ -620,7 +620,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['a', 'b', 'c', '_:b0']);
 
         // ### should parse a graph with 8-bit unicode escape sequences
-        $this->shouldParse('<\\U0001d400> {\n<\\U0001d400> <\\U0001d400> "\\U0001d400"^^<\\U0001d400>\n}\n',
+        $this->shouldParse('<\\U0001d400> {\n<\\U0001d400> <\\U0001d400> "\\U0001d400"^^<\\U0001d400>\n}' . "\n",
         ['\ud835\udC00', '\ud835\udc00', '"\ud835\udc00"^^\ud835\udc00', '\ud835\udc00']);
 
         // ### should not parse a single closing brace
@@ -877,45 +877,45 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
                         // ### should resolve IRIs against the document IRI
       $this->shouldParse(parser,
-                  '@prefix : <#>.\n' .
-                  '<a> <b> <c> <g>.\n' .
+                  '@prefix : <#>.' . "\n" .
+                  '<a> <b> <c> <g>.' . "\n" .
                   ':d :e :f :g.',
                   ['http://ex.org/x/yy/zzz/a', 'http://ex.org/x/yy/zzz/b', 'http://ex.org/x/yy/zzz/c', 'http://ex.org/x/yy/zzz/g'],
                   ['http://ex.org/x/yy/zzz/f.ttl#d', 'http://ex.org/x/yy/zzz/f.ttl#e', 'http://ex.org/x/yy/zzz/f.ttl#f', 'http://ex.org/x/yy/zzz/f.ttl#g']));
 
                         // ### should resolve IRIs with a trailing slash against the document IRI
       $this->shouldParse(parser,
-                  '</a> </a/b> </a/b/c>.\n',
+                  '</a> </a/b> </a/b/c>.' . "\n",
                   ['http://ex.org/a', 'http://ex.org/a/b', 'http://ex.org/a/b/c']));
 
                         // ### should resolve IRIs starting with ./ against the document IRI
       $this->shouldParse(parser,
-                  '<./a> <./a/b> <./a/b/c>.\n',
+                  '<./a> <./a/b> <./a/b/c>.' . "\n",
                   ['http://ex.org/x/yy/zzz/a', 'http://ex.org/x/yy/zzz/a/b', 'http://ex.org/x/yy/zzz/a/b/c']));
 
                         // ### should resolve IRIs starting with multiple ./ sequences against the document IRI
       $this->shouldParse(parser,
-                  '<./././a> <./././././a/b> <././././././a/b/c>.\n',
+                  '<./././a> <./././././a/b> <././././././a/b/c>.' . "\n",
                   ['http://ex.org/x/yy/zzz/a', 'http://ex.org/x/yy/zzz/a/b', 'http://ex.org/x/yy/zzz/a/b/c']));
 
                         // ### should resolve IRIs starting with ../ against the document IRI
       $this->shouldParse(parser,
-                  '<../a> <../a/b> <../a/b/c>.\n',
+                  '<../a> <../a/b> <../a/b/c>.' . "\n",
                   ['http://ex.org/x/yy/a', 'http://ex.org/x/yy/a/b', 'http://ex.org/x/yy/a/b/c']));
 
                         // ### should resolve IRIs starting multiple ../ sequences against the document IRI
       $this->shouldParse(parser,
-                  '<../../a> <../../../a/b> <../../../../../../../../a/b/c>.\n',
+                  '<../../a> <../../../a/b> <../../../../../../../../a/b/c>.' . "\n",
                   ['http://ex.org/x/a', 'http://ex.org/a/b', 'http://ex.org/a/b/c']));
 
                         // ### should resolve IRIs starting with mixes of ./ and ../ sequences against the document IRI
       $this->shouldParse(parser,
-                  '<.././a> <./.././a/b> <./.././.././a/b/c>.\n',
+                  '<.././a> <./.././a/b> <./.././.././a/b/c>.' . "\n",
                   ['http://ex.org/x/yy/a', 'http://ex.org/x/yy/a/b', 'http://ex.org/x/a/b/c']));
 
                         // ### should resolve IRIs starting with .x, ..x, or .../ against the document IRI
       $this->shouldParse(parser,
-                  '<.x/a> <..x/a/b> <.../a/b/c>.\n',
+                  '<.x/a> <..x/a/b> <.../a/b/c>.' . "\n",
                   ['http://ex.org/x/yy/zzz/.x/a', 'http://ex.org/x/yy/zzz/..x/a/b', 'http://ex.org/x/yy/zzz/.../a/b/c']));
 
                         // ### should resolve datatype IRIs against the document IRI
@@ -938,12 +938,12 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
                         // ### should respect @base statements
       $this->shouldParse(parser,
-                  '<a> <b> <c>.\n' .
-                  '@base <http://ex.org/x/>.\n' .
-                  '<e> <f> <g>.\n' .
-                  '@base <d/>.\n' .
-                  '<h> <i> <j>.\n' .
-                  '@base </e/>.\n' .
+                  '<a> <b> <c>.' . "\n" .
+                  '@base <http://ex.org/x/>.' . "\n" .
+                  '<e> <f> <g>.' . "\n" .
+                  '@base <d/>.' . "\n" .
+                  '<h> <i> <j>.' . "\n" .
+                  '@base </e/>.' . "\n" .
                   '<k> <l> <m>.',
                   ['http://ex.org/x/yy/zzz/a', 'http://ex.org/x/yy/zzz/b', 'http://ex.org/x/yy/zzz/c'],
                   ['http://ex.org/x/e', 'http://ex.org/x/f', 'http://ex.org/x/g'],
@@ -956,7 +956,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
                         // ### should use the given prefix for blank nodes
       $this->shouldParse(parser,
-                  '_:a <b> _:c.\n',
+                  '_:a <b> _:c.' . "\n",
                   ['_:blanka', 'b', '_:blankc']));
   });
 
@@ -965,7 +965,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
                         // ### should not use a prefix for blank nodes
       $this->shouldParse(parser,
-                  '_:a <b> _:c.\n',
+                  '_:a <b> _:c.' . "\n",
                   ['_:a', 'b', '_:c']));
   });
 
