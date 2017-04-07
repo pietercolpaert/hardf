@@ -146,7 +146,7 @@ class TriGParser
                 // If an EOF token arrives in the top context, signal that we're done
                 case 'eof':
                 if ($this->graph !== null)
-                    return $this->error('Unclosed graph', $token);
+                    return call_user_func($this->error,'Unclosed graph', $token);
                 unset($this->prefixes["_"]);
                 return call_user_func($this->callback,null, null, $this->prefixes);
                 // It could be a prefix declaration
@@ -538,7 +538,7 @@ class TriGParser
         // ### `_readPunctuation` reads punctuation between triples or triple parts
         $this->readPunctuation = function ($token) {
             $next;
-            $subject = $this->subject;
+            $subject = isset($this->subject)?$this->subject:null;
             $graph = $this->graph;
             $inversePredicate = $this->inversePredicate;
             switch ($token["type"]) {
