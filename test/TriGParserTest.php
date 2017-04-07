@@ -622,8 +622,8 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
     public function testUnicodeSequences () 
     {
-        // ### should parse a graph with 8-bit unicode escape sequences
-        //   $this->shouldParse('<\\U0001d400> {'."\n".'<\\U0001d400> <\\U0001d400> "\\U0001d400"^^<\\U0001d400>'."\n".'}' . "\n",
+        // ### should parse a graph with 8-bit unicode escape sequences //TODO: no idea how we can fix this in PHP
+        //$this->shouldParse('<\\U0001d400> {'."\n".'<\\U0001d400> <\\U0001d400> "\\U0001d400"^^<\\U0001d400>'."\n".'}' . "\n",
         //['\ud835\udC00', '\ud835\udc00', '"\ud835\udc00"^^\ud835\udc00', '\ud835\udc00']);
     }
 
@@ -787,7 +787,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                 $this->assertEquals($expectedError, $error->getMessage());
                 $errorReceived = true;
             } else if (!isset($triple) && !$errorReceived) {
-                $this->fail("Expected error: " . $expectedError);
+                $this->fail("Expected this error to be thrown (but it wasn't): " . $expectedError);
             }
         });
     }

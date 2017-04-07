@@ -211,6 +211,7 @@ class TriGParser
         // ### `_readSubject` reads a triple's subject
         $this->readSubject = function ($token) {
             $this->predicate = null;
+            
             switch ($token["type"]) {
                 case '[':
                     // Start a new triple with a new blank node as subject
@@ -644,8 +645,8 @@ class TriGParser
                 case 'IRI':
                 case 'blank':
                 case 'prefixed':
-                $this->readGraph; //TODO: what’s this?
-                return call_user_func($this->readSubject,$token);
+                call_user_func($this->readSubject,$token);
+                return $this->readGraph; 
                 case '[':
                 return $this->readNamedGraphBlankLabel;
                 default:
