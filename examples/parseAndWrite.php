@@ -6,7 +6,7 @@ use pietercolpaert\hardf\TriGWriter;
 echo "--- First, simple implementation ---\n";
 $parser = new TriGParser();
 $writer = new TriGWriter(["format"=>"trig"]);
-$triples = $parser->parse("<A> <B> <C> <G> .");
+$triples = $parser->parse("(<x>) <a> <b>.");
 $writer->addTriples($triples);
 echo $writer->end();
 

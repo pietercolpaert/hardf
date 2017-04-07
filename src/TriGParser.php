@@ -107,7 +107,7 @@ class TriGParser
             "quantified"=> $n3Mode ? clone $this->quantified : null
         ]);
         // The settings below only apply to N3 streams
-        if ($n3Mode) {
+        if (isset($n3Mode)) {
             // Every new scope resets the predicate direction
             $this->inversePredicate = false;
             // In N3, blank nodes are scoped to a formula
@@ -210,13 +210,13 @@ class TriGParser
 
         // ### `_readSubject` reads a triple's subject
         $this->readSubject = function ($token) {
-                        $this->predicate = null;
+            $this->predicate = null;
             switch ($token["type"]) {
                 case '[':
                     // Start a new triple with a new blank node as subject
-                    $this->saveContext('blank', $this->graph,$this->subject = '_:b' . $this->blankNodeCount++, null, null);
+                    $this->saveContext('blank', $this->graph, $this->subject = '_:b' . $this->blankNodeCount++, null, null);
                     return $this->readBlankNodeHead;
-                case '(':
+                case '(':;
                     // Start a new list
                     $this->saveContext('list', $this->graph, self::RDF_NIL, null, null);
                     $this->subject = null;
@@ -383,14 +383,14 @@ class TriGParser
         
         // ### `_readListItem` reads items from a list
         $this->readListItem = function ($token) {
-                        $item = null;                        // The item of the list
+            $item = null;                        // The item of the list
             $list = null;                        // The list itself
             $prevList = $this->subject;          // The previous list that contains this list
             $stack = $this->contextStack;        // The stack of parent contexts
             $parent = $stack[sizeof($stack) - 1];// The parent containing the current list
             $next = $this->readListItem;         // The next function to execute
             $itemComplete = true;                // Whether the item has been read fully
-
+            
             switch ($token["type"]) {
                 case '[':
                     // Stack the current list triple and start a new triple with a blank node as subject
@@ -401,17 +401,16 @@ class TriGParser
                     break;
                 case '(':
                     // Stack the current list triple and start a new list
-                    $this->saveContext('list', $this->graph, $list = '_:b' . $this->blankNodeCount++,
-                    self::RDF_FIRST, self::RDF_NIL);
+                    $this->saveContext('list', $this->graph, $list = '_:b' . $this->blankNodeCount++, self::RDF_FIRST, self::RDF_NIL);
                     $this->subject = null;
                     break;
                 case ')':
                     // Closing the list; restore the parent context
                     $this->restoreContext();
                     // If this list is contained within a parent list, return the membership triple here.
-                    // This will be `<parent list element> rdf:first <this list>.`.
+                    // This will be `<parent list element> rdf:first <this list>.`.                    
                     if (sizeof($stack) !== 0 && $stack[sizeof($stack) - 1] === 'list')
-                        $this->triple($this->subject, $this->predicate, $this->object, $this->graph);
+                        call_user_func($this->triple, $this->subject, $this->predicate, $this->object, $this->graph);
                     // Was this list the parent's subject?
                     if ($this->predicate === null) {
                         // The next token is the predicate
@@ -422,7 +421,7 @@ class TriGParser
                     }
                     // The list was in the parent context's object
                     else {
-                        $next = $this->getContextEndReader();
+                        $next = call_user_func($this->getContextEndReader);
                         // No list tail if this was an empty list
                         if ($this->object === self::RDF_NIL)
                             return $next;
@@ -436,7 +435,7 @@ class TriGParser
                     $next = $this->readListItemDataTypeOrLang;
                     break;
                 default:
-                    $item = $this->readEntity($token);
+                    $item = call_user_func($this->readEntity, $token);
                     if ($item == null)
                         return;
             }
@@ -445,7 +444,6 @@ class TriGParser
             if ($list === null)
                 $list = '_:b' . $this->blankNodeCount++;
             $this->subject = $list;
-
             // Is this the first element of the list?
             if ($prevList === null) {
                 // This list is either the subject or the object of its parent
@@ -456,12 +454,12 @@ class TriGParser
             }
             else {
                 // Continue the previous list with the current list
-                $this->triple($prevList, self::RDF_REST, $list, $this->graph);
+                call_user_func($this->triple,$prevList, self::RDF_REST, $list, $this->graph);
             }
             // Add the item's value
             if ($item !== null) {
                 // In N3 mode, the item might be a path
-                if ($this->n3Mode && ($token["type"] === 'IRI' || $token["type"] === 'prefixed')) {
+                if (isset($this->n3Mode) && ($token["type"] === 'IRI' || $token["type"] === 'prefixed')) {
                     // Create a new context to add the item's path
                     $this->saveContext('item', $this->graph, $list, self::RDF_FIRST, $item);
                     $this->subject = $item;
@@ -471,7 +469,7 @@ class TriGParser
                 }
                 // Output the item if it is complete
                 if ($itemComplete)
-                    $this->triple($list, self::RDF_FIRST, $item, $this->graph);
+                    call_user_func($this->triple, $list, self::RDF_FIRST, $item, $this->graph);
                 // Otherwise, save it for completion
                 else
                     $this->object = $item;
@@ -941,7 +939,7 @@ class TriGParser
                     $error = $e;
                 }   
             };
-            $tokens = $this->lexer->tokenize($input);
+            $tokens = $this->lexer->tokenize($input);            
             foreach($tokens as $token) {
                 $this->readCallback = call_user_func($this->readCallback,$token);
             }
