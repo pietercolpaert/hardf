@@ -486,7 +486,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['http://ex.org/d/e', 'http://ex.org/d/f', '"g"^^http://ex.org/d/h']);
 
         // ### should resolve IRIs against a base with a fragment
-        $this->shouldParse('@base <http://ex.org/foo#bar>.\n' .
+        $this->shouldParse("@base <http://ex.org/foo#bar>.\n" .
         "<a> <b> <#c>.\n",
         ['http://ex.org/a', 'http://ex.org/b', 'http://ex.org/foo#c']);
 
@@ -496,7 +496,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['http://ex.org/foo#', 'http://ex.org/b#', 'http://ex.org/foo#c']);
 //TODO : solve plus to dot and newlines
         // ### should not resolve prefixed names
-        $this->shouldParse('PREFIX ex: <http://ex.org/a/bb/ccc/../>\n' +
+        $this->shouldParse('PREFIX ex: <http://ex.org/a/bb/ccc/../>\n' .
         'ex:a ex:b ex:c .',
         ['http://ex.org/a/bb/ccc/../a', 'http://ex.org/a/bb/ccc/../b', 'http://ex.org/a/bb/ccc/../c']);
 
@@ -877,8 +877,8 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
                         // ### should resolve IRIs against the document IRI
       $this->shouldParse(parser,
-                  '@prefix : <#>.\n' +
-                  '<a> <b> <c> <g>.\n' +
+                  '@prefix : <#>.\n' .
+                  '<a> <b> <c> <g>.\n' .
                   ':d :e :f :g.',
                   ['http://ex.org/x/yy/zzz/a', 'http://ex.org/x/yy/zzz/b', 'http://ex.org/x/yy/zzz/c', 'http://ex.org/x/yy/zzz/g'],
                   ['http://ex.org/x/yy/zzz/f.ttl#d', 'http://ex.org/x/yy/zzz/f.ttl#e', 'http://ex.org/x/yy/zzz/f.ttl#f', 'http://ex.org/x/yy/zzz/f.ttl#g']));
@@ -938,12 +938,12 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
                         // ### should respect @base statements
       $this->shouldParse(parser,
-                  '<a> <b> <c>.\n' +
-                  '@base <http://ex.org/x/>.\n' +
-                  '<e> <f> <g>.\n' +
-                  '@base <d/>.\n' +
-                  '<h> <i> <j>.\n' +
-                  '@base </e/>.\n' +
+                  '<a> <b> <c>.\n' .
+                  '@base <http://ex.org/x/>.\n' .
+                  '<e> <f> <g>.\n' .
+                  '@base <d/>.\n' .
+                  '<h> <i> <j>.\n' .
+                  '@base </e/>.\n' .
                   '<k> <l> <m>.',
                   ['http://ex.org/x/yy/zzz/a', 'http://ex.org/x/yy/zzz/b', 'http://ex.org/x/yy/zzz/c'],
                   ['http://ex.org/x/e', 'http://ex.org/x/f', 'http://ex.org/x/g'],
@@ -1263,13 +1263,13 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['?b-0', '?b-0', '?b-0']));
 
                         // ### should parse a ! path of length 2 as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           ':joe!fam:mother a fam:Person.',
                   ['ex:joe', 'f:mother', '_:b0'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
 
                         // ### should parse a ! path of length 4 as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>. @prefix loc: <l:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>. @prefix loc: <l:>.' .
                           ':joe!fam:mother!loc:office!loc:zip loc:code 1234.',
                   ['ex:joe', 'f:mother', '_:b0'],
                   ['_:b0',   'l:office', '_:b1'],
@@ -1277,13 +1277,13 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b2',   'l:code',   '"1234"^^http://www.w3.org/2001/XMLSchema#integer']));
 
                         // ### should parse a ! path of length 2 as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> :joe!fam:mother.',
                   ['x', 'is', '_:b0'],
                   ['ex:joe', 'f:mother', '_:b0']));
 
                         // ### should parse a ! path of length 4 as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>. @prefix loc: <l:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>. @prefix loc: <l:>.' .
                           '<x> <is> :joe!fam:mother!loc:office!loc:zip.',
                   ['x',      'is',       '_:b2'],
                   ['ex:joe', 'f:mother', '_:b0'],
@@ -1291,13 +1291,13 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b1',   'l:zip',    '_:b2']));
 
                         // ### should parse a ^ path of length 2 as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           ':joe^fam:son a fam:Person.',
                   ['_:b0', 'f:son', 'ex:joe'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
 
                         // ### should parse a ^ path of length 4 as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           ':joe^fam:son^fam:sister^fam:mother a fam:Person.',
                   ['_:b0', 'f:son',    'ex:joe'],
                   ['_:b1', 'f:sister', '_:b0'],
@@ -1305,13 +1305,13 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
 
                         // ### should parse a ^ path of length 2 as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> :joe^fam:son.',
                   ['x',    'is',    '_:b0'],
                   ['_:b0', 'f:son', 'ex:joe']));
 
                         // ### should parse a ^ path of length 4 as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> :joe^fam:son^fam:sister^fam:mother.',
                   ['x',    'is',       '_:b2'],
                   ['_:b0', 'f:son',    'ex:joe'],
@@ -1319,49 +1319,49 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b2', 'f:mother', '_:b1']));
 
                         // ### should parse mixed !/^ paths as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           ':joe!fam:mother^fam:mother a fam:Person.',
                   ['ex:joe', 'f:mother', '_:b0'],
                   ['_:b1',   'f:mother', '_:b0'],
                   ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
 
                         // ### should parse mixed !/^ paths as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> :joe!fam:mother^fam:mother.',
                   ['x', 'is', '_:b1'],
                   ['ex:joe', 'f:mother', '_:b0'],
                   ['_:b1',   'f:mother', '_:b0']));
 
                         // ### should parse a ! path in a blank node as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '[fam:knows :joe!fam:mother] a fam:Person.',
                   ['_:b0', 'f:knows', '_:b1'],
                   ['ex:joe', 'f:mother', '_:b1'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
 
                         // ### should parse a ! path in a blank node as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> [fam:knows :joe!fam:mother].',
                   ['x', 'is', '_:b0'],
                   ['_:b0', 'f:knows', '_:b1'],
                   ['ex:joe', 'f:mother', '_:b1']));
 
                         // ### should parse a ^ path in a blank node as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '[fam:knows :joe^fam:son] a fam:Person.',
                   ['_:b0', 'f:knows', '_:b1'],
                   ['_:b1', 'f:son', 'ex:joe'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
 
                         // ### should parse a ^ path in a blank node as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> [fam:knows :joe^fam:son].',
                   ['x', 'is', '_:b0'],
                   ['_:b0', 'f:knows', '_:b1'],
                   ['_:b1', 'f:son', 'ex:joe']));
 
                         // ### should parse a ! path in a list as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '(<x> :joe!fam:mother <y>) a :List.',
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',  'ex:List'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x'],
@@ -1373,7 +1373,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['ex:joe', 'f:mother', '_:b2']));
 
                         // ### should parse a ! path in a list as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<l> <is> (<x> :joe!fam:mother <y>).',
                   ['l', 'is', '_:b0'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x'],
@@ -1385,7 +1385,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['ex:joe', 'f:mother', '_:b2']));
 
                         // ### should parse a ^ path in a list as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '(<x> :joe^fam:son <y>) a :List.',
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',  'ex:List'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x'],
@@ -1397,7 +1397,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b2', 'f:son', 'ex:joe']));
 
                         // ### should parse a ^ path in a list as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' +
+      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<l> <is> (<x> :joe^fam:son <y>).',
                   ['l', 'is', '_:b0'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x'],
@@ -1911,10 +1911,10 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
 function itShouldResolve(baseIri, relativeIri, expected) {
   $result;
-  describe('resolving <' + relativeIri + '> against <' + baseIri + '>', function () {
+  describe('resolving <' . relativeIri . '> against <' . baseIri . '>', function () {
     before(function (done) {
       try {
-        $doc = '<urn:ex:s> <urn:ex:p> <' + relativeIri + '>.';
+        $doc = '<urn:ex:s> <urn:ex:p> <' . relativeIri . '>.';
         new N3Parser({ documentIRI: baseIri }).parse(doc, function ($error, $triple) {
           if (done)
             result = triple, done(error);
@@ -1923,7 +1923,7 @@ function itShouldResolve(baseIri, relativeIri, expected) {
       }
       catch (error) { done(error); }
     });
-    it('should result in ' + expected, function () {
+    it('should result in ' . expected, function () {
       expect(result.object).to.equal(expected);
     });
   });
