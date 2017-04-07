@@ -18,7 +18,7 @@ class TriGParser
     private $dotSegments = '/(?:^|\/)\.\.?(?:$|[\/#?])/';
 
     // The next ID for new blank nodes
-    private $blankNodePrefix = 0;
+    private $blankNodePrefix;
     private $blankNodeCount = 0;
     
     private $contextStack;
@@ -73,7 +73,7 @@ class TriGParser
     // ## Private class methods
     // ### `_resetBlankNodeIds` restarts blank node identification
     public function _resetBlankNodeIds () {
-        $this->blankNodePrefix = 0;
+        $this->blankNodePrefix = null;
         $this->blankNodeCount = 0;
     }
 
@@ -98,13 +98,13 @@ class TriGParser
     // ### `_saveContext` stores the current parsing context
     // when entering a new scope (list, blank node, formula)
     private function saveContext($type, $graph, $subject, $predicate, $object) {
-        $n3Mode = $this->n3Mode;
-        $this->contextStack.push([
+        $n3Mode = isset($this->n3Mode)?$this->n3Mode:null;
+        array_push($this->contextStack,[
             "subject"=> $subject, "predicate"=> $predicate,"object"=> $object,
             "graph" => $graph, "type"=> $type,
-            "inverse" => $n3Mode ? $this->inversePredicate : false,
-            "blankPrefix"=> $n3Mode ? $this->prefixes["_"] : '',
-            "quantified"=> $n3Mode ? $this->quantified : null
+            "inverse" => $n3Mode ? clone $this->inversePredicate : false,
+            "blankPrefix"=> $n3Mode ? clone $this->prefixes["_"] : '',
+            "quantified"=> $n3Mode ? clone $this->quantified : null
         ]);
         // The settings below only apply to N3 streams
         if ($n3Mode) {
@@ -114,15 +114,15 @@ class TriGParser
             // (using a dot as separator, as a blank node label cannot start with it)
             $this->prefixes["_"] = $this->graph . '.';
             // Quantifiers are scoped to a formula TODO: is this correct?
-            //$this->quantified = Object.create($this->quantified);
+            $this->quantified = clone $this->quantified;
         }
     }
 
     // ### `_restoreContext` restores the parent context
     // when leaving a scope (list, blank node, formula)
     private function restoreContext() {
-        $context = $this->contextStack.pop();
-        $n3Mode = $this->n3Mode;
+        $context = array_pop($this->contextStack);
+        $n3Mode = isset($this->n3Mode)?$this->n3Mode:null;
         $this->subject   = $context["subject"];
         $this->predicate = $context["predicate"];
         $this->object    = $context["object"];
@@ -134,7 +134,6 @@ class TriGParser
             $this->quantified = $context["quantified"];
         }
     }
-
 
     private function initReaders () 
     {
@@ -189,8 +188,10 @@ class TriGParser
                 case 'type':
                 case 'blank':
                 case 'prefixed':
-                    if (!isset($this->prefixes[$token["prefix"]]))
+                    if (!isset($this->prefixes[$token["prefix"]])) {
                         return call_user_func($this->error,'Undefined prefix "' . $token["prefix"] . ':"', $token);
+                    }
+                    
                     $prefix = $this->prefixes[$token["prefix"]];
                     $value = $prefix . $token["value"];
                     break;
@@ -209,12 +210,11 @@ class TriGParser
 
         // ### `_readSubject` reads a triple's subject
         $this->readSubject = function ($token) {
-            $this->predicate = null;
+                        $this->predicate = null;
             switch ($token["type"]) {
                 case '[':
                     // Start a new triple with a new blank node as subject
-                    $this->saveContext('blank', $this->graph,
-                    $this->subject = '_:b' . $this->blankNodeCount++, null, null);
+                    $this->saveContext('blank', $this->graph,$this->subject = '_:b' . $this->blankNodeCount++, null, null);
                     return $this->readBlankNodeHead;
                 case '(':
                     // Start a new list
@@ -272,12 +272,12 @@ class TriGParser
                     if ($this->predicate === null)
                         return call_user_func($this->error,'Unexpected ' . $type, $token);
                     $this->subject = null;
-                    return $type === ']' ? $this->readBlankNodeTail($token) : $this->readPunctuation($token);
+                    return $type === ']' ? call_user_func($this->readBlankNodeTail,$token) : call_user_func($this->readPunctuation,$token);
                 case ';':
                     // Extra semicolons can be safely ignored
                     return $this->readPredicate;
                 case 'blank':
-                    if (!$this->n3Mode)
+                    if (!isset($this->n3Mode))
                         return call_user_func($this->error,'Disallowed blank node as predicate', $token);
                 default:
                     $this->predicate = call_user_func($this->readEntity,$token);
@@ -290,7 +290,7 @@ class TriGParser
 
         // ### `_readObject` reads a triple's object
         $this->readObject = function ($token) {
-            switch ($token["type"]) {
+                        switch ($token["type"]) {
                 case 'literal':
                 $this->object = $token["value"];
                 return $this->readDataTypeOrLang;
@@ -342,22 +342,22 @@ class TriGParser
         $this->readBlankNodeHead = function ($token) {
             if ($token["type"] === ']') {
                 $this->subject = null;
-                return $this->readBlankNodeTail($token);
+                return call_user_func($this->readBlankNodeTail,$token);
             }
             else {
                 $this->predicate = null;
-                return $this->readPredicate($token);
+                return call_user_func($this->readPredicate,$token);
             }
         };
 
         // ### `_readBlankNodeTail` reads the end of a blank node
         $this->readBlankNodeTail = function ($token) {
             if ($token["type"] !== ']')
-                return $this->readBlankNodePunctuation($token);
+                return call_user_func($this->readBlankNodePunctuation,$token);
 
             // Store blank node triple
             if ($this->subject !== null)
-                $this->triple($this->subject, $this->predicate, $this->object, $this->graph);
+                call_user_func($this->triple,$this->subject, $this->predicate, $this->object, $this->graph);
 
             // Restore the parent context containing this blank node
             $empty = $this->predicate === null;
@@ -368,7 +368,7 @@ class TriGParser
                 return $empty ? $this->readPredicateOrNamedGraph : $this->readPredicateAfterBlank;
             // If the blank node was the object, restore previous context and read punctuation
             else
-                return $this->getContextEndReader();
+                return call_user_func($this->getContextEndReader);
         };
 
         // ### `_readPredicateAfterBlank` reads a predicate after an anonymous blank node
@@ -376,14 +376,14 @@ class TriGParser
             // If a dot follows a blank node in top context, there is no predicate
             if ($token["type"] === '.' && sizeof($this->contextStack) === 0) {
                 $this->subject = null; // cancel the current triple
-                return $this->readPunctuation($token);
+                return call_user_func($this->readPunctuation, $token);
             }
-            return $this->readPredicate($token);
+            return call_user_func($this->readPredicate, $token);
         };
         
         // ### `_readListItem` reads items from a list
         $this->readListItem = function ($token) {
-            $item = null;                        // The item of the list
+                        $item = null;                        // The item of the list
             $list = null;                        // The list itself
             $prevList = $this->subject;          // The previous list that contains this list
             $stack = $this->contextStack;        // The stack of parent contexts
@@ -545,7 +545,7 @@ class TriGParser
                 case '}':
                     if ($this->graph === null)
                         return call_user_func($this->error,'Unexpected graph closing', $token);
-                    if ($this->n3Mode)
+                    if (isset($this->n3Mode))
                         return $this->readFormulaTail($token);
                     $this->graph = null;
                     // A dot just ends the statement, without sharing anything with the next
@@ -599,7 +599,7 @@ class TriGParser
                     return call_user_func($this->error,'Expected punctuation to follow "' . $this->object . '"', $token);
             }
             // A triple has been completed now, so return it
-            $this->triple($this->subject, $this->predicate, $this->object, $this->graph);
+            call_user_func($this->triple, $this->subject, $this->predicate, $this->object, $this->graph);
             return $next;
         };
 
@@ -654,7 +654,7 @@ class TriGParser
 
         // ### `_readNamedGraphLabel` reads a blank node label of a named graph
         $this->readNamedGraphBlankLabel = function ($token) {
-            if ($token["type"] !== ']')
+                        if ($token["type"] !== ']')
                 return call_user_func($this->error,'Invalid graph label', $token);
             $this->subject = '_:b' . $this->blankNodeCount++;
             return $this->readGraph;
@@ -675,7 +675,7 @@ class TriGParser
 
         // Reads a list of quantified symbols from a @forSome or @forAll statement
         $this->readQuantifierList = function ($token) {
-            $entity;
+                        $entity;
             switch ($token["type"]) {
                 case 'IRI':
                 case 'prefixed':
@@ -755,7 +755,7 @@ class TriGParser
 
         // ### `_readForwardPath` reads a '!' path
         $this->readForwardPath = function ($token) {
-            $subject; $predicate; $object = '_:b' . $this->blankNodeCount++;
+                        $subject; $predicate; $object = '_:b' . $this->blankNodeCount++;
             // The next token is the predicate
             $predicate = call_user_func($this->readEntity,$token);
             if (!$predicate)
@@ -777,7 +777,7 @@ class TriGParser
 
         // ### `_readBackwardPath` reads a '^' path
         $this->readBackwardPath = function ($token) {
-            $subject = '_:b' . $this->blankNodeCount++;
+                        $subject = '_:b' . $this->blankNodeCount++;
             $predicate; $object;
             // The next token is the predicate
             $predicate = call_user_func($this->readEntity,$token);
@@ -923,7 +923,7 @@ class TriGParser
         $this->readCallback = $this->readInTopContext;
         $this->sparqlStyle = false;
         $this->prefixes = [];
-        $this->prefixes["_"] = isset($this->blankNodePrefix)?$this->blankNodePrefix:'_:b' . $this->blankNodePrefix++ . '_';
+        $this->prefixes["_"] = isset($this->blankNodePrefix)?$this->blankNodePrefix:'_:b' . $this->blankNodeCount . '_';
         $this->prefixCallback = isset($prefixCallback)?$prefixCallback:function () {};
         $this->inversePredicate = false;
         $this->quantified = [];

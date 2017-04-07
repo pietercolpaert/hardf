@@ -181,8 +181,7 @@ class N3Lexer
                     // Try to find a blank node. Since it can contain (but not end with) a dot,
                     // we always need a non-dot character before deciding it is a prefixed name.
                     // Therefore, try inserting a space if we're at the end of the $input.
-                    if ((preg_match($this->blank, $input, $match)) ||
-                    $inputFinished && (preg_match($this->blank, $input . ' ', $match))) {
+                    if ((preg_match($this->blank, $input, $match)) || $inputFinished && (preg_match($this->blank, $input . ' ', $match))) {
                         $type = 'blank';
                         $prefix = '_';
                         $value = $match[1];

@@ -169,6 +169,10 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['a', 'b', 'c'],
         ['a', 'b', 'd']);
 
+    }
+
+    public function testBlankNodes () 
+    {
         // ### should parse diamonds
         $this->shouldParse("<> <> <> <>.\n(<>) <> (<>) <>.",
         ['', '', '', ''],
@@ -189,7 +193,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         // ### should parse statements with empty blank nodes
         $this->shouldParse('[] <b> [].',
         ['_:b0', 'b', '_:b1']);
-
+    
         // ### should parse statements with unnamed blank nodes in the subject
         $this->shouldParse('[<a> <b>] <c> <d>.',
         ['_:b0', 'c', 'd'],
@@ -309,6 +313,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
             else
                 $this->assertEquals(self::toSortedJSON($items), self::toSortedJSON($results));
         });
+        $parser->_resetBlankNodeIds();
     }
 
     
@@ -324,11 +329,14 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         }
         $parser = $createParser();
         $parser->_resetBlankNodeIds();
-        $parser->parse($input, function ($error, $triple = null) use ($expectedError){
+        //hackish way so we only act upon first error
+        $callbackCount = 0;
+        $parser->parse($input, function ($error, $triple = null) use ($expectedError, &$callbackCount){
             //expect($error).not.to.exist;
-            if (isset($error)) {
+            if (isset($error) && $callbackCount === 0) {
                 $this->assertEquals($expectedError, $error->getMessage());
-            } else if (!isset($triple)) {
+                $callbackCount ++;
+            } else if (!isset($triple) && $callbackCount === 0) {
                 throw new \Exception('Expected error ' . $expectedError);
             }
         });
