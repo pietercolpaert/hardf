@@ -836,7 +836,7 @@ class TriGParser
                 // Resolve relative fragment IRIs against the base IRI
                 case '#': return $this->base . $iri;
                 // Resolve relative query string IRIs by replacing the query string
-                case '?':
+                case '?': //should only replace the first occurence
                     return preg_replace('/(?:\?.*)?$/', $iri, $this->base, 1);
                 // Resolve root-relative IRIs at the root of the base IRI
                 case '/':
