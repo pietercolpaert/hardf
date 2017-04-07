@@ -230,7 +230,7 @@ class TriGParser
                     return $this->readSubject;
                 case '}':
                     // No subject; the graph in which we are reading is closed instead
-                    return $this->readPunctuation($token);
+                    return call_user_func($this->readPunctuation, $token);
                 case '@forSome':
                     $this->subject = null;
                     $this->predicate = 'http://www.w3.org/2000/10/swap/reify#forSome';
@@ -248,7 +248,7 @@ class TriGParser
                         return;
                     // In N3 mode, the subject might be a path
                     if (isset($this->n3Mode))
-                        return $this->getPathReader($this->readPredicateOrNamedGraph);
+                        return call_user_func($this->getPathReader,$this->readPredicateOrNamedGraph);
             }
 
             // The next token must be a predicate,
@@ -318,7 +318,7 @@ class TriGParser
                     return;
                 // In N3 mode, the object might be a path
                 if (isset($this->n3Mode))
-                    return $this->getPathReader($this->getContextEndReader());
+                    return call_user_func($this->getPathReader,$this->getContextEndReader());
             }
             return call_user_func($this->getContextEndReader);
         };
@@ -468,7 +468,7 @@ class TriGParser
                     $this->subject = $item;
                     $this->predicate = null;
                     // _readPath will restore the context and output the item
-                    return $this->getPathReader($this->readListItem);
+                    return call_user_func($this->getPathReader,$this->readListItem);
                 }
                 // Output the item if it is complete
                 if ($itemComplete)
