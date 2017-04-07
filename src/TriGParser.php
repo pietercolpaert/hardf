@@ -102,9 +102,9 @@ class TriGParser
         array_push($this->contextStack,[
             "subject"=> $subject, "predicate"=> $predicate,"object"=> $object,
             "graph" => $graph, "type"=> $type,
-            "inverse" => $n3Mode ? clone $this->inversePredicate : false,
-            "blankPrefix"=> $n3Mode ? clone $this->prefixes["_"] : '',
-            "quantified"=> $n3Mode ? clone $this->quantified : null
+            "inverse" => $n3Mode ? $this->inversePredicate : false,
+            "blankPrefix"=> $n3Mode ? $this->prefixes["_"] : '',
+            "quantified"=> $n3Mode ? $this->quantified : null
         ]);
         // The settings below only apply to N3 streams
         if (isset($n3Mode)) {
@@ -128,7 +128,7 @@ class TriGParser
         $this->object    = $context["object"];
         $this->graph     = $context["graph"];
         // The settings below only apply to N3 streams
-        if ($n3Mode) {
+        if (isset($n3Mode)) {
             $this->inversePredicate = $context["inverse"];
             $this->prefixes["_"] = $context["blankPrefix"];
             $this->quantified = $context["quantified"];
@@ -386,8 +386,8 @@ class TriGParser
             $item = null;                        // The item of the list
             $list = null;                        // The list itself
             $prevList = $this->subject;          // The previous list that contains this list
-            $stack = $this->contextStack;        // The stack of parent contexts
-            $parent = $stack[sizeof($stack) - 1];// The parent containing the current list
+            $stack = &$this->contextStack;        // The stack of parent contexts
+            $parent = &$stack[sizeof($stack) - 1];// The parent containing the current list
             $next = $this->readListItem;         // The next function to execute
             $itemComplete = true;                // Whether the item has been read fully
             
@@ -409,8 +409,9 @@ class TriGParser
                     $this->restoreContext();
                     // If this list is contained within a parent list, return the membership triple here.
                     // This will be `<parent list element> rdf:first <this list>.`.                    
-                    if (sizeof($stack) !== 0 && $stack[sizeof($stack) - 1] === 'list')
+                    if (sizeof($stack) !== 0 && $stack[sizeof($stack) - 1]["type"] === 'list') {
                         call_user_func($this->triple, $this->subject, $this->predicate, $this->object, $this->graph);
+                    }
                     // Was this list the parent's subject?
                     if ($this->predicate === null) {
                         // The next token is the predicate
@@ -441,9 +442,10 @@ class TriGParser
             }
 
             // Create a new blank node if no item head was assigned yet
-            if ($list === null)
+            if ($list === null) {
                 $list = '_:b' . $this->blankNodeCount++;
-            $this->subject = $list;
+                $this->subject = $list;
+            }
             // Is this the first element of the list?
             if ($prevList === null) {
                 // This list is either the subject or the object of its parent
