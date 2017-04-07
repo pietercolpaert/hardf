@@ -88,8 +88,8 @@ class TriGParser
                 $baseIRI = substr($baseIRI,0, $fragmentPos);
             // Set base IRI and its components
             $this->base = $baseIRI;
-            $this->basePath = strpos($baseIRI,'/') ? $baseIRI : preg_replace('/[^\/?]*(?:\?.*)?$/', '',$baseIRI);
-            preg_match($schemeAuthority, $baseIRI, $matches);
+            $this->basePath = !strpos($baseIRI,'/') ? $baseIRI : preg_replace('/[^\/?]*(?:\?.*)?$/', '',$baseIRI);
+            preg_match($this->schemeAuthority, $baseIRI, $matches);
             $this->baseRoot   = $matches[0];
             $this->baseScheme = $matches[1];
         }
@@ -182,7 +182,7 @@ class TriGParser
                 // Read a relative or absolute IRI
                 case 'IRI':
                 case 'typeIRI':
-                    $value = ($this->base === null || preg_match($this->absoluteIRI,$token["value"])) ? $token["value"] : $this->resolveIRI($token);
+                    $value = ($this->base === null || preg_match($this->absoluteIRI,$token["value"])) ? $token["value"] : call_user_func($this->resolveIRI,$token);
                     break;
                     // Read a blank node or prefixed name
                 case 'type':
@@ -394,9 +394,10 @@ class TriGParser
             switch ($token["type"]) {
                 case '[':
                     // Stack the current list triple and start a new triple with a blank node as subject
+                    $list = '_:b' . $this->blankNodeCount++;
                     $item = '_:b' . $this->blankNodeCount++;
-                    $this->subject = $item;
-                    $this->saveContext('blank', $this->graph, $list = '_:b' . $this->blankNodeCount++, self::RDF_FIRST, $this->subject);
+                    $this->subject = $item;                    
+                    $this->saveContext('blank', $this->graph, $list, self::RDF_FIRST, $this->subject);
                     $next = $this->readBlankNodeHead;
                     break;
                 case '(':
@@ -633,7 +634,7 @@ class TriGParser
             if ($token["type"] !== 'IRI')
                 return call_user_func($this->error,'Expected IRI to follow base declaration', $token);
             $this->setBase($this->base === null || preg_match($this->absoluteIRI,$token["value"]) ?
-            $token["value"] : $this->resolveIRI($token));
+            $token["value"] : call_user_func($this->resolveIRI,$token));
             return $this->readDeclarationPunctuation;
         };
 
@@ -828,18 +829,20 @@ class TriGParser
         // assuming that a base path has been set and that the IRI is indeed relative
         $this->resolveIRI = function ($token) {
             $iri = $token["value"];
+            if (!isset($iri[0])) // An empty relative IRI indicates the base IRI
+                return $this->base;
+            
             switch ($iri[0]) {
-                // An empty relative IRI indicates the base IRI
-                case undefined: return $this->base;
-                    // Resolve relative fragment IRIs against the base IRI
+                // Resolve relative fragment IRIs against the base IRI
                 case '#': return $this->base . $iri;
-                    // Resolve relative query string IRIs by replacing the query string
-                case '?': return preg_replace('/(?:\?.*)?$/', $iri, $this->base);
-                    // Resolve root-relative IRIs at the root of the base IRI
+                // Resolve relative query string IRIs by replacing the query string
+                case '?':
+                    return preg_replace('/(?:\?.*)?$/', $iri, $this->base, 1);
+                // Resolve root-relative IRIs at the root of the base IRI
                 case '/':
-                    // Resolve scheme-relative IRIs to the scheme
-                    return ($iri[1] === '/' ? $this->baseScheme : $this->baseRoot) . $this->removeDotSegments($iri);
-                    // Resolve all other IRIs at the base IRI's path
+                // Resolve scheme-relative IRIs to the scheme
+                    return ($iri[1] === '/' ? $this->baseScheme : $this->baseRoot) . call_user_func($this->removeDotSegments,$iri);
+                // Resolve all other IRIs at the base IRI's path
                 default:
                     return call_user_func($this->removeDotSegments, $this->basePath . $iri);
             }

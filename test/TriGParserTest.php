@@ -477,25 +477,24 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['http://ex.org/a', 'http://ex.org/b', 'http://ex.org/c'],
         ['A:',  'b:',  'c:'],
         ['a:a', 'b:B', 'C-D:c']);
-//TODO : solve plus to dot and newlines
         // ### should resolve datatype IRIs against @base
-        $this->shouldParse('@base <http://ex.org/>.\n' +
-        '<a> <b> "c"^^<d>.\n' +
-        '@base <d/>.\n' +
+        $this->shouldParse("@base <http://ex.org/>.\n" .
+        "<a> <b> \"c\"^^<d>.\n" .
+        "@base <d/>.\n" .
         '<e> <f> "g"^^<h>.',
         ['http://ex.org/a', 'http://ex.org/b', '"c"^^http://ex.org/d'],
         ['http://ex.org/d/e', 'http://ex.org/d/f', '"g"^^http://ex.org/d/h']);
 
         // ### should resolve IRIs against a base with a fragment
-        $this->shouldParse('@base <http://ex.org/foo#bar>.\n' +
-        '<a> <b> <#c>.\n',
+        $this->shouldParse('@base <http://ex.org/foo#bar>.\n' .
+        "<a> <b> <#c>.\n",
         ['http://ex.org/a', 'http://ex.org/b', 'http://ex.org/foo#c']);
 
         // ### should resolve IRIs with an empty fragment
-        $this->shouldParse('@base <http://ex.org/foo>.\n' +
-        '<#> <b#> <#c>.\n',
+        $this->shouldParse("@base <http://ex.org/foo>.\n" .
+        "<#> <b#> <#c>.\n",
         ['http://ex.org/foo#', 'http://ex.org/b#', 'http://ex.org/foo#c']);
-
+//TODO : solve plus to dot and newlines
         // ### should not resolve prefixed names
         $this->shouldParse('PREFIX ex: <http://ex.org/a/bb/ccc/../>\n' +
         'ex:a ex:b ex:c .',
@@ -554,14 +553,14 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['a', 'd', 'f', 'g']);
 
         // ### should parse an empty named graph with a prefixed name
-        $this->shouldParse('@prefix g: <g#>.\ng:h {}');
+        $this->shouldParse("@prefix g: <g#>.\ng:h {}");
 
         // ### should parse a one-triple named graph with a prefixed name ending without a dot
-        $this->shouldParse('@prefix g: <g#>.\ng:h {<a> <b> <c>}',
+        $this->shouldParse("@prefix g: <g#>.\ng:h {<a> <b> <c>}",
         ['a', 'b', 'c', 'g#h']);
 
         // ### should parse a one-triple named graph with a prefixed name ending with a dot
-        $this->shouldParse('@prefix g: <g#>.\ng:h{<a> <b> <c>.}',
+        $this->shouldParse("@prefix g: <g#>.\ng:h{<a> <b> <c>.}",
         ['a', 'b', 'c', 'g#h']);
 
         // ### should parse a three-triple named graph with a prefixed name ending without a dot
