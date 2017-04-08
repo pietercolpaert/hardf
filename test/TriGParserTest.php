@@ -1005,6 +1005,42 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         $this->shouldParse($parser, '{<a> <b> <c>}', ['a', 'b', 'c']);
 
     }
+
+    public function testTurtle ()
+    {
+        $parser = function () { return new TriGParser([ "format" => 'Turtle' ]); };
+
+        // ### should parse a single triple
+        $this->shouldParse($parser, '<a> <b> <c>.', ['a', 'b', 'c']);
+
+        // ### should not parse a default graph
+        $this->shouldNotParse($parser, '{}', 'Unexpected graph on line 1.');
+
+        // ### should not parse a named graph
+        $this->shouldNotParse($parser, '<g> {}', 'Expected entity but got { on line 1.');
+
+        // ### should not parse a named graph with the GRAPH keyword
+        $this->shouldNotParse($parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.');
+
+        // ### should not parse a quad
+        $this->shouldNotParse($parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.');
+
+        // ### should not parse a variable
+        $this->shouldNotParse($parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.');
+
+        // ### should not parse an equality statement
+        $this->shouldNotParse($parser, '<a> = <b>.', 'Unexpected "=" on line 1.');
+
+        // ### should not parse a right implication statement
+        $this->shouldNotParse($parser, '<a> => <b>.', 'Unexpected "=>" on line 1.');
+
+        // ### should not parse a left implication statement
+        $this->shouldNotParse($parser, '<a> <= <b>.', 'Unexpected "<=" on line 1.');
+
+        // ### should not parse a formula as object
+        $this->shouldNotParse($parser, '<a> <b> {}.', 'Unexpected graph on line 1.');
+
+    }
     
     
     private function shouldParse($createParser, $input = "") 
@@ -1071,41 +1107,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 }
 /*
 
-  describe('An N3Parser instance with a blank node prefix', function () {
-
-
   describe('An TriGParser instance for the Turtle format', function () {
-    $parser = function () { return new TriGParser([ format: 'Turtle' ]); };
-
-                        // ### should parse a single triple
-      $this->shouldParse($parser, '<a> <b> <c>.', ['a', 'b', 'c']);
-
-                        // ### should not parse a default graph
-      $this->shouldNotParse($parser, '{}', 'Unexpected graph on line 1.');
-
-                        // ### should not parse a named graph
-      $this->shouldNotParse($parser, '<g> {}', 'Expected entity but got { on line 1.');
-
-                        // ### should not parse a named graph with the GRAPH keyword
-      $this->shouldNotParse($parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.');
-
-                        // ### should not parse a quad
-      $this->shouldNotParse($parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.');
-
-                        // ### should not parse a variable
-      $this->shouldNotParse($parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.');
-
-                        // ### should not parse an equality statement
-      $this->shouldNotParse($parser, '<a> = <b>.', 'Unexpected "=" on line 1.');
-
-                        // ### should not parse a right implication statement
-      $this->shouldNotParse($parser, '<a> => <b>.', 'Unexpected "=>" on line 1.');
-
-                        // ### should not parse a left implication statement
-      $this->shouldNotParse($parser, '<a> <= <b>.', 'Unexpected "<=" on line 1.');
-
-                        // ### should not parse a formula as object
-      $this->shouldNotParse($parser, '<a> <b> {}.', 'Unexpected graph on line 1.');
   });
 
   describe('An TriGParser instance for the TriG format', function () {

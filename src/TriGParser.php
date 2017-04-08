@@ -31,7 +31,10 @@ class TriGParser
     public function __construct($options = []) {
         $this->contextStack = [];
         $this->graph = null;
-
+        
+        //This will initiate the callback methods
+        $this->initReaders();
+        
         // Set the document IRI
         $this->setBase(isset($options["documentIRI"]) ? $options["documentIRI"]:null);
         
@@ -66,8 +69,6 @@ class TriGParser
         // Disable explicit quantifiers by default - TODO: is !! same in PHP?
         $this->explicitQuantifiers = isset($options["explicitQuantifiers"])?$options["explicitQuantifiers"]:null;
         
-        //This will initiate the callback methods
-        $this->initReaders();
     }
     
     // ## Private class methods
@@ -224,7 +225,7 @@ class TriGParser
                     return $this->readListItem;
                 case '{':
                     // Start a new formula
-                    if (!$this->n3Mode)
+                    if (!isset($this->n3Mode))
                         return call_user_func($this->error,'Unexpected graph', $token);
                     $this->saveContext('formula', $this->graph,
                     $this->graph = '_:b' . $this->blankNodeCount++, null, null);
