@@ -738,74 +738,9 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         'Expected entity but got [ on line 1.');
     }
 
-    private function shouldParse($createParser, $input = "") 
+    public function testInterface() 
     {
-        $expected = array_slice(func_get_args(),1);
-        // Shift parameters as necessary
-        if (is_callable($createParser))
-            array_shift($expected);
-        else {
-            $input = $createParser;
-            $createParser = function () {
-                return new TriGParser();
-            };
-        }
-        $results = [];
-        $items = array_map(function ($item) {
-            return [ "subject" => $item[0], "predicate"=> $item[1], "object"=> $item[2], "graph"=> isset($item[3])?$item[3]:'' ];
-        }, $expected);
-        $parser = $createParser();
-        $parser->_resetBlankNodeIds();
-        $parser->parse($input, function ($error, $triple = null) use (&$results, &$items){
-            //expect($error).not.to.exist;
-            if ($triple)
-                array_push($results, $triple);
-            else
-                $this->assertEquals(self::toSortedJSON($items), self::toSortedJSON($results));
-        });
-        $parser->_resetBlankNodeIds();
-    }
-
-    
-    function shouldNotParse($createParser, $input, $expectedError = null) {
-        $expected = array_slice(func_get_args(),1);
-        // Shift parameters as necessary
-        if (!is_callable($createParser)) {
-            $expectedError = $input;
-            $input = $createParser;
-            $createParser = function () {
-                return new TriGParser();
-            };
-        }
-        $parser = $createParser();
-        $parser->_resetBlankNodeIds();
-        //hackish way so we only act upon first error
-        $errorReceived = false;
-        $parser->parse($input, function ($error, $triple = null) use ($expectedError, &$errorReceived){
-            //expect($error).not.to.exist;
-            if (isset($error) && !$errorReceived) {
-                $this->assertEquals($expectedError, $error->getMessage());
-                $errorReceived = true;
-            } else if (!isset($triple) && !$errorReceived) {
-                $this->fail("Expected this error to be thrown (but it wasn't): " . $expectedError);
-            }
-        });
-    }
-
-
-    private static function toSortedJSON ($items) 
-    {
-        $triples = array_map("json_encode", $items);
-        sort($triples);
-        return "[\n  " . join("\n  ", $triples) . "\n]";
-    }
-}
-/*
-
-  describe('An N3Parser instance', function () {
-
-
-                        // ### should not error if there is no triple callback function () {
+        /*                      // ### should not error if there is no triple callback function () {
       new N3Parser().parse('');
     });
 
@@ -877,6 +812,160 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
       .should.throw('Expected punctuation to follow "c" on line 1.');
     });
   });
+*/
+    }
+    
+
+    public function testParserWithIRI() 
+    {
+        $parser = function () { return new TriGParser([ "documentIRI" => 'http://ex.org/x/yy/zzz/f.ttl' ]); };
+        
+
+        // ### should resolve IRIs against the document IRI
+        $this->shouldParse($parser,
+        '@prefix : <#>.' . "\n" .
+        '<a> <b> <c> <g>.' . "\n" .
+        ':d :e :f :g.',
+        ['http://ex.org/x/yy/zzz/a', 'http://ex.org/x/yy/zzz/b', 'http://ex.org/x/yy/zzz/c', 'http://ex.org/x/yy/zzz/g'],
+        ['http://ex.org/x/yy/zzz/f.ttl#d', 'http://ex.org/x/yy/zzz/f.ttl#e', 'http://ex.org/x/yy/zzz/f.ttl#f', 'http://ex.org/x/yy/zzz/f.ttl#g']);
+
+        // ### should resolve IRIs with a trailing slash against the document IRI
+        $this->shouldParse($parser,
+        '</a> </a/b> </a/b/c>.' . "\n",
+        ['http://ex.org/a', 'http://ex.org/a/b', 'http://ex.org/a/b/c']);
+
+        // ### should resolve IRIs starting with ./ against the document IRI
+        $this->shouldParse($parser,
+        '<./a> <./a/b> <./a/b/c>.' . "\n",
+        ['http://ex.org/x/yy/zzz/a', 'http://ex.org/x/yy/zzz/a/b', 'http://ex.org/x/yy/zzz/a/b/c']);
+
+        // ### should resolve IRIs starting with multiple ./ sequences against the document IRI
+        $this->shouldParse($parser,
+        '<./././a> <./././././a/b> <././././././a/b/c>.' . "\n",
+        ['http://ex.org/x/yy/zzz/a', 'http://ex.org/x/yy/zzz/a/b', 'http://ex.org/x/yy/zzz/a/b/c']);
+
+        // ### should resolve IRIs starting with ../ against the document IRI
+        $this->shouldParse($parser,
+        '<../a> <../a/b> <../a/b/c>.' . "\n",
+        ['http://ex.org/x/yy/a', 'http://ex.org/x/yy/a/b', 'http://ex.org/x/yy/a/b/c']);
+
+        // ### should resolve IRIs starting multiple ../ sequences against the document IRI
+        $this->shouldParse($parser,
+        '<../../a> <../../../a/b> <../../../../../../../../a/b/c>.' . "\n",
+        ['http://ex.org/x/a', 'http://ex.org/a/b', 'http://ex.org/a/b/c']);
+
+        // ### should resolve IRIs starting with mixes of ./ and ../ sequences against the document IRI
+        $this->shouldParse($parser,
+        '<.././a> <./.././a/b> <./.././.././a/b/c>.' . "\n",
+        ['http://ex.org/x/yy/a', 'http://ex.org/x/yy/a/b', 'http://ex.org/x/a/b/c']);
+
+        // ### should resolve IRIs starting with .x, ..x, or .../ against the document IRI
+        $this->shouldParse($parser,
+        '<.x/a> <..x/a/b> <.../a/b/c>.' . "\n",
+        ['http://ex.org/x/yy/zzz/.x/a', 'http://ex.org/x/yy/zzz/..x/a/b', 'http://ex.org/x/yy/zzz/.../a/b/c']);
+
+        // ### should resolve datatype IRIs against the document IRI
+        $this->shouldParse($parser,
+        '<a> <b> "c"^^<d>.',
+        ['http://ex.org/x/yy/zzz/a', 'http://ex.org/x/yy/zzz/b', '"c"^^http://ex.org/x/yy/zzz/d']);
+
+        // ### should resolve IRIs in lists against the document IRI
+        $this->shouldParse($parser,
+        '(<a> <b>) <p> (<c> <d>).',
+        ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'http://ex.org/x/yy/zzz/a'],
+        ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', '_:b1'],
+        ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'http://ex.org/x/yy/zzz/b'],
+        ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil'],
+        ['_:b0', 'http://ex.org/x/yy/zzz/p', '_:b2'],
+        ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'http://ex.org/x/yy/zzz/c'],
+        ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', '_:b3'],
+        ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'http://ex.org/x/yy/zzz/d'],
+        ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil']);
+            
+        // ### should respect @base statements
+        $this->shouldParse($parser,
+        '<a> <b> <c>.' . "\n" .
+        '@base <http://ex.org/x/>.' . "\n" .
+        '<e> <f> <g>.' . "\n" .
+        '@base <d/>.' . "\n" .
+        '<h> <i> <j>.' . "\n" .
+        '@base </e/>.' . "\n" .
+        '<k> <l> <m>.',
+        ['http://ex.org/x/yy/zzz/a', 'http://ex.org/x/yy/zzz/b', 'http://ex.org/x/yy/zzz/c'],
+        ['http://ex.org/x/e', 'http://ex.org/x/f', 'http://ex.org/x/g'],
+        ['http://ex.org/x/d/h', 'http://ex.org/x/d/i', 'http://ex.org/x/d/j'],
+        ['http://ex.org/e/k', 'http://ex.org/e/l', 'http://ex.org/e/m']);
+
+    }
+    
+    
+    private function shouldParse($createParser, $input = "") 
+    {
+        $expected = array_slice(func_get_args(),1);
+        // Shift parameters as necessary
+        if (is_callable($createParser))
+            array_shift($expected);
+        else {
+            $input = $createParser;
+            $createParser = function () {
+                return new TriGParser();
+            };
+        }
+        $results = [];
+        $items = array_map(function ($item) {
+            return [ "subject" => $item[0], "predicate"=> $item[1], "object"=> $item[2], "graph"=> isset($item[3])?$item[3]:'' ];
+        }, $expected);
+        $parser = $createParser();
+        $parser->_resetBlankNodeIds();
+        $parser->parse($input, function ($error, $triple = null) use (&$results, &$items){
+            //expect($error).not.to.exist;
+            if ($triple)
+                array_push($results, $triple);
+            else
+                $this->assertEquals(self::toSortedJSON($items), self::toSortedJSON($results));
+        });
+        $parser->_resetBlankNodeIds();
+    }
+
+    
+    function shouldNotParse($createParser, $input, $expectedError = null) {
+        $expected = array_slice(func_get_args(),1);
+        // Shift parameters as necessary
+        if (!is_callable($createParser)) {
+            $expectedError = $input;
+            $input = $createParser;
+            $createParser = function () {
+                return new TriGParser();
+            };
+        }
+        $parser = $createParser();
+        $parser->_resetBlankNodeIds();
+        //hackish way so we only act upon first error
+        $errorReceived = false;
+        $parser->parse($input, function ($error, $triple = null) use ($expectedError, &$errorReceived){
+            //expect($error).not.to.exist;
+            if (isset($error) && !$errorReceived) {
+                $this->assertEquals($expectedError, $error->getMessage());
+                $errorReceived = true;
+            } else if (!isset($triple) && !$errorReceived) {
+                $this->fail("Expected this error to be thrown (but it wasn't): " . $expectedError);
+            }
+        });
+    }
+
+
+    private static function toSortedJSON ($items) 
+    {
+        $triples = array_map("json_encode", $items);
+        sort($triples);
+        return "[\n  " . join("\n  ", $triples) . "\n]";
+    }
+}
+/*
+
+  describe('An N3Parser instance', function () {
+
+
 
   describe('An N3Parser instance with a document IRI', function () {
     function parser() { return new N3Parser({ documentIRI: 'http://ex.org/x/yy/zzz/f.ttl' }); }

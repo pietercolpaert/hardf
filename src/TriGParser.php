@@ -862,7 +862,17 @@ class TriGParser
             $pathStart = -1;
             $segmentStart = 0;
             $next = '/';
-
+            
+            // a function we will need here to fetch the last occurence
+            //search backwards for needle in haystack, and return its position
+            $rstrpos = function ($haystack, $needle, $offset = 0){
+                $size = strlen ($haystack);
+                $pos = strpos (strrev($haystack), $needle, $size - $offset);
+                if ($pos === false)
+                    return false;
+                return $size - $pos;
+            };
+            
             while ($i < $length) {
                 switch ($next) {
                     // The path starts with the first slash after the authority
@@ -880,28 +890,37 @@ class TriGParser
                     case '#':
                         $i = $length;
                         break;
-                        // Handle '/.' or '/..' path segments
+                    // Handle '/.' or '/..' path segments
                     case '/':
                         if ($iri[$i + 1] === '.') {
-                            $next = $iri[++$i + 1];
+                            if (isset($iri[++$i + 1])) {
+                                $next = $iri[$i + 1];
+                            } else
+                                $next = null;
                             switch ($next) {
                                 // Remove a '/.' segment
                                 case '/':
-                                    $result .= substr($iri, $segmentStart, $i - 1);
+                                    $result .= substr($iri, $segmentStart, $i - 1 - $segmentStart);
                                     $segmentStart = $i + 1;
                                     break;
                                     // Remove a trailing '/.' segment
-                                case undefined:
+                                case null:
                                 case '?':
                                 case '#':
-                                    return $result . substr($iri, $segmentStart, $i) . substr($iri,$i + 1);
+                                    return $result . substr($iri, $segmentStart, $i - $segmentStart) . substr($iri,$i + 1);
                                     // Remove a '/..' segment
                                 case '.':
-                                    if (!isset($iri[++$i + 1]) || $iri[++$i + 1] === '/' || $iri[++$i + 1] === '?' || $iri[++$i + 1] === '#') {
+                                    var_dump("WERE NOT IN: " . $iri . " WITH ID $i");
+                                    if (isset($iri[++$i + 1])) {
+                                        $next = $iri[$i + 1];    
+                                    } else {
+                                        $next = null;
+                                    }
+                                    if ($next === null || $next === '/' || $next === '?' || $next === '#') {
                                         $next = $iri[++$i + 1];
-                                        $result .= substr($iri, $segmentStart, $i - 2);
+                                        $result .= substr($iri, $segmentStart, $i - 2 - $segmentStart);
                                         // Try to remove the parent path from result
-                                        if (($segmentStart = $result.lastIndexOf('/')) >= $pathStart) //TODO
+                                        if (($segmentStart = $rstrpos($result,"/")) >= $pathStart)
                                             $result = substr($result,0, $segmentStart);
                                         // Remove a trailing '/..' segment
                                         if ($next !== '/')
@@ -911,8 +930,11 @@ class TriGParser
                             }
                         }
                 }
-                $next = $iri[++$i];
+                if (++$i < $length) {
+                    $next = $iri[$i];
+                }
             }
+            
             return $result . substr($iri, $segmentStart);
         };
     }
