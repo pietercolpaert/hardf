@@ -979,6 +979,33 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['http://ex.org/x/d/h', 'http://ex.org/x/d/i', 'http://ex.org/x/d/j'],
         ['http://ex.org/e/k', 'http://ex.org/e/l', 'http://ex.org/e/m']);
     }
+
+    public function testDifferentSettings() 
+    {
+        $parser = function () { return new TriGParser([ "blankNodePrefix" => '_:blank' ]); };
+
+        // ### should use the given prefix for blank nodes
+        $this->shouldParse($parser,
+        '_:a <b> _:c.' . "\n",
+        ['_:blanka', 'b', '_:blankc']);
+
+        $parser = function () { return new TriGParser([ 'blankNodePrefix' => '' ]); };
+
+        // ### should not use a prefix for blank nodes
+        $this->shouldParse($parser,
+        '_:a <b> _:c.' . "\n",
+        ['_:a', 'b', '_:c']);
+        
+        $parser = function () { return new TriGParser([ "format" => 1 ]); };
+
+        // ### should parse a single triple
+        $this->shouldParse($parser, '<a> <b> <c>.', ['a', 'b', 'c']);
+
+        // ### should parse a graph
+        $this->shouldParse($parser, '{<a> <b> <c>}', ['a', 'b', 'c']);
+
+    }
+    
     
     private function shouldParse($createParser, $input = "") 
     {
@@ -1044,424 +1071,392 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 }
 /*
 
-  describe('An N3Parser instance', function () {
-
-
-
-  describe('An N3Parser instance with a document IRI', function () {
-  });
-
   describe('An N3Parser instance with a blank node prefix', function () {
-    function parser() { return new N3Parser({ blankNodePrefix: '_:blank' }); }
 
-                        // ### should use the given prefix for blank nodes
-      $this->shouldParse(parser,
-                  '_:a <b> _:c.' . "\n",
-                  ['_:blanka', 'b', '_:blankc']));
-  });
 
-  describe('An N3Parser instance with an empty blank node prefix', function () {
-    function parser() { return new N3Parser({ blankNodePrefix: '' }); }
-
-                        // ### should not use a prefix for blank nodes
-      $this->shouldParse(parser,
-                  '_:a <b> _:c.' . "\n",
-                  ['_:a', 'b', '_:c']));
-  });
-
-  describe('An N3Parser instance with a non-string format', function () {
-    function parser() { return new N3Parser({ format: 1 }); }
+  describe('An TriGParser instance for the Turtle format', function () {
+    $parser = function () { return new TriGParser([ format: 'Turtle' ]); };
 
                         // ### should parse a single triple
-      $this->shouldParse(parser, '<a> <b> <c>.', ['a', 'b', 'c']));
-
-                        // ### should parse a graph
-      $this->shouldParse(parser, '{<a> <b> <c>}', ['a', 'b', 'c']));
-  });
-
-  describe('An N3Parser instance for the Turtle format', function () {
-    function parser() { return new N3Parser({ format: 'Turtle' }); }
-
-                        // ### should parse a single triple
-      $this->shouldParse(parser, '<a> <b> <c>.', ['a', 'b', 'c']));
+      $this->shouldParse($parser, '<a> <b> <c>.', ['a', 'b', 'c']);
 
                         // ### should not parse a default graph
-      $this->shouldNotParse(parser, '{}', 'Unexpected graph on line 1.'));
+      $this->shouldNotParse($parser, '{}', 'Unexpected graph on line 1.');
 
                         // ### should not parse a named graph
-      $this->shouldNotParse(parser, '<g> {}', 'Expected entity but got { on line 1.'));
+      $this->shouldNotParse($parser, '<g> {}', 'Expected entity but got { on line 1.');
 
                         // ### should not parse a named graph with the GRAPH keyword
-      $this->shouldNotParse(parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.'));
+      $this->shouldNotParse($parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.');
 
                         // ### should not parse a quad
-      $this->shouldNotParse(parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.'));
+      $this->shouldNotParse($parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.');
 
                         // ### should not parse a variable
-      $this->shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
+      $this->shouldNotParse($parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.');
 
                         // ### should not parse an equality statement
-      $this->shouldNotParse(parser, '<a> = <b>.', 'Unexpected "=" on line 1.'));
+      $this->shouldNotParse($parser, '<a> = <b>.', 'Unexpected "=" on line 1.');
 
                         // ### should not parse a right implication statement
-      $this->shouldNotParse(parser, '<a> => <b>.', 'Unexpected "=>" on line 1.'));
+      $this->shouldNotParse($parser, '<a> => <b>.', 'Unexpected "=>" on line 1.');
 
                         // ### should not parse a left implication statement
-      $this->shouldNotParse(parser, '<a> <= <b>.', 'Unexpected "<=" on line 1.'));
+      $this->shouldNotParse($parser, '<a> <= <b>.', 'Unexpected "<=" on line 1.');
 
                         // ### should not parse a formula as object
-      $this->shouldNotParse(parser, '<a> <b> {}.', 'Unexpected graph on line 1.'));
+      $this->shouldNotParse($parser, '<a> <b> {}.', 'Unexpected graph on line 1.');
   });
 
-  describe('An N3Parser instance for the TriG format', function () {
-    function parser() { return new N3Parser({ format: 'TriG' }); }
+  describe('An TriGParser instance for the TriG format', function () {
+    $parser = function () { return new TriGParser([ format: 'TriG' ]); };
 
                         // ### should parse a single triple
-      $this->shouldParse(parser, '<a> <b> <c>.', ['a', 'b', 'c']));
+      $this->shouldParse($parser, '<a> <b> <c>.', ['a', 'b', 'c']);
 
                         // ### should parse a default graph
-      $this->shouldParse(parser, '{}'));
+      $this->shouldParse($parser, '{}');
 
                         // ### should parse a named graph
-      $this->shouldParse(parser, '<g> {}'));
+      $this->shouldParse($parser, '<g> {}');
 
                         // ### should parse a named graph with the GRAPH keyword
-      $this->shouldParse(parser, 'GRAPH <g> {}'));
+      $this->shouldParse($parser, 'GRAPH <g> {}');
 
                         // ### should not parse a quad
-      $this->shouldNotParse(parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.'));
+      $this->shouldNotParse($parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.');
 
                         // ### should not parse a variable
-      $this->shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
+      $this->shouldNotParse($parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.');
 
                         // ### should not parse an equality statement
-      $this->shouldNotParse(parser, '<a> = <b>.', 'Unexpected "=" on line 1.'));
+      $this->shouldNotParse($parser, '<a> = <b>.', 'Unexpected "=" on line 1.');
 
                         // ### should not parse a right implication statement
-      $this->shouldNotParse(parser, '<a> => <b>.', 'Unexpected "=>" on line 1.'));
+      $this->shouldNotParse($parser, '<a> => <b>.', 'Unexpected "=>" on line 1.');
 
                         // ### should not parse a left implication statement
-      $this->shouldNotParse(parser, '<a> <= <b>.', 'Unexpected "<=" on line 1.'));
+      $this->shouldNotParse($parser, '<a> <= <b>.', 'Unexpected "<=" on line 1.');
 
                         // ### should not parse a formula as object
-      $this->shouldNotParse(parser, '<a> <b> {}.', 'Unexpected graph on line 1.'));
+      $this->shouldNotParse($parser, '<a> <b> {}.', 'Unexpected graph on line 1.');
   });
 
-  describe('An N3Parser instance for the N-Triples format', function () {
-    function parser() { return new N3Parser({ format: 'N-Triples' }); }
+  describe('An TriGParser instance for the N-Triples format', function () {
+    $parser = function () { return new TriGParser([ format: 'N-Triples' ]); };
 
                         // ### should parse a single triple
-      $this->shouldParse(parser, '<http://ex.org/a> <http://ex.org/b> "c".',
-                          ['http://ex.org/a', 'http://ex.org/b', '"c"']));
+      $this->shouldParse($parser, '<http://ex.org/a> <http://ex.org/b> "c".',
+                          ['http://ex.org/a', 'http://ex.org/b', '"c"']);
 
                         // ### should not parse a single quad
-      $this->shouldNotParse(parser, '<http://ex.org/a> <http://ex.org/b> "c" <http://ex.org/g>.',
-                             'Expected punctuation to follow ""c"" on line 1.'));
+      $this->shouldNotParse($parser, '<http://ex.org/a> <http://ex.org/b> "c" <http://ex.org/g>.',
+                             'Expected punctuation to follow ""c"" on line 1.');
 
                         // ### should not parse relative IRIs
-      $this->shouldNotParse(parser, '<a> <b> <c>.', 'Disallowed relative IRI on line 1.'));
+      $this->shouldNotParse($parser, '<a> <b> <c>.', 'Disallowed relative IRI on line 1.');
 
                         // ### should not parse a prefix declaration
-      $this->shouldNotParse(parser, '@prefix : <p#>.', 'Unexpected "@prefix" on line 1.'));
+      $this->shouldNotParse($parser, '@prefix : <p#>.', 'Unexpected "@prefix" on line 1.');
 
                         // ### should not parse a variable
-      $this->shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
+      $this->shouldNotParse($parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.');
 
                         // ### should not parse an equality statement
-      $this->shouldNotParse(parser, '<urn:a:a> = <urn:b:b>.', 'Unexpected "=" on line 1.'));
+      $this->shouldNotParse($parser, '<urn:a:a> = <urn:b:b>.', 'Unexpected "=" on line 1.');
 
                         // ### should not parse a right implication statement
-      $this->shouldNotParse(parser, '<urn:a:a> => <urn:b:b>.', 'Unexpected "=>" on line 1.'));
+      $this->shouldNotParse($parser, '<urn:a:a> => <urn:b:b>.', 'Unexpected "=>" on line 1.');
 
                         // ### should not parse a left implication statement
-      $this->shouldNotParse(parser, '<urn:a:a> <= <urn:b:b>.', 'Unexpected "<=" on line 1.'));
+      $this->shouldNotParse($parser, '<urn:a:a> <= <urn:b:b>.', 'Unexpected "<=" on line 1.');
 
                         // ### should not parse a formula as object
-      $this->shouldNotParse(parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.'));
+      $this->shouldNotParse($parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.');
   });
 
-  describe('An N3Parser instance for the N-Quads format', function () {
-    function parser() { return new N3Parser({ format: 'N-Quads' }); }
+  describe('An TriGParser instance for the N-Quads format', function () {
+    $parser = function () { return new TriGParser([ format: 'N-Quads' ]); };
 
                         // ### should parse a single triple
-      $this->shouldParse(parser, '<http://ex.org/a> <http://ex.org/b> <http://ex.org/c>.',
-                          ['http://ex.org/a', 'http://ex.org/b', 'http://ex.org/c']));
+      $this->shouldParse($parser, '<http://ex.org/a> <http://ex.org/b> <http://ex.org/c>.',
+                          ['http://ex.org/a', 'http://ex.org/b', 'http://ex.org/c']);
 
                         // ### should parse a single quad
-      $this->shouldParse(parser, '<http://ex.org/a> <http://ex.org/b> "c" <http://ex.org/g>.',
-                          ['http://ex.org/a', 'http://ex.org/b', '"c"', 'http://ex.org/g']));
+      $this->shouldParse($parser, '<http://ex.org/a> <http://ex.org/b> "c" <http://ex.org/g>.',
+                          ['http://ex.org/a', 'http://ex.org/b', '"c"', 'http://ex.org/g']);
 
                         // ### should not parse relative IRIs
-      $this->shouldNotParse(parser, '<a> <b> <c>.', 'Disallowed relative IRI on line 1.'));
+      $this->shouldNotParse($parser, '<a> <b> <c>.', 'Disallowed relative IRI on line 1.');
 
                         // ### should not parse a prefix declaration
-      $this->shouldNotParse(parser, '@prefix : <p#>.', 'Unexpected "@prefix" on line 1.'));
+      $this->shouldNotParse($parser, '@prefix : <p#>.', 'Unexpected "@prefix" on line 1.');
 
                         // ### should not parse a variable
-      $this->shouldNotParse(parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.'));
+      $this->shouldNotParse($parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.');
 
                         // ### should not parse an equality statement
-      $this->shouldNotParse(parser, '<urn:a:a> = <urn:b:b>.', 'Unexpected "=" on line 1.'));
+      $this->shouldNotParse($parser, '<urn:a:a> = <urn:b:b>.', 'Unexpected "=" on line 1.');
 
                         // ### should not parse a right implication statement
-      $this->shouldNotParse(parser, '<urn:a:a> => <urn:b:b>.', 'Unexpected "=>" on line 1.'));
+      $this->shouldNotParse($parser, '<urn:a:a> => <urn:b:b>.', 'Unexpected "=>" on line 1.');
 
                         // ### should not parse a left implication statement
-      $this->shouldNotParse(parser, '<urn:a:a> <= <urn:b:b>.', 'Unexpected "<=" on line 1.'));
+      $this->shouldNotParse($parser, '<urn:a:a> <= <urn:b:b>.', 'Unexpected "<=" on line 1.');
 
                         // ### should not parse a formula as object
-      $this->shouldNotParse(parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.'));
+      $this->shouldNotParse($parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.');
   });
 
-  describe('An N3Parser instance for the N3 format', function () {
-    function parser() { return new N3Parser({ format: 'N3' }); }
+  describe('An TriGParser instance for the N3 format', function () {
+    $parser = function () { return new TriGParser([ format: 'N3' ]); };
 
                         // ### should parse a single triple
-      $this->shouldParse(parser, '<a> <b> <c>.', ['a', 'b', 'c']));
+      $this->shouldParse($parser, '<a> <b> <c>.', ['a', 'b', 'c']);
 
                         // ### should not parse a default graph
-      $this->shouldNotParse(parser, '{}', 'Expected entity but got eof on line 1.'));
+      $this->shouldNotParse($parser, '{}', 'Expected entity but got eof on line 1.');
 
                         // ### should not parse a named graph
-      $this->shouldNotParse(parser, '<g> {}', 'Expected entity but got { on line 1.'));
+      $this->shouldNotParse($parser, '<g> {}', 'Expected entity but got { on line 1.');
 
                         // ### should not parse a named graph with the GRAPH keyword
-      $this->shouldNotParse(parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.'));
+      $this->shouldNotParse($parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.');
 
                         // ### should not parse a quad
-      $this->shouldNotParse(parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.'));
+      $this->shouldNotParse($parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.');
 
                         // ### allows a blank node label in predicate position
-      $this->shouldParse(parser, '<a> _:b <c>.', ['a', '_:b0_b', 'c']));
+      $this->shouldParse($parser, '<a> _:b <c>.', ['a', '_:b0_b', 'c']);
 
                         // ### should parse a variable
-      $this->shouldParse(parser, '?a ?b ?c.', ['?a', '?b', '?c']));
+      $this->shouldParse($parser, '?a ?b ?c.', ['?a', '?b', '?c']);
 
                         // ### should parse a simple equality
-      $this->shouldParse(parser, '<a> = <b>.',
-                  ['a', 'http://www.w3.org/2002/07/owl#sameAs', 'b']));
+      $this->shouldParse($parser, '<a> = <b>.',
+                  ['a', 'http://www.w3.org/2002/07/owl#sameAs', 'b']);
 
                         // ### should parse a simple right implication
-      $this->shouldParse(parser, '<a> => <b>.',
-                  ['a', 'http://www.w3.org/2000/10/swap/log#implies', 'b']));
+      $this->shouldParse($parser, '<a> => <b>.',
+                  ['a', 'http://www.w3.org/2000/10/swap/log#implies', 'b']);
 
                         // ### should parse a simple left implication
-      $this->shouldParse(parser, '<a> <= <b>.',
-                  ['b', 'http://www.w3.org/2000/10/swap/log#implies', 'a']));
+      $this->shouldParse($parser, '<a> <= <b>.',
+                  ['b', 'http://www.w3.org/2000/10/swap/log#implies', 'a']);
 
                         // ### should parse a right implication between one-triple graphs
-      $this->shouldParse(parser, '{ ?a ?b <c>. } => { <d> <e> ?a }.',
+      $this->shouldParse($parser, '{ ?a ?b <c>. } => { <d> <e> ?a }.',
                   ['_:b0', 'http://www.w3.org/2000/10/swap/log#implies', '_:b1'],
                   ['?a', '?b', 'c',  '_:b0'],
-                  ['d',  'e',  '?a', '_:b1']));
+                  ['d',  'e',  '?a', '_:b1']);
 
                         // ### should parse a right implication between two-triple graphs
-      $this->shouldParse(parser, '{ ?a ?b <c>. <d> <e> <f>. } => { <d> <e> ?a, <f> }.',
+      $this->shouldParse($parser, '{ ?a ?b <c>. <d> <e> <f>. } => { <d> <e> ?a, <f> }.',
                   ['_:b0', 'http://www.w3.org/2000/10/swap/log#implies', '_:b1'],
                   ['?a', '?b', 'c',  '_:b0'],
                   ['d',  'e',  'f',  '_:b0'],
                   ['d',  'e',  '?a', '_:b1'],
-                  ['d',  'e',  'f',  '_:b1']));
+                  ['d',  'e',  'f',  '_:b1']);
 
                         // ### should parse a left implication between one-triple graphs
-      $this->shouldParse(parser, '{ ?a ?b <c>. } <= { <d> <e> ?a }.',
+      $this->shouldParse($parser, '{ ?a ?b <c>. } <= { <d> <e> ?a }.',
                   ['_:b1', 'http://www.w3.org/2000/10/swap/log#implies', '_:b0'],
                   ['?a', '?b', 'c',  '_:b0'],
-                  ['d',  'e',  '?a', '_:b1']));
+                  ['d',  'e',  '?a', '_:b1']);
 
                         // ### should parse a left implication between two-triple graphs
-      $this->shouldParse(parser, '{ ?a ?b <c>. <d> <e> <f>. } <= { <d> <e> ?a, <f> }.',
+      $this->shouldParse($parser, '{ ?a ?b <c>. <d> <e> <f>. } <= { <d> <e> ?a, <f> }.',
                   ['_:b1', 'http://www.w3.org/2000/10/swap/log#implies', '_:b0'],
                   ['?a', '?b', 'c',  '_:b0'],
                   ['d',  'e',  'f',  '_:b0'],
                   ['d',  'e',  '?a', '_:b1'],
-                  ['d',  'e',  'f',  '_:b1']));
+                  ['d',  'e',  'f',  '_:b1']);
 
                         // ### should parse an equality of one-triple graphs
-      $this->shouldParse(parser, '{ ?a ?b <c>. } = { <d> <e> ?a }.',
+      $this->shouldParse($parser, '{ ?a ?b <c>. } = { <d> <e> ?a }.',
                   ['_:b0', 'http://www.w3.org/2002/07/owl#sameAs', '_:b1'],
                   ['?a', '?b', 'c',  '_:b0'],
-                  ['d',  'e',  '?a', '_:b1']));
+                  ['d',  'e',  '?a', '_:b1']);
 
                         // ### should parse an equality of two-triple graphs
-      $this->shouldParse(parser, '{ ?a ?b <c>. <d> <e> <f>. } = { <d> <e> ?a, <f> }.',
+      $this->shouldParse($parser, '{ ?a ?b <c>. <d> <e> <f>. } = { <d> <e> ?a, <f> }.',
                   ['_:b0', 'http://www.w3.org/2002/07/owl#sameAs', '_:b1'],
                   ['?a', '?b', 'c',  '_:b0'],
                   ['d',  'e',  'f',  '_:b0'],
                   ['d',  'e',  '?a', '_:b1'],
-                  ['d',  'e',  'f',  '_:b1']));
+                  ['d',  'e',  'f',  '_:b1']);
 
                         // ### should parse nested implication graphs
-      $this->shouldParse(parser, '{ { ?a ?b ?c }<={ ?d ?e ?f }. } <= { { ?g ?h ?i } => { ?j ?k ?l } }.',
+      $this->shouldParse($parser, '{ { ?a ?b ?c }<={ ?d ?e ?f }. } <= { { ?g ?h ?i } => { ?j ?k ?l } }.',
                   ['_:b3', 'http://www.w3.org/2000/10/swap/log#implies', '_:b0'],
                   ['_:b2', 'http://www.w3.org/2000/10/swap/log#implies', '_:b1', '_:b0'],
                   ['?a', '?b', '?c', '_:b1'],
                   ['?d', '?e', '?f', '_:b2'],
                   ['_:b4', 'http://www.w3.org/2000/10/swap/log#implies', '_:b5', '_:b3'],
                   ['?g', '?h', '?i', '_:b4'],
-                  ['?j', '?k', '?l', '_:b5']));
+                  ['?j', '?k', '?l', '_:b5']);
 
                         // ### should not reuse identifiers of blank nodes within and outside of formulas
-      $this->shouldParse(parser, '_:a _:b _:c. { _:a _:b _:c } => { { _:a _:b _:c } => { _:a _:b _:c } }.',
+      $this->shouldParse($parser, '_:a _:b _:c. { _:a _:b _:c } => { { _:a _:b _:c } => { _:a _:b _:c } }.',
                   ['_:b0_a', '_:b0_b', '_:b0_c'],
                   ['_:b0', 'http://www.w3.org/2000/10/swap/log#implies', '_:b1', ''],
                   ['_:b0.a', '_:b0.b', '_:b0.c', '_:b0'],
                   ['_:b2', 'http://www.w3.org/2000/10/swap/log#implies', '_:b3', '_:b1'],
                   ['_:b2.a', '_:b2.b', '_:b2.c', '_:b2'],
-                  ['_:b3.a', '_:b3.b', '_:b3.c', '_:b3']));
+                  ['_:b3.a', '_:b3.b', '_:b3.c', '_:b3']);
 
                         // ### should parse a @forSome statement
-      $this->shouldParse(parser, '@forSome <x>. <x> <x> <x>.',
-                  ['_:b0', '_:b0', '_:b0']));
+      $this->shouldParse($parser, '@forSome <x>. <x> <x> <x>.',
+                  ['_:b0', '_:b0', '_:b0']);
 
                         // ### should parse a @forSome statement with multiple entities
-      $this->shouldParse(parser, '@prefix a: <a:>. @base <b:>. @forSome a:x, <y>, a:z. a:x <y> a:z.',
-                  ['_:b0', '_:b1', '_:b2']));
+      $this->shouldParse($parser, '@prefix a: <a:>. @base <b:>. @forSome a:x, <y>, a:z. a:x <y> a:z.',
+                  ['_:b0', '_:b1', '_:b2']);
 
                         // ### should not parse a @forSome statement with an invalid prefix
-      $this->shouldNotParse(parser, '@forSome a:b.',
-                     'Undefined prefix "a:" on line 1.'));
+      $this->shouldNotParse($parser, '@forSome a:b.',
+                     'Undefined prefix "a:" on line 1.');
 
                         // ### should not parse a @forSome statement with a blank node
-      $this->shouldNotParse(parser, '@forSome _:a.',
-                     'Unexpected blank on line 1.'));
+      $this->shouldNotParse($parser, '@forSome _:a.',
+                     'Unexpected blank on line 1.');
 
                         // ### should not parse a @forSome statement with a variable
-      $this->shouldNotParse(parser, '@forSome ?a.',
-                     'Unexpected $on line 1.'));
+      $this->shouldNotParse($parser, '@forSome ?a.',
+                     'Unexpected $on line 1.');
 
                         // ### should correctly scope @forSome statements
-      $this->shouldParse(parser, '@forSome <x>. <x> <x> { @forSome <x>. <x> <x> <x>. }. <x> <x> <x>.',
+      $this->shouldParse($parser, '@forSome <x>. <x> <x> { @forSome <x>. <x> <x> <x>. }. <x> <x> <x>.',
                   ['_:b0', '_:b0', '_:b1'],
                   ['_:b2', '_:b2', '_:b2', '_:b1'],
-                  ['_:b0', '_:b0', '_:b0']));
+                  ['_:b0', '_:b0', '_:b0']);
 
                         // ### should parse a @forAll statement
-      $this->shouldParse(parser, '@forAll  <x>. <x> <x> <x>.',
-                  ['?b-0', '?b-0', '?b-0']));
+      $this->shouldParse($parser, '@forAll  <x>. <x> <x> <x>.',
+                  ['?b-0', '?b-0', '?b-0']);
 
                         // ### should parse a @forAll statement with multiple entities
-      $this->shouldParse(parser, '@prefix a: <a:>. @base <b:>. @forAll  a:x, <y>, a:z. a:x <y> a:z.',
-                  ['?b-0', '?b-1', '?b-2']));
+      $this->shouldParse($parser, '@prefix a: <a:>. @base <b:>. @forAll  a:x, <y>, a:z. a:x <y> a:z.',
+                  ['?b-0', '?b-1', '?b-2']);
 
                         // ### should not parse a @forAll statement with an invalid prefix
-      $this->shouldNotParse(parser, '@forAll a:b.',
-                     'Undefined prefix "a:" on line 1.'));
+      $this->shouldNotParse($parser, '@forAll a:b.',
+                     'Undefined prefix "a:" on line 1.');
 
                         // ### should not parse a @forAll statement with a blank node
-      $this->shouldNotParse(parser, '@forAll _:a.',
-                     'Unexpected blank on line 1.'));
+      $this->shouldNotParse($parser, '@forAll _:a.',
+                     'Unexpected blank on line 1.');
 
                         // ### should not parse a @forAll statement with a variable
-      $this->shouldNotParse(parser, '@forAll ?a.',
-                     'Unexpected $on line 1.'));
+      $this->shouldNotParse($parser, '@forAll ?a.',
+                     'Unexpected $on line 1.');
 
                         // ### should correctly scope @forAll statements
-      $this->shouldParse(parser, '@forAll <x>. <x> <x> { @forAll <x>. <x> <x> <x>. }. <x> <x> <x>.',
+      $this->shouldParse($parser, '@forAll <x>. <x> <x> { @forAll <x>. <x> <x> <x>. }. <x> <x> <x>.',
                   ['?b-0', '?b-0', '_:b1'],
                   ['?b-2', '?b-2', '?b-2', '_:b1'],
-                  ['?b-0', '?b-0', '?b-0']));
+                  ['?b-0', '?b-0', '?b-0']);
 
                         // ### should parse a ! path of length 2 as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           ':joe!fam:mother a fam:Person.',
                   ['ex:joe', 'f:mother', '_:b0'],
-                  ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
+                  ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']);
 
                         // ### should parse a ! path of length 4 as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>. @prefix loc: <l:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>. @prefix loc: <l:>.' .
                           ':joe!fam:mother!loc:office!loc:zip loc:code 1234.',
                   ['ex:joe', 'f:mother', '_:b0'],
                   ['_:b0',   'l:office', '_:b1'],
                   ['_:b1',   'l:zip',    '_:b2'],
-                  ['_:b2',   'l:code',   '"1234"^^http://www.w3.org/2001/XMLSchema#integer']));
+                  ['_:b2',   'l:code',   '"1234"^^http://www.w3.org/2001/XMLSchema#integer']);
 
                         // ### should parse a ! path of length 2 as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> :joe!fam:mother.',
                   ['x', 'is', '_:b0'],
-                  ['ex:joe', 'f:mother', '_:b0']));
+                  ['ex:joe', 'f:mother', '_:b0']);
 
                         // ### should parse a ! path of length 4 as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>. @prefix loc: <l:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>. @prefix loc: <l:>.' .
                           '<x> <is> :joe!fam:mother!loc:office!loc:zip.',
                   ['x',      'is',       '_:b2'],
                   ['ex:joe', 'f:mother', '_:b0'],
                   ['_:b0',   'l:office', '_:b1'],
-                  ['_:b1',   'l:zip',    '_:b2']));
+                  ['_:b1',   'l:zip',    '_:b2']);
 
                         // ### should parse a ^ path of length 2 as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           ':joe^fam:son a fam:Person.',
                   ['_:b0', 'f:son', 'ex:joe'],
-                  ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
+                  ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']);
 
                         // ### should parse a ^ path of length 4 as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           ':joe^fam:son^fam:sister^fam:mother a fam:Person.',
                   ['_:b0', 'f:son',    'ex:joe'],
                   ['_:b1', 'f:sister', '_:b0'],
                   ['_:b2', 'f:mother', '_:b1'],
-                  ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
+                  ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']);
 
                         // ### should parse a ^ path of length 2 as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> :joe^fam:son.',
                   ['x',    'is',    '_:b0'],
-                  ['_:b0', 'f:son', 'ex:joe']));
+                  ['_:b0', 'f:son', 'ex:joe']);
 
                         // ### should parse a ^ path of length 4 as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> :joe^fam:son^fam:sister^fam:mother.',
                   ['x',    'is',       '_:b2'],
                   ['_:b0', 'f:son',    'ex:joe'],
                   ['_:b1', 'f:sister', '_:b0'],
-                  ['_:b2', 'f:mother', '_:b1']));
+                  ['_:b2', 'f:mother', '_:b1']);
 
                         // ### should parse mixed !/^ paths as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           ':joe!fam:mother^fam:mother a fam:Person.',
                   ['ex:joe', 'f:mother', '_:b0'],
                   ['_:b1',   'f:mother', '_:b0'],
-                  ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
+                  ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']);
 
                         // ### should parse mixed !/^ paths as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> :joe!fam:mother^fam:mother.',
                   ['x', 'is', '_:b1'],
                   ['ex:joe', 'f:mother', '_:b0'],
-                  ['_:b1',   'f:mother', '_:b0']));
+                  ['_:b1',   'f:mother', '_:b0']);
 
                         // ### should parse a ! path in a blank node as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '[fam:knows :joe!fam:mother] a fam:Person.',
                   ['_:b0', 'f:knows', '_:b1'],
                   ['ex:joe', 'f:mother', '_:b1'],
-                  ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
+                  ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']);
 
                         // ### should parse a ! path in a blank node as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> [fam:knows :joe!fam:mother].',
                   ['x', 'is', '_:b0'],
                   ['_:b0', 'f:knows', '_:b1'],
-                  ['ex:joe', 'f:mother', '_:b1']));
+                  ['ex:joe', 'f:mother', '_:b1']);
 
                         // ### should parse a ^ path in a blank node as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '[fam:knows :joe^fam:son] a fam:Person.',
                   ['_:b0', 'f:knows', '_:b1'],
                   ['_:b1', 'f:son', 'ex:joe'],
-                  ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']));
+                  ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']);
 
                         // ### should parse a ^ path in a blank node as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<x> <is> [fam:knows :joe^fam:son].',
                   ['x', 'is', '_:b0'],
                   ['_:b0', 'f:knows', '_:b1'],
-                  ['_:b1', 'f:son', 'ex:joe']));
+                  ['_:b1', 'f:son', 'ex:joe']);
 
                         // ### should parse a ! path in a list as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '(<x> :joe!fam:mother <y>) a :List.',
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',  'ex:List'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x'],
@@ -1470,10 +1465,10 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest',  '_:b3'],
                   ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'y'],
                   ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil'],
-                  ['ex:joe', 'f:mother', '_:b2']));
+                  ['ex:joe', 'f:mother', '_:b2']);
 
                         // ### should parse a ! path in a list as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<l> <is> (<x> :joe!fam:mother <y>).',
                   ['l', 'is', '_:b0'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x'],
@@ -1482,10 +1477,10 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest',  '_:b3'],
                   ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'y'],
                   ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil'],
-                  ['ex:joe', 'f:mother', '_:b2']));
+                  ['ex:joe', 'f:mother', '_:b2']);
 
                         // ### should parse a ^ path in a list as subject
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '(<x> :joe^fam:son <y>) a :List.',
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',  'ex:List'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x'],
@@ -1494,10 +1489,10 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest',  '_:b3'],
                   ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'y'],
                   ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil'],
-                  ['_:b2', 'f:son', 'ex:joe']));
+                  ['_:b2', 'f:son', 'ex:joe']);
 
                         // ### should parse a ^ path in a list as object
-      $this->shouldParse(parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
+      $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.' .
                           '<l> <is> (<x> :joe^fam:son <y>).',
                   ['l', 'is', '_:b0'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x'],
@@ -1506,27 +1501,27 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest',  '_:b3'],
                   ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'y'],
                   ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil'],
-                  ['_:b2', 'f:son', 'ex:joe']));
+                  ['_:b2', 'f:son', 'ex:joe']);
 
                         // ### should not parse an invalid ! path
-      $this->shouldNotParse(parser, '<a>!"invalid" ', 'Expected entity but got literal on line 1.'));
+      $this->shouldNotParse($parser, '<a>!"invalid" ', 'Expected entity but got literal on line 1.');
 
                         // ### should not parse an invalid ^ path
-      $this->shouldNotParse(parser, '<a>^"invalid" ', 'Expected entity but got literal on line 1.'));
+      $this->shouldNotParse($parser, '<a>^"invalid" ', 'Expected entity but got literal on line 1.');
   });
 
-  describe('An N3Parser instance for the N3 format with the explicitQuantifiers option', function () {
-    function parser() { return new N3Parser({ format: 'N3', explicitQuantifiers: true }); }
+  describe('An TriGParser instance for the N3 format with the explicitQuantifiers option', function () {
+    $parser = function () { return new TriGParser([ "format"=> 'N3', "explicitQuantifiers": true ]); }
 
                         // ### should parse a @forSome statement
-      $this->shouldParse(parser, '@forSome <x>. <x> <x> <x>.',
+      $this->shouldParse($parser, '@forSome <x>. <x> <x> <x>.',
                   ['', 'http://www.w3.org/2000/10/swap/reify#forSome', '_:b0', 'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x', 'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil', 'urn:n3:quantifiers'],
-                  ['x', 'x', 'x']));
+                  ['x', 'x', 'x']);
 
                         // ### should parse a @forSome statement with multiple entities
-      $this->shouldParse(parser, '@prefix a: <a:>. @base <b:>. @forSome a:x, <y>, a:z. a:x <y> a:z.',
+      $this->shouldParse($parser, '@prefix a: <a:>. @base <b:>. @forSome a:x, <y>, a:z. a:x <y> a:z.',
                   ['', 'http://www.w3.org/2000/10/swap/reify#forSome', '_:b0',        'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'a:x', 'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', '_:b1', 'urn:n3:quantifiers'],
@@ -1534,10 +1529,10 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', '_:b2', 'urn:n3:quantifiers'],
                   ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'a:z', 'urn:n3:quantifiers'],
                   ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil', 'urn:n3:quantifiers'],
-                  ['a:x', 'b:y', 'a:z']));
+                  ['a:x', 'b:y', 'a:z']);
 
                         // ### should correctly scope @forSome statements
-      $this->shouldParse(parser, '@forSome <x>. <x> <x> { @forSome <x>. <x> <x> <x>. }. <x> <x> <x>.',
+      $this->shouldParse($parser, '@forSome <x>. <x> <x> { @forSome <x>. <x> <x> <x>. }. <x> <x> <x>.',
                   ['', 'http://www.w3.org/2000/10/swap/reify#forSome', '_:b0',      'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x', 'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil', 'urn:n3:quantifiers'],
@@ -1546,17 +1541,17 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x', 'urn:n3:quantifiers'],
                   ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil', 'urn:n3:quantifiers'],
                   ['x', 'x', 'x', '_:b1'],
-                  ['x', 'x', 'x']));
+                  ['x', 'x', 'x']);
 
                         // ### should parse a @forAll statement
-      $this->shouldParse(parser, '@forAll <x>. <x> <x> <x>.',
+      $this->shouldParse($parser, '@forAll <x>. <x> <x> <x>.',
                   ['', 'http://www.w3.org/2000/10/swap/reify#forAll', '_:b0',       'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x', 'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil', 'urn:n3:quantifiers'],
-                  ['x', 'x', 'x']));
+                  ['x', 'x', 'x']);
 
                         // ### should parse a @forAll statement with multiple entities
-      $this->shouldParse(parser, '@prefix a: <a:>. @base <b:>. @forAll a:x, <y>, a:z. a:x <y> a:z.',
+      $this->shouldParse($parser, '@prefix a: <a:>. @base <b:>. @forAll a:x, <y>, a:z. a:x <y> a:z.',
                   ['', 'http://www.w3.org/2000/10/swap/reify#forAll', '_:b0',         'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'a:x', 'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', '_:b1', 'urn:n3:quantifiers'],
@@ -1564,10 +1559,10 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', '_:b2', 'urn:n3:quantifiers'],
                   ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'a:z', 'urn:n3:quantifiers'],
                   ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil', 'urn:n3:quantifiers'],
-                  ['a:x', 'b:y', 'a:z']));
+                  ['a:x', 'b:y', 'a:z']);
 
                         // ### should correctly scope @forAll statements
-      $this->shouldParse(parser, '@forAll <x>. <x> <x> { @forAll <x>. <x> <x> <x>. }. <x> <x> <x>.',
+      $this->shouldParse($parser, '@forAll <x>. <x> <x> { @forAll <x>. <x> <x> <x>. }. <x> <x> <x>.',
                   ['', 'http://www.w3.org/2000/10/swap/reify#forAll', '_:b0',       'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x', 'urn:n3:quantifiers'],
                   ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil', 'urn:n3:quantifiers'],
@@ -1576,7 +1571,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x', 'urn:n3:quantifiers'],
                   ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil', 'urn:n3:quantifiers'],
                   ['x', 'x', 'x', '_:b1'],
-                  ['x', 'x', 'x']));
+                  ['x', 'x', 'x']);
   });
 
   describe('IRI resolution', function () {
@@ -2015,13 +2010,13 @@ function itShouldResolve(baseIri, relativeIri, expected) {
     before(function (done) {
       try {
         $doc = '<urn:ex:s> <urn:ex:p> <' . relativeIri . '>.';
-        new N3Parser({ documentIRI: baseIri }).parse(doc, function ($error, $triple) {
+        new TriGParser([ "documentIRI" : $baseIri]).parse(doc, function ($error, $triple) {
           if (done)
             result = triple, done(error);
           done = null;
         });
       }
-      catch (error) { done(error); }
+      catch (\Exception $error) { $this->fail($error->getMessage()); }
     });
     it('should result in ' . expected, function () {
       expect(result.object).to.equal(expected);
