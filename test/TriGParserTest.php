@@ -1045,6 +1045,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
     
     private function shouldParse($createParser, $input = "") 
     {
+        
         $expected = array_slice(func_get_args(),1);
         // Shift parameters as necessary
         if (is_callable($createParser))
@@ -1068,7 +1069,6 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
             else
                 $this->assertEquals(self::toSortedJSON($items), self::toSortedJSON($results));
         });
-        $parser->_resetBlankNodeIds();
     }
 
     

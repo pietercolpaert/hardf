@@ -986,8 +986,8 @@ class TriGParser
                     break;
                 }
             }
-        } catch (Exception $e) {
-            call_user_func($this->callback,$error, null);
+        } catch (\Exception $e) {
+            call_user_func($this->callback, $e, null);
             $this->callback = function () {};
         }
     }
