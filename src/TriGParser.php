@@ -62,8 +62,11 @@ class TriGParser
                 $this->subject = null;
             };
         }
-        $this->blankNodePrefix = !isset($options["blankNodePrefix"]) ? '' :
-            '_:' . preg_replace('/^_:/', '', $options["blankNodePrefix"]);
+        $this->blankNodePrefix = null;
+        if (isset($options["blankNodePrefix"])) {
+            $this->blankNodePrefix = '_:' . preg_replace('/^_:/', '', $options["blankNodePrefix"]);
+        }
+        
         
         $this->lexer = isset($options["lexer"])? $options["lexer"] : new N3Lexer([ "lineMode"=> $isLineMode, "n3"=> $isN3 ]);
         // Disable explicit quantifiers by default - TODO: is !! same in PHP?
@@ -74,7 +77,6 @@ class TriGParser
     // ## Private class methods
     // ### `_resetBlankNodeIds` restarts blank node identification
     public function _resetBlankNodeIds () {
-        $this->blankNodePrefix = null;
         $this->blankNodeCount = 0;
     }
 
