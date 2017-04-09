@@ -91,7 +91,6 @@ class TriGParser
                 $baseIRI = substr($baseIRI,0, $fragmentPos);
             // Set base IRI and its components
             $this->base = $baseIRI;
-            var_dump($baseIRI, preg_replace('/[^\/?]*(?:\?.*)?$/', '',$baseIRI));
             $this->basePath = !strpos($baseIRI,'/') ? $baseIRI : preg_replace('/[^\/?]*(?:\?.*)?$/', '',$baseIRI);
             preg_match($this->schemeAuthority, $baseIRI, $matches);
             $this->baseRoot   = isset($matches[0])?$matches[0]:'';
@@ -856,7 +855,6 @@ class TriGParser
 
         // ### `_removeDotSegments` resolves './' and '../' path segments in an IRI as per RFC3986
         $this->removeDotSegments = function ($iri) {
-            var_dump('THIS: '.$iri);
             // Don't modify the IRI if it does not contain any dot segments
             if (!preg_match($this->dotSegments,$iri))
                 return $iri;
@@ -900,7 +898,6 @@ class TriGParser
                     case '/':
                         if (isset($iri[$i + 1]) && $iri[$i + 1] === '.') {
                             if (isset($iri[++$i + 1])) {
-                                var_dump("this4: ". $iri. " " . $i+1);
                                 $next = $iri[$i + 1];
                             } else
                                 $next = null;

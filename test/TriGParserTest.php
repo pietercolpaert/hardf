@@ -2013,7 +2013,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                 $done = true;
             });
         }
-        catch (\Exception $error) { throw $error; $this->fail("Resolving <$relativeIri> against <$baseIri>.\nError message: " . $error->getMessage()); }
+        catch (\Exception $error) { $this->fail("Resolving <$relativeIri> against <$baseIri>.\nError message: " . $error->getMessage()); }
     }
 
     private static function toSortedJSON ($items) 
