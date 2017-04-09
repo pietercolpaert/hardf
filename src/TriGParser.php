@@ -57,7 +57,7 @@ class TriGParser
         if ($isLineMode) {
             $this->base = '';
             $this->resolveIRI = function ($token) {
-                $this->error('Disallowed relative IRI', $token);
+                call_user_func($this->error, 'Disallowed relative IRI', $token);
                 return $this->callback = function () {};
                 $this->subject = null;
             };
@@ -760,7 +760,7 @@ class TriGParser
 
         // ### `_readForwardPath` reads a '!' path
         $this->readForwardPath = function ($token) {
-                        $subject; $predicate; $object = '_:b' . $this->blankNodeCount++;
+            $subject; $predicate; $object = '_:b' . $this->blankNodeCount++;
             // The next token is the predicate
             $predicate = call_user_func($this->readEntity,$token);
             if (!$predicate)
