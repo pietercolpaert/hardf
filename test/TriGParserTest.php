@@ -1943,8 +1943,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         // base path with slashes in query string
         $this->itShouldResolve('http://abc/def/ghi?q=xx/yyy/z', 'jjj', 'http://abc/def/jjj');
         $this->itShouldResolve('http://abc/def/ghi?q=xx/y?y/z', 'jjj', 'http://abc/def/jjj');
-    }
-    
+    }    
     
     private function shouldParse($createParser, $input = "") 
     {
@@ -1973,7 +1972,6 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                 $this->assertEquals(self::toSortedJSON($items), self::toSortedJSON($results));
         });
     }
-
     
     function shouldNotParse($createParser, $input, $expectedError = null) {
         $expected = array_slice(func_get_args(),1);
@@ -2017,7 +2015,6 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         }
         catch (\Exception $error) { throw $error; $this->fail("Resolving <$relativeIri> against <$baseIri>.\nError message: " . $error->getMessage()); }
     }
-
 
     private static function toSortedJSON ($items) 
     {

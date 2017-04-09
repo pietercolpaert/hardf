@@ -91,6 +91,7 @@ class TriGParser
                 $baseIRI = substr($baseIRI,0, $fragmentPos);
             // Set base IRI and its components
             $this->base = $baseIRI;
+            var_dump($baseIRI, preg_replace('/[^\/?]*(?:\?.*)?$/', '',$baseIRI));
             $this->basePath = !strpos($baseIRI,'/') ? $baseIRI : preg_replace('/[^\/?]*(?:\?.*)?$/', '',$baseIRI);
             preg_match($this->schemeAuthority, $baseIRI, $matches);
             $this->baseRoot   = isset($matches[0])?$matches[0]:'';
@@ -833,6 +834,7 @@ class TriGParser
         // assuming that a base path has been set and that the IRI is indeed relative
         $this->resolveIRI = function ($token) {
             $iri = $token["value"];
+            
             if (!isset($iri[0])) // An empty relative IRI indicates the base IRI
                 return $this->base;
             
@@ -854,6 +856,7 @@ class TriGParser
 
         // ### `_removeDotSegments` resolves './' and '../' path segments in an IRI as per RFC3986
         $this->removeDotSegments = function ($iri) {
+            var_dump('THIS: '.$iri);
             // Don't modify the IRI if it does not contain any dot segments
             if (!preg_match($this->dotSegments,$iri))
                 return $iri;
@@ -897,13 +900,15 @@ class TriGParser
                     case '/':
                         if (isset($iri[$i + 1]) && $iri[$i + 1] === '.') {
                             if (isset($iri[++$i + 1])) {
+                                var_dump("this4: ". $iri. " " . $i+1);
                                 $next = $iri[$i + 1];
                             } else
                                 $next = null;
                             switch ($next) {
                                 // Remove a '/.' segment
                                 case '/':
-                                    $result .= substr($iri, $segmentStart, $i - 1 - $segmentStart);
+                                    if (($i - 1 - $segmentStart) > 0)
+                                        $result .= substr($iri, $segmentStart, $i - 1 - $segmentStart);
                                     $segmentStart = $i + 1;
                                     break;
                                     // Remove a trailing '/.' segment
@@ -919,7 +924,8 @@ class TriGParser
                                         $next = null;
                                     }
                                     if ($next === null || $next === '/' || $next === '?' || $next === '#') {
-                                        $result .= substr($iri, $segmentStart, $i - 2 - $segmentStart);
+                                        if ($i - 2 - $segmentStart > 0)
+                                            $result .= substr($iri, $segmentStart, $i - 2 - $segmentStart);
                                         // Try to remove the parent path from result
                                         if (($segmentStart = $rstrpos($result,"/")) >= $pathStart) {
                                             $result = substr($result,0, $segmentStart);
