@@ -93,8 +93,8 @@ class TriGParser
             $this->base = $baseIRI;
             $this->basePath = !strpos($baseIRI,'/') ? $baseIRI : preg_replace('/[^\/?]*(?:\?.*)?$/', '',$baseIRI);
             preg_match($this->schemeAuthority, $baseIRI, $matches);
-            $this->baseRoot   = $matches[0];
-            $this->baseScheme = $matches[1];
+            $this->baseRoot   = isset($matches[0])?$matches[0]:'';
+            $this->baseScheme = isset($matches[1])?$matches[1]:'';
         }
     }
 
@@ -310,7 +310,7 @@ class TriGParser
                 return $this->readListItem;
                 case '{':
                 // Start a new formula
-                if (!$this->n3Mode)
+                if (!isset($this->n3Mode))
                     return call_user_func($this->error,'Unexpected graph', $token);
                 $this->saveContext('formula', $this->graph, $this->subject, $this->predicate,
                 $this->graph = '_:b' . $this->blankNodeCount++);
@@ -895,7 +895,7 @@ class TriGParser
                         break;
                     // Handle '/.' or '/..' path segments
                     case '/':
-                        if ($iri[$i + 1] === '.') {
+                        if (isset($iri[$i + 1]) && $iri[$i + 1] === '.') {
                             if (isset($iri[++$i + 1])) {
                                 $next = $iri[$i + 1];
                             } else

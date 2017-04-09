@@ -45,6 +45,7 @@ class N3Lexer
         }
         // Enable N3 functionality by default
         $this->n3Mode = $options["n3"] !== false;
+        
         // Disable comment tokens by default
         $this->comments = isset($options["comments"])?$options["comments"]:null;
     }
@@ -84,13 +85,13 @@ class N3Lexer
 
 
         // Signals the syntax error through the callback
-        $reportSyntaxError = function ($self)  use ($callback, $input) {
+        $reportSyntaxError = function ($self)  use ($callback, &$input) {
             preg_match("/^\S*/", $input, $match);
             $callback($self->syntaxError($match[0], $self->line), null);
         };
         
         $outputComments = $this->comments;
-        while (true) { //TODO
+        while (true) {
             // Count and skip whitespace lines
             $whiteSpaceMatch;
             $comment;

@@ -1042,6 +1042,438 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
     }
     
+
+
+
+    public function testResolve() 
+    {
+        //describe('IRI resolution', function () {
+        //describe('RFC3986 normal examples', function () {
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g:h',     'g:h');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g',       'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', './g',     'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g/',      'http://a/bb/ccc/g/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '/g',      'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '//g',     'http://g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '?y',      'http://a/bb/ccc/d;p?y');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g?y',     'http://a/bb/ccc/g?y');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '#s',      'http://a/bb/ccc/d;p?q#s');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g#s',     'http://a/bb/ccc/g#s');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g?y#s',   'http://a/bb/ccc/g?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', ';x',      'http://a/bb/ccc/;x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g;x',     'http://a/bb/ccc/g;x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g;x?y#s', 'http://a/bb/ccc/g;x?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '',        'http://a/bb/ccc/d;p?q');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '.',       'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', './',      'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '..',      'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '../',     'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '../g',    'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '../..',   'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '../../',  'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '../../g', 'http://a/g');
+    
+
+        //describe('RFC3986 abnormal examples', function () {
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '../../../g',    'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '../../../../g', 'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '/./g',          'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '/../g',         'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g.',            'http://a/bb/ccc/g.');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '.g',            'http://a/bb/ccc/.g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g..',           'http://a/bb/ccc/g..');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', '..g',           'http://a/bb/ccc/..g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', './../g',        'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', './g/.',         'http://a/bb/ccc/g/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g/./h',         'http://a/bb/ccc/g/h');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g/../h',        'http://a/bb/ccc/h');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g;x=1/./y',     'http://a/bb/ccc/g;x=1/y');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g;x=1/../y',    'http://a/bb/ccc/y');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g?y/./x',       'http://a/bb/ccc/g?y/./x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g?y/../x',      'http://a/bb/ccc/g?y/../x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'http:g',        'http:g');
+    
+
+        //describe('RFC3986 normal examples with trailing slash in base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g:h',     'g:h');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g',       'http://a/bb/ccc/d/g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', './g',     'http://a/bb/ccc/d/g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g/',      'http://a/bb/ccc/d/g/');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '/g',      'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '//g',     'http://g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '?y',      'http://a/bb/ccc/d/?y');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g?y',     'http://a/bb/ccc/d/g?y');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '#s',      'http://a/bb/ccc/d/#s');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g#s',     'http://a/bb/ccc/d/g#s');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g?y#s',   'http://a/bb/ccc/d/g?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/d/', ';x',      'http://a/bb/ccc/d/;x');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g;x',     'http://a/bb/ccc/d/g;x');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g;x?y#s', 'http://a/bb/ccc/d/g;x?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '',        'http://a/bb/ccc/d/');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '.',       'http://a/bb/ccc/d/');
+        $this->itShouldResolve('http://a/bb/ccc/d/', './',      'http://a/bb/ccc/d/');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '..',      'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '../',     'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '../g',    'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '../..',   'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '../../',  'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '../../g', 'http://a/bb/g');
+    
+
+        //describe('RFC3986 abnormal examples with trailing slash in base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/d/', '../../../g',    'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '../../../../g', 'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '/./g',          'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '/../g',         'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g.',            'http://a/bb/ccc/d/g.');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '.g',            'http://a/bb/ccc/d/.g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g..',           'http://a/bb/ccc/d/g..');
+        $this->itShouldResolve('http://a/bb/ccc/d/', '..g',           'http://a/bb/ccc/d/..g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', './../g',        'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/d/', './g/.',         'http://a/bb/ccc/d/g/');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g/./h',         'http://a/bb/ccc/d/g/h');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g/../h',        'http://a/bb/ccc/d/h');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g;x=1/./y',     'http://a/bb/ccc/d/g;x=1/y');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g;x=1/../y',    'http://a/bb/ccc/d/y');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g?y/./x',       'http://a/bb/ccc/d/g?y/./x');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g?y/../x',      'http://a/bb/ccc/d/g?y/../x');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g#s/./x',       'http://a/bb/ccc/d/g#s/./x');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'g#s/../x',      'http://a/bb/ccc/d/g#s/../x');
+        $this->itShouldResolve('http://a/bb/ccc/d/', 'http:g',        'http:g');
+    
+
+        //describe('RFC3986 normal examples with /. in the base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g:h',     'g:h');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g',       'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', './g',     'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g/',      'http://a/bb/ccc/g/');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '/g',      'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '//g',     'http://g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '?y',      'http://a/bb/ccc/./d;p?y');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g?y',     'http://a/bb/ccc/g?y');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '#s',      'http://a/bb/ccc/./d;p?q#s');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g#s',     'http://a/bb/ccc/g#s');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g?y#s',   'http://a/bb/ccc/g?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', ';x',      'http://a/bb/ccc/;x');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g;x',     'http://a/bb/ccc/g;x');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g;x?y#s', 'http://a/bb/ccc/g;x?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '',        'http://a/bb/ccc/./d;p?q');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '.',       'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', './',      'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '..',      'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '../',     'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '../g',    'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '../..',   'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '../../',  'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '../../g', 'http://a/g');
+    
+
+        //describe('RFC3986 abnormal examples with /. in the base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '../../../g',    'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '../../../../g', 'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '/./g',          'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '/../g',         'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g.',            'http://a/bb/ccc/g.');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '.g',            'http://a/bb/ccc/.g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g..',           'http://a/bb/ccc/g..');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '..g',           'http://a/bb/ccc/..g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', './../g',        'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', './g/.',         'http://a/bb/ccc/g/');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g/./h',         'http://a/bb/ccc/g/h');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g/../h',        'http://a/bb/ccc/h');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g;x=1/./y',     'http://a/bb/ccc/g;x=1/y');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g;x=1/../y',    'http://a/bb/ccc/y');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g?y/./x',       'http://a/bb/ccc/g?y/./x');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g?y/../x',      'http://a/bb/ccc/g?y/../x');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
+        $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'http:g',        'http:g');
+    
+
+        //describe('RFC3986 normal examples with /.. in the base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g:h',     'g:h');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g',       'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', './g',     'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g/',      'http://a/bb/g/');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '/g',      'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '//g',     'http://g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '?y',      'http://a/bb/ccc/../d;p?y');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g?y',     'http://a/bb/g?y');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '#s',      'http://a/bb/ccc/../d;p?q#s');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g#s',     'http://a/bb/g#s');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g?y#s',   'http://a/bb/g?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', ';x',      'http://a/bb/;x');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g;x',     'http://a/bb/g;x');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g;x?y#s', 'http://a/bb/g;x?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '',        'http://a/bb/ccc/../d;p?q');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '.',       'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', './',      'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '..',      'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '../',     'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '../g',    'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '../..',   'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '../../',  'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '../../g', 'http://a/g');
+    
+
+        //describe('RFC3986 abnormal examples with /.. in the base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '../../../g',    'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '../../../../g', 'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '/./g',          'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '/../g',         'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g.',            'http://a/bb/g.');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '.g',            'http://a/bb/.g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g..',           'http://a/bb/g..');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '..g',           'http://a/bb/..g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', './../g',        'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', './g/.',         'http://a/bb/g/');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g/./h',         'http://a/bb/g/h');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g/../h',        'http://a/bb/h');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g;x=1/./y',     'http://a/bb/g;x=1/y');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g;x=1/../y',    'http://a/bb/y');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g?y/./x',       'http://a/bb/g?y/./x');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g?y/../x',      'http://a/bb/g?y/../x');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g#s/./x',       'http://a/bb/g#s/./x');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g#s/../x',      'http://a/bb/g#s/../x');
+        $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'http:g',        'http:g');
+    
+
+        //describe('RFC3986 normal examples with trailing /. in the base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g:h',     'g:h');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g',       'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/.', './g',     'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g/',      'http://a/bb/ccc/g/');
+        $this->itShouldResolve('http://a/bb/ccc/.', '/g',      'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/.', '//g',     'http://g');
+        $this->itShouldResolve('http://a/bb/ccc/.', '?y',      'http://a/bb/ccc/.?y');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g?y',     'http://a/bb/ccc/g?y');
+        $this->itShouldResolve('http://a/bb/ccc/.', '#s',      'http://a/bb/ccc/.#s');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g#s',     'http://a/bb/ccc/g#s');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g?y#s',   'http://a/bb/ccc/g?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/.', ';x',      'http://a/bb/ccc/;x');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g;x',     'http://a/bb/ccc/g;x');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g;x?y#s', 'http://a/bb/ccc/g;x?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/.', '',        'http://a/bb/ccc/.');
+        $this->itShouldResolve('http://a/bb/ccc/.', '.',       'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/.', './',      'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/.', '..',      'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/.', '../',     'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/.', '../g',    'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/.', '../..',   'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/.', '../../',  'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/.', '../../g', 'http://a/g');
+    
+
+        //describe('RFC3986 abnormal examples with trailing /. in the base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/.', '../../../g',    'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/.', '../../../../g', 'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/.', '/./g',          'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/.', '/../g',         'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g.',            'http://a/bb/ccc/g.');
+        $this->itShouldResolve('http://a/bb/ccc/.', '.g',            'http://a/bb/ccc/.g');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g..',           'http://a/bb/ccc/g..');
+        $this->itShouldResolve('http://a/bb/ccc/.', '..g',           'http://a/bb/ccc/..g');
+        $this->itShouldResolve('http://a/bb/ccc/.', './../g',        'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/.', './g/.',         'http://a/bb/ccc/g/');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g/./h',         'http://a/bb/ccc/g/h');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g/../h',        'http://a/bb/ccc/h');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g;x=1/./y',     'http://a/bb/ccc/g;x=1/y');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g;x=1/../y',    'http://a/bb/ccc/y');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g?y/./x',       'http://a/bb/ccc/g?y/./x');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g?y/../x',      'http://a/bb/ccc/g?y/../x');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
+        $this->itShouldResolve('http://a/bb/ccc/.', 'http:g',        'http:g');
+    
+
+        //describe('RFC3986 normal examples with trailing /.. in the base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g:h',     'g:h');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g',       'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/..', './g',     'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g/',      'http://a/bb/ccc/g/');
+        $this->itShouldResolve('http://a/bb/ccc/..', '/g',      'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/..', '//g',     'http://g');
+        $this->itShouldResolve('http://a/bb/ccc/..', '?y',      'http://a/bb/ccc/..?y');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g?y',     'http://a/bb/ccc/g?y');
+        $this->itShouldResolve('http://a/bb/ccc/..', '#s',      'http://a/bb/ccc/..#s');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g#s',     'http://a/bb/ccc/g#s');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g?y#s',   'http://a/bb/ccc/g?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/..', ';x',      'http://a/bb/ccc/;x');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g;x',     'http://a/bb/ccc/g;x');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g;x?y#s', 'http://a/bb/ccc/g;x?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/..', '',        'http://a/bb/ccc/..');
+        $this->itShouldResolve('http://a/bb/ccc/..', '.',       'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/..', './',      'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/..', '..',      'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/..', '../',     'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/..', '../g',    'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/..', '../..',   'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/..', '../../',  'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/..', '../../g', 'http://a/g');
+    
+
+        //describe('RFC3986 abnormal examples with trailing /.. in the base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/..', '../../../g',    'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/..', '../../../../g', 'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/..', '/./g',          'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/..', '/../g',         'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g.',            'http://a/bb/ccc/g.');
+        $this->itShouldResolve('http://a/bb/ccc/..', '.g',            'http://a/bb/ccc/.g');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g..',           'http://a/bb/ccc/g..');
+        $this->itShouldResolve('http://a/bb/ccc/..', '..g',           'http://a/bb/ccc/..g');
+        $this->itShouldResolve('http://a/bb/ccc/..', './../g',        'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/..', './g/.',         'http://a/bb/ccc/g/');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g/./h',         'http://a/bb/ccc/g/h');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g/../h',        'http://a/bb/ccc/h');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g;x=1/./y',     'http://a/bb/ccc/g;x=1/y');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g;x=1/../y',    'http://a/bb/ccc/y');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g?y/./x',       'http://a/bb/ccc/g?y/./x');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g?y/../x',      'http://a/bb/ccc/g?y/../x');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
+        $this->itShouldResolve('http://a/bb/ccc/..', 'http:g',        'http:g');
+    
+
+        //describe('RFC3986 normal examples with fragment in base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g:h',     'g:h');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g',       'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', './g',     'http://a/bb/ccc/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g/',      'http://a/bb/ccc/g/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '/g',      'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '//g',     'http://g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '?y',      'http://a/bb/ccc/d;p?y');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g?y',     'http://a/bb/ccc/g?y');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '#s',      'http://a/bb/ccc/d;p?q#s');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g#s',     'http://a/bb/ccc/g#s');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g?y#s',   'http://a/bb/ccc/g?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', ';x',      'http://a/bb/ccc/;x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g;x',     'http://a/bb/ccc/g;x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g;x?y#s', 'http://a/bb/ccc/g;x?y#s');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '',        'http://a/bb/ccc/d;p?q');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '.',       'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', './',      'http://a/bb/ccc/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '..',      'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '../',     'http://a/bb/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '../g',    'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '../..',   'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '../../',  'http://a/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '../../g', 'http://a/g');
+    
+
+        //describe('RFC3986 abnormal examples with fragment in base IRI', function () {
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '../../../g',    'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '../../../../g', 'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '/./g',          'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '/../g',         'http://a/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g.',            'http://a/bb/ccc/g.');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '.g',            'http://a/bb/ccc/.g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g..',           'http://a/bb/ccc/g..');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '..g',           'http://a/bb/ccc/..g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', './../g',        'http://a/bb/g');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', './g/.',         'http://a/bb/ccc/g/');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g/./h',         'http://a/bb/ccc/g/h');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g/../h',        'http://a/bb/ccc/h');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g;x=1/./y',     'http://a/bb/ccc/g;x=1/y');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g;x=1/../y',    'http://a/bb/ccc/y');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g?y/./x',       'http://a/bb/ccc/g?y/./x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g?y/../x',      'http://a/bb/ccc/g?y/../x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
+        $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'http:g',        'http:g');
+    
+
+        //describe('RFC3986 normal examples with file path', function () {
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g:h',     'g:h');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g',       'file:///a/bb/ccc/g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', './g',     'file:///a/bb/ccc/g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g/',      'file:///a/bb/ccc/g/');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '/g',      'file:///g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '//g',     'file://g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '?y',      'file:///a/bb/ccc/d;p?y');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g?y',     'file:///a/bb/ccc/g?y');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '#s',      'file:///a/bb/ccc/d;p?q#s');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g#s',     'file:///a/bb/ccc/g#s');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g?y#s',   'file:///a/bb/ccc/g?y#s');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', ';x',      'file:///a/bb/ccc/;x');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g;x',     'file:///a/bb/ccc/g;x');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g;x?y#s', 'file:///a/bb/ccc/g;x?y#s');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '',        'file:///a/bb/ccc/d;p?q');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '.',       'file:///a/bb/ccc/');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', './',      'file:///a/bb/ccc/');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '..',      'file:///a/bb/');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '../',     'file:///a/bb/');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '../g',    'file:///a/bb/g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '../..',   'file:///a/');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '../../',  'file:///a/');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '../../g', 'file:///a/g');
+    
+
+        //describe('RFC3986 abnormal examples with file path', function () {
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '../../../g',    'file:///g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '../../../../g', 'file:///g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '/./g',          'file:///g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '/../g',         'file:///g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g.',            'file:///a/bb/ccc/g.');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '.g',            'file:///a/bb/ccc/.g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g..',           'file:///a/bb/ccc/g..');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '..g',           'file:///a/bb/ccc/..g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', './../g',        'file:///a/bb/g');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', './g/.',         'file:///a/bb/ccc/g/');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g/./h',         'file:///a/bb/ccc/g/h');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g/../h',        'file:///a/bb/ccc/h');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g;x=1/./y',     'file:///a/bb/ccc/g;x=1/y');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g;x=1/../y',    'file:///a/bb/ccc/y');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g?y/./x',       'file:///a/bb/ccc/g?y/./x');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g?y/../x',      'file:///a/bb/ccc/g?y/../x');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g#s/./x',       'file:///a/bb/ccc/g#s/./x');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g#s/../x',      'file:///a/bb/ccc/g#s/../x');
+        $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'http:g',        'http:g');
+    
+
+        //describe('additional cases', function () {
+        // relative paths ending with '.'
+        $this->itShouldResolve('http://abc/',        '.',      'http://abc/');
+        $this->itShouldResolve('http://abc/def/ghi', '.',      'http://abc/def/');
+        $this->itShouldResolve('http://abc/def/ghi', '.?a=b',  'http://abc/def/?a=b');
+        $this->itShouldResolve('http://abc/def/ghi', '.#a=b',  'http://abc/def/#a=b');
+
+        // relative paths ending with '..'
+        $this->itShouldResolve('http://abc/',        '..',     'http://abc/');
+        $this->itShouldResolve('http://abc/def/ghi', '..',     'http://abc/');
+        $this->itShouldResolve('http://abc/def/ghi', '..?a=b', 'http://abc/?a=b');
+        $this->itShouldResolve('http://abc/def/ghi', '..#a=b', 'http://abc/#a=b');
+
+        // base path with empty subpaths (double slashes)
+        $this->itShouldResolve('http://ab//de//ghi', 'xyz',    'http://ab//de//xyz');
+        $this->itShouldResolve('http://ab//de//ghi', './xyz',  'http://ab//de//xyz');
+        $this->itShouldResolve('http://ab//de//ghi', '../xyz', 'http://ab//de/xyz');
+
+        // base path with colon (possible confusion with scheme)
+        $this->itShouldResolve('http://abc/d:f/ghi', 'xyz',    'http://abc/d:f/xyz');
+        $this->itShouldResolve('http://abc/d:f/ghi', './xyz',  'http://abc/d:f/xyz');
+        $this->itShouldResolve('http://abc/d:f/ghi', '../xyz', 'http://abc/xyz');
+
+        // base path consisting of '..' and/or '../' sequences
+        $this->itShouldResolve('./',        'abc',       '/abc');
+        $this->itShouldResolve('../',       'abc',       '/abc');
+        $this->itShouldResolve('./././',    '././abc',   '/abc');
+        $this->itShouldResolve('../../../', '../../abc', '/abc');
+        $this->itShouldResolve('.../././',  '././abc',   '.../abc');
+
+        // base path without authority
+        $this->itShouldResolve('a:b:c/',    'def/../',   'a:b:c/');
+        $this->itShouldResolve('a:b:c',     '/def',      'a:/def');
+        $this->itShouldResolve('a:b/c',     '/def',      'a:/def');
+        $this->itShouldResolve('a:',        '/.',        'a:/');
+        $this->itShouldResolve('a:',        '/..',       'a:/');
+
+        // base path with slashes in query string
+        $this->itShouldResolve('http://abc/def/ghi?q=xx/yyy/z', 'jjj', 'http://abc/def/jjj');
+        $this->itShouldResolve('http://abc/def/ghi?q=xx/y?y/z', 'jjj', 'http://abc/def/jjj');
+    }
+    
     
     private function shouldParse($createParser, $input = "") 
     {
@@ -1097,6 +1529,24 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         });
     }
 
+    function itShouldResolve($baseIri, $relativeIri, $expected) {
+        $done = false;
+        try {
+            $doc = '<urn:ex:s> <urn:ex:p> <' . $relativeIri . '>.';
+            $parser = new TriGParser([ "documentIRI" => $baseIri]);
+            $parser->parse($doc, function ($error, $triple) use ($done, $expected) {
+                if (!$done && $triple) {
+                    $this->assertEquals($expected, $triple["object"]);
+                }
+                if (isset($error)) {
+                    $this->fail($error);
+                }
+                $done = true;
+            });
+        }
+        catch (\Exception $error) { throw $error; $this->fail("Resolving <$relativeIri> against <$baseIri>.\nError message: " . $error->getMessage()); }
+    }
+
 
     private static function toSortedJSON ($items) 
     {
@@ -1105,57 +1555,54 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         return "[\n  " . join("\n  ", $triples) . "\n]";
     }
 }
+
 /*
-
-  describe('An TriGParser instance for the Turtle format', function () {
-  });
-
   describe('An TriGParser instance for the TriG format', function () {
-    $parser = function () { return new TriGParser([ format: 'TriG' ]); };
+      $parser = function () { return new TriGParser([ format: 'TriG' ]); };
 
-                        // ### should parse a single triple
+      // ### should parse a single triple
       $this->shouldParse($parser, '<a> <b> <c>.', ['a', 'b', 'c']);
 
-                        // ### should parse a default graph
+      // ### should parse a default graph
       $this->shouldParse($parser, '{}');
 
-                        // ### should parse a named graph
+      // ### should parse a named graph
       $this->shouldParse($parser, '<g> {}');
 
-                        // ### should parse a named graph with the GRAPH keyword
+      // ### should parse a named graph with the GRAPH keyword
       $this->shouldParse($parser, 'GRAPH <g> {}');
 
-                        // ### should not parse a quad
+      // ### should not parse a quad
       $this->shouldNotParse($parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.');
 
-                        // ### should not parse a variable
+      // ### should not parse a variable
       $this->shouldNotParse($parser, '?a ?b ?c.', 'Unexpected "?a" on line 1.');
 
-                        // ### should not parse an equality statement
+      // ### should not parse an equality statement
       $this->shouldNotParse($parser, '<a> = <b>.', 'Unexpected "=" on line 1.');
 
-                        // ### should not parse a right implication statement
+      // ### should not parse a right implication statement
       $this->shouldNotParse($parser, '<a> => <b>.', 'Unexpected "=>" on line 1.');
 
-                        // ### should not parse a left implication statement
+      // ### should not parse a left implication statement
       $this->shouldNotParse($parser, '<a> <= <b>.', 'Unexpected "<=" on line 1.');
 
-                        // ### should not parse a formula as object
+      // ### should not parse a formula as object
       $this->shouldNotParse($parser, '<a> <b> {}.', 'Unexpected graph on line 1.');
   });
 
   describe('An TriGParser instance for the N-Triples format', function () {
-    $parser = function () { return new TriGParser([ format: 'N-Triples' ]); };
+      $parser = function () { return new TriGParser([ format: 'N-Triples' ]); };
 
-                        // ### should parse a single triple
+      // ### should parse a single triple
       $this->shouldParse($parser, '<http://ex.org/a> <http://ex.org/b> "c".',
                           ['http://ex.org/a', 'http://ex.org/b', '"c"']);
 
-                        // ### should not parse a single quad
+      // ### should not parse a single quad
       $this->shouldNotParse($parser, '<http://ex.org/a> <http://ex.org/b> "c" <http://ex.org/g>.',
                              'Expected punctuation to follow ""c"" on line 1.');
 
-                        // ### should not parse relative IRIs
+      // ### should not parse relative IRIs
       $this->shouldNotParse($parser, '<a> <b> <c>.', 'Disallowed relative IRI on line 1.');
 
                         // ### should not parse a prefix declaration
@@ -1575,454 +2022,4 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
                   ['x', 'x', 'x', '_:b1'],
                   ['x', 'x', 'x']);
   });
-
-  describe('IRI resolution', function () {
-    describe('RFC3986 normal examples', function () {
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g:h',     'g:h');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g',       'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', './g',     'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g/',      'http://a/bb/ccc/g/');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '/g',      'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '//g',     'http://g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '?y',      'http://a/bb/ccc/d;p?y');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g?y',     'http://a/bb/ccc/g?y');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '#s',      'http://a/bb/ccc/d;p?q#s');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g#s',     'http://a/bb/ccc/g#s');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g?y#s',   'http://a/bb/ccc/g?y#s');
-      itShouldResolve('http://a/bb/ccc/d;p?q', ';x',      'http://a/bb/ccc/;x');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g;x',     'http://a/bb/ccc/g;x');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g;x?y#s', 'http://a/bb/ccc/g;x?y#s');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '',        'http://a/bb/ccc/d;p?q');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '.',       'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/d;p?q', './',      'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '..',      'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '../',     'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '../g',    'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '../..',   'http://a/');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '../../',  'http://a/');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '../../g', 'http://a/g');
-    });
-
-    describe('RFC3986 abnormal examples', function () {
-      itShouldResolve('http://a/bb/ccc/d;p?q', '../../../g',    'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '../../../../g', 'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '/./g',          'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '/../g',         'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g.',            'http://a/bb/ccc/g.');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '.g',            'http://a/bb/ccc/.g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g..',           'http://a/bb/ccc/g..');
-      itShouldResolve('http://a/bb/ccc/d;p?q', '..g',           'http://a/bb/ccc/..g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', './../g',        'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q', './g/.',         'http://a/bb/ccc/g/');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g/./h',         'http://a/bb/ccc/g/h');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g/../h',        'http://a/bb/ccc/h');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g;x=1/./y',     'http://a/bb/ccc/g;x=1/y');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g;x=1/../y',    'http://a/bb/ccc/y');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g?y/./x',       'http://a/bb/ccc/g?y/./x');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g?y/../x',      'http://a/bb/ccc/g?y/../x');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
-      itShouldResolve('http://a/bb/ccc/d;p?q', 'http:g',        'http:g');
-    });
-
-    describe('RFC3986 normal examples with trailing slash in base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/d/', 'g:h',     'g:h');
-      itShouldResolve('http://a/bb/ccc/d/', 'g',       'http://a/bb/ccc/d/g');
-      itShouldResolve('http://a/bb/ccc/d/', './g',     'http://a/bb/ccc/d/g');
-      itShouldResolve('http://a/bb/ccc/d/', 'g/',      'http://a/bb/ccc/d/g/');
-      itShouldResolve('http://a/bb/ccc/d/', '/g',      'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d/', '//g',     'http://g');
-      itShouldResolve('http://a/bb/ccc/d/', '?y',      'http://a/bb/ccc/d/?y');
-      itShouldResolve('http://a/bb/ccc/d/', 'g?y',     'http://a/bb/ccc/d/g?y');
-      itShouldResolve('http://a/bb/ccc/d/', '#s',      'http://a/bb/ccc/d/#s');
-      itShouldResolve('http://a/bb/ccc/d/', 'g#s',     'http://a/bb/ccc/d/g#s');
-      itShouldResolve('http://a/bb/ccc/d/', 'g?y#s',   'http://a/bb/ccc/d/g?y#s');
-      itShouldResolve('http://a/bb/ccc/d/', ';x',      'http://a/bb/ccc/d/;x');
-      itShouldResolve('http://a/bb/ccc/d/', 'g;x',     'http://a/bb/ccc/d/g;x');
-      itShouldResolve('http://a/bb/ccc/d/', 'g;x?y#s', 'http://a/bb/ccc/d/g;x?y#s');
-      itShouldResolve('http://a/bb/ccc/d/', '',        'http://a/bb/ccc/d/');
-      itShouldResolve('http://a/bb/ccc/d/', '.',       'http://a/bb/ccc/d/');
-      itShouldResolve('http://a/bb/ccc/d/', './',      'http://a/bb/ccc/d/');
-      itShouldResolve('http://a/bb/ccc/d/', '..',      'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/d/', '../',     'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/d/', '../g',    'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/d/', '../..',   'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/d/', '../../',  'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/d/', '../../g', 'http://a/bb/g');
-    });
-
-    describe('RFC3986 abnormal examples with trailing slash in base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/d/', '../../../g',    'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d/', '../../../../g', 'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d/', '/./g',          'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d/', '/../g',         'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d/', 'g.',            'http://a/bb/ccc/d/g.');
-      itShouldResolve('http://a/bb/ccc/d/', '.g',            'http://a/bb/ccc/d/.g');
-      itShouldResolve('http://a/bb/ccc/d/', 'g..',           'http://a/bb/ccc/d/g..');
-      itShouldResolve('http://a/bb/ccc/d/', '..g',           'http://a/bb/ccc/d/..g');
-      itShouldResolve('http://a/bb/ccc/d/', './../g',        'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/d/', './g/.',         'http://a/bb/ccc/d/g/');
-      itShouldResolve('http://a/bb/ccc/d/', 'g/./h',         'http://a/bb/ccc/d/g/h');
-      itShouldResolve('http://a/bb/ccc/d/', 'g/../h',        'http://a/bb/ccc/d/h');
-      itShouldResolve('http://a/bb/ccc/d/', 'g;x=1/./y',     'http://a/bb/ccc/d/g;x=1/y');
-      itShouldResolve('http://a/bb/ccc/d/', 'g;x=1/../y',    'http://a/bb/ccc/d/y');
-      itShouldResolve('http://a/bb/ccc/d/', 'g?y/./x',       'http://a/bb/ccc/d/g?y/./x');
-      itShouldResolve('http://a/bb/ccc/d/', 'g?y/../x',      'http://a/bb/ccc/d/g?y/../x');
-      itShouldResolve('http://a/bb/ccc/d/', 'g#s/./x',       'http://a/bb/ccc/d/g#s/./x');
-      itShouldResolve('http://a/bb/ccc/d/', 'g#s/../x',      'http://a/bb/ccc/d/g#s/../x');
-      itShouldResolve('http://a/bb/ccc/d/', 'http:g',        'http:g');
-    });
-
-    describe('RFC3986 normal examples with /. in the base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g:h',     'g:h');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g',       'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', './g',     'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g/',      'http://a/bb/ccc/g/');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '/g',      'http://a/g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '//g',     'http://g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '?y',      'http://a/bb/ccc/./d;p?y');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g?y',     'http://a/bb/ccc/g?y');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '#s',      'http://a/bb/ccc/./d;p?q#s');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g#s',     'http://a/bb/ccc/g#s');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g?y#s',   'http://a/bb/ccc/g?y#s');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', ';x',      'http://a/bb/ccc/;x');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g;x',     'http://a/bb/ccc/g;x');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g;x?y#s', 'http://a/bb/ccc/g;x?y#s');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '',        'http://a/bb/ccc/./d;p?q');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '.',       'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', './',      'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '..',      'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '../',     'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '../g',    'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '../..',   'http://a/');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '../../',  'http://a/');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '../../g', 'http://a/g');
-    });
-
-    describe('RFC3986 abnormal examples with /. in the base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '../../../g',    'http://a/g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '../../../../g', 'http://a/g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '/./g',          'http://a/g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '/../g',         'http://a/g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g.',            'http://a/bb/ccc/g.');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '.g',            'http://a/bb/ccc/.g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g..',           'http://a/bb/ccc/g..');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', '..g',           'http://a/bb/ccc/..g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', './../g',        'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', './g/.',         'http://a/bb/ccc/g/');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g/./h',         'http://a/bb/ccc/g/h');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g/../h',        'http://a/bb/ccc/h');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g;x=1/./y',     'http://a/bb/ccc/g;x=1/y');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g;x=1/../y',    'http://a/bb/ccc/y');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g?y/./x',       'http://a/bb/ccc/g?y/./x');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g?y/../x',      'http://a/bb/ccc/g?y/../x');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
-      itShouldResolve('http://a/bb/ccc/./d;p?q', 'http:g',        'http:g');
-    });
-
-    describe('RFC3986 normal examples with /.. in the base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g:h',     'g:h');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g',       'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', './g',     'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g/',      'http://a/bb/g/');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '/g',      'http://a/g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '//g',     'http://g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '?y',      'http://a/bb/ccc/../d;p?y');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g?y',     'http://a/bb/g?y');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '#s',      'http://a/bb/ccc/../d;p?q#s');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g#s',     'http://a/bb/g#s');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g?y#s',   'http://a/bb/g?y#s');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', ';x',      'http://a/bb/;x');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g;x',     'http://a/bb/g;x');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g;x?y#s', 'http://a/bb/g;x?y#s');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '',        'http://a/bb/ccc/../d;p?q');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '.',       'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', './',      'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '..',      'http://a/');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '../',     'http://a/');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '../g',    'http://a/g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '../..',   'http://a/');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '../../',  'http://a/');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '../../g', 'http://a/g');
-    });
-
-    describe('RFC3986 abnormal examples with /.. in the base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '../../../g',    'http://a/g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '../../../../g', 'http://a/g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '/./g',          'http://a/g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '/../g',         'http://a/g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g.',            'http://a/bb/g.');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '.g',            'http://a/bb/.g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g..',           'http://a/bb/g..');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', '..g',           'http://a/bb/..g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', './../g',        'http://a/g');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', './g/.',         'http://a/bb/g/');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g/./h',         'http://a/bb/g/h');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g/../h',        'http://a/bb/h');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g;x=1/./y',     'http://a/bb/g;x=1/y');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g;x=1/../y',    'http://a/bb/y');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g?y/./x',       'http://a/bb/g?y/./x');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g?y/../x',      'http://a/bb/g?y/../x');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g#s/./x',       'http://a/bb/g#s/./x');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'g#s/../x',      'http://a/bb/g#s/../x');
-      itShouldResolve('http://a/bb/ccc/../d;p?q', 'http:g',        'http:g');
-    });
-
-    describe('RFC3986 normal examples with trailing /. in the base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/.', 'g:h',     'g:h');
-      itShouldResolve('http://a/bb/ccc/.', 'g',       'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/.', './g',     'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/.', 'g/',      'http://a/bb/ccc/g/');
-      itShouldResolve('http://a/bb/ccc/.', '/g',      'http://a/g');
-      itShouldResolve('http://a/bb/ccc/.', '//g',     'http://g');
-      itShouldResolve('http://a/bb/ccc/.', '?y',      'http://a/bb/ccc/.?y');
-      itShouldResolve('http://a/bb/ccc/.', 'g?y',     'http://a/bb/ccc/g?y');
-      itShouldResolve('http://a/bb/ccc/.', '#s',      'http://a/bb/ccc/.#s');
-      itShouldResolve('http://a/bb/ccc/.', 'g#s',     'http://a/bb/ccc/g#s');
-      itShouldResolve('http://a/bb/ccc/.', 'g?y#s',   'http://a/bb/ccc/g?y#s');
-      itShouldResolve('http://a/bb/ccc/.', ';x',      'http://a/bb/ccc/;x');
-      itShouldResolve('http://a/bb/ccc/.', 'g;x',     'http://a/bb/ccc/g;x');
-      itShouldResolve('http://a/bb/ccc/.', 'g;x?y#s', 'http://a/bb/ccc/g;x?y#s');
-      itShouldResolve('http://a/bb/ccc/.', '',        'http://a/bb/ccc/.');
-      itShouldResolve('http://a/bb/ccc/.', '.',       'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/.', './',      'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/.', '..',      'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/.', '../',     'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/.', '../g',    'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/.', '../..',   'http://a/');
-      itShouldResolve('http://a/bb/ccc/.', '../../',  'http://a/');
-      itShouldResolve('http://a/bb/ccc/.', '../../g', 'http://a/g');
-    });
-
-    describe('RFC3986 abnormal examples with trailing /. in the base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/.', '../../../g',    'http://a/g');
-      itShouldResolve('http://a/bb/ccc/.', '../../../../g', 'http://a/g');
-      itShouldResolve('http://a/bb/ccc/.', '/./g',          'http://a/g');
-      itShouldResolve('http://a/bb/ccc/.', '/../g',         'http://a/g');
-      itShouldResolve('http://a/bb/ccc/.', 'g.',            'http://a/bb/ccc/g.');
-      itShouldResolve('http://a/bb/ccc/.', '.g',            'http://a/bb/ccc/.g');
-      itShouldResolve('http://a/bb/ccc/.', 'g..',           'http://a/bb/ccc/g..');
-      itShouldResolve('http://a/bb/ccc/.', '..g',           'http://a/bb/ccc/..g');
-      itShouldResolve('http://a/bb/ccc/.', './../g',        'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/.', './g/.',         'http://a/bb/ccc/g/');
-      itShouldResolve('http://a/bb/ccc/.', 'g/./h',         'http://a/bb/ccc/g/h');
-      itShouldResolve('http://a/bb/ccc/.', 'g/../h',        'http://a/bb/ccc/h');
-      itShouldResolve('http://a/bb/ccc/.', 'g;x=1/./y',     'http://a/bb/ccc/g;x=1/y');
-      itShouldResolve('http://a/bb/ccc/.', 'g;x=1/../y',    'http://a/bb/ccc/y');
-      itShouldResolve('http://a/bb/ccc/.', 'g?y/./x',       'http://a/bb/ccc/g?y/./x');
-      itShouldResolve('http://a/bb/ccc/.', 'g?y/../x',      'http://a/bb/ccc/g?y/../x');
-      itShouldResolve('http://a/bb/ccc/.', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
-      itShouldResolve('http://a/bb/ccc/.', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
-      itShouldResolve('http://a/bb/ccc/.', 'http:g',        'http:g');
-    });
-
-    describe('RFC3986 normal examples with trailing /.. in the base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/..', 'g:h',     'g:h');
-      itShouldResolve('http://a/bb/ccc/..', 'g',       'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/..', './g',     'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/..', 'g/',      'http://a/bb/ccc/g/');
-      itShouldResolve('http://a/bb/ccc/..', '/g',      'http://a/g');
-      itShouldResolve('http://a/bb/ccc/..', '//g',     'http://g');
-      itShouldResolve('http://a/bb/ccc/..', '?y',      'http://a/bb/ccc/..?y');
-      itShouldResolve('http://a/bb/ccc/..', 'g?y',     'http://a/bb/ccc/g?y');
-      itShouldResolve('http://a/bb/ccc/..', '#s',      'http://a/bb/ccc/..#s');
-      itShouldResolve('http://a/bb/ccc/..', 'g#s',     'http://a/bb/ccc/g#s');
-      itShouldResolve('http://a/bb/ccc/..', 'g?y#s',   'http://a/bb/ccc/g?y#s');
-      itShouldResolve('http://a/bb/ccc/..', ';x',      'http://a/bb/ccc/;x');
-      itShouldResolve('http://a/bb/ccc/..', 'g;x',     'http://a/bb/ccc/g;x');
-      itShouldResolve('http://a/bb/ccc/..', 'g;x?y#s', 'http://a/bb/ccc/g;x?y#s');
-      itShouldResolve('http://a/bb/ccc/..', '',        'http://a/bb/ccc/..');
-      itShouldResolve('http://a/bb/ccc/..', '.',       'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/..', './',      'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/..', '..',      'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/..', '../',     'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/..', '../g',    'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/..', '../..',   'http://a/');
-      itShouldResolve('http://a/bb/ccc/..', '../../',  'http://a/');
-      itShouldResolve('http://a/bb/ccc/..', '../../g', 'http://a/g');
-    });
-
-    describe('RFC3986 abnormal examples with trailing /.. in the base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/..', '../../../g',    'http://a/g');
-      itShouldResolve('http://a/bb/ccc/..', '../../../../g', 'http://a/g');
-      itShouldResolve('http://a/bb/ccc/..', '/./g',          'http://a/g');
-      itShouldResolve('http://a/bb/ccc/..', '/../g',         'http://a/g');
-      itShouldResolve('http://a/bb/ccc/..', 'g.',            'http://a/bb/ccc/g.');
-      itShouldResolve('http://a/bb/ccc/..', '.g',            'http://a/bb/ccc/.g');
-      itShouldResolve('http://a/bb/ccc/..', 'g..',           'http://a/bb/ccc/g..');
-      itShouldResolve('http://a/bb/ccc/..', '..g',           'http://a/bb/ccc/..g');
-      itShouldResolve('http://a/bb/ccc/..', './../g',        'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/..', './g/.',         'http://a/bb/ccc/g/');
-      itShouldResolve('http://a/bb/ccc/..', 'g/./h',         'http://a/bb/ccc/g/h');
-      itShouldResolve('http://a/bb/ccc/..', 'g/../h',        'http://a/bb/ccc/h');
-      itShouldResolve('http://a/bb/ccc/..', 'g;x=1/./y',     'http://a/bb/ccc/g;x=1/y');
-      itShouldResolve('http://a/bb/ccc/..', 'g;x=1/../y',    'http://a/bb/ccc/y');
-      itShouldResolve('http://a/bb/ccc/..', 'g?y/./x',       'http://a/bb/ccc/g?y/./x');
-      itShouldResolve('http://a/bb/ccc/..', 'g?y/../x',      'http://a/bb/ccc/g?y/../x');
-      itShouldResolve('http://a/bb/ccc/..', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
-      itShouldResolve('http://a/bb/ccc/..', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
-      itShouldResolve('http://a/bb/ccc/..', 'http:g',        'http:g');
-    });
-
-    describe('RFC3986 normal examples with fragment in base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g:h',     'g:h');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g',       'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', './g',     'http://a/bb/ccc/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g/',      'http://a/bb/ccc/g/');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '/g',      'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '//g',     'http://g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '?y',      'http://a/bb/ccc/d;p?y');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g?y',     'http://a/bb/ccc/g?y');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '#s',      'http://a/bb/ccc/d;p?q#s');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g#s',     'http://a/bb/ccc/g#s');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g?y#s',   'http://a/bb/ccc/g?y#s');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', ';x',      'http://a/bb/ccc/;x');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g;x',     'http://a/bb/ccc/g;x');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g;x?y#s', 'http://a/bb/ccc/g;x?y#s');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '',        'http://a/bb/ccc/d;p?q');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '.',       'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', './',      'http://a/bb/ccc/');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '..',      'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '../',     'http://a/bb/');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '../g',    'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '../..',   'http://a/');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '../../',  'http://a/');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '../../g', 'http://a/g');
-    });
-
-    describe('RFC3986 abnormal examples with fragment in base IRI', function () {
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '../../../g',    'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '../../../../g', 'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '/./g',          'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '/../g',         'http://a/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g.',            'http://a/bb/ccc/g.');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '.g',            'http://a/bb/ccc/.g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g..',           'http://a/bb/ccc/g..');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', '..g',           'http://a/bb/ccc/..g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', './../g',        'http://a/bb/g');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', './g/.',         'http://a/bb/ccc/g/');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g/./h',         'http://a/bb/ccc/g/h');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g/../h',        'http://a/bb/ccc/h');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g;x=1/./y',     'http://a/bb/ccc/g;x=1/y');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g;x=1/../y',    'http://a/bb/ccc/y');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g?y/./x',       'http://a/bb/ccc/g?y/./x');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g?y/../x',      'http://a/bb/ccc/g?y/../x');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
-      itShouldResolve('http://a/bb/ccc/d;p?q#f', 'http:g',        'http:g');
-    });
-
-    describe('RFC3986 normal examples with file path', function () {
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g:h',     'g:h');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g',       'file:///a/bb/ccc/g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', './g',     'file:///a/bb/ccc/g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g/',      'file:///a/bb/ccc/g/');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '/g',      'file:///g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '//g',     'file://g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '?y',      'file:///a/bb/ccc/d;p?y');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g?y',     'file:///a/bb/ccc/g?y');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '#s',      'file:///a/bb/ccc/d;p?q#s');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g#s',     'file:///a/bb/ccc/g#s');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g?y#s',   'file:///a/bb/ccc/g?y#s');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', ';x',      'file:///a/bb/ccc/;x');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g;x',     'file:///a/bb/ccc/g;x');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g;x?y#s', 'file:///a/bb/ccc/g;x?y#s');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '',        'file:///a/bb/ccc/d;p?q');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '.',       'file:///a/bb/ccc/');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', './',      'file:///a/bb/ccc/');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '..',      'file:///a/bb/');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '../',     'file:///a/bb/');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '../g',    'file:///a/bb/g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '../..',   'file:///a/');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '../../',  'file:///a/');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '../../g', 'file:///a/g');
-    });
-
-    describe('RFC3986 abnormal examples with file path', function () {
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '../../../g',    'file:///g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '../../../../g', 'file:///g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '/./g',          'file:///g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '/../g',         'file:///g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g.',            'file:///a/bb/ccc/g.');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '.g',            'file:///a/bb/ccc/.g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g..',           'file:///a/bb/ccc/g..');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', '..g',           'file:///a/bb/ccc/..g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', './../g',        'file:///a/bb/g');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', './g/.',         'file:///a/bb/ccc/g/');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g/./h',         'file:///a/bb/ccc/g/h');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g/../h',        'file:///a/bb/ccc/h');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g;x=1/./y',     'file:///a/bb/ccc/g;x=1/y');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g;x=1/../y',    'file:///a/bb/ccc/y');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g?y/./x',       'file:///a/bb/ccc/g?y/./x');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g?y/../x',      'file:///a/bb/ccc/g?y/../x');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g#s/./x',       'file:///a/bb/ccc/g#s/./x');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'g#s/../x',      'file:///a/bb/ccc/g#s/../x');
-      itShouldResolve('file:///a/bb/ccc/d;p?q', 'http:g',        'http:g');
-    });
-
-    describe('additional cases', function () {
-      // relative paths ending with '.'
-      itShouldResolve('http://abc/',        '.',      'http://abc/');
-      itShouldResolve('http://abc/def/ghi', '.',      'http://abc/def/');
-      itShouldResolve('http://abc/def/ghi', '.?a=b',  'http://abc/def/?a=b');
-      itShouldResolve('http://abc/def/ghi', '.#a=b',  'http://abc/def/#a=b');
-
-      // relative paths ending with '..'
-      itShouldResolve('http://abc/',        '..',     'http://abc/');
-      itShouldResolve('http://abc/def/ghi', '..',     'http://abc/');
-      itShouldResolve('http://abc/def/ghi', '..?a=b', 'http://abc/?a=b');
-      itShouldResolve('http://abc/def/ghi', '..#a=b', 'http://abc/#a=b');
-
-      // base path with empty subpaths (double slashes)
-      itShouldResolve('http://ab//de//ghi', 'xyz',    'http://ab//de//xyz');
-      itShouldResolve('http://ab//de//ghi', './xyz',  'http://ab//de//xyz');
-      itShouldResolve('http://ab//de//ghi', '../xyz', 'http://ab//de/xyz');
-
-      // base path with colon (possible confusion with scheme)
-      itShouldResolve('http://abc/d:f/ghi', 'xyz',    'http://abc/d:f/xyz');
-      itShouldResolve('http://abc/d:f/ghi', './xyz',  'http://abc/d:f/xyz');
-      itShouldResolve('http://abc/d:f/ghi', '../xyz', 'http://abc/xyz');
-
-      // base path consisting of '..' and/or '../' sequences
-      itShouldResolve('./',        'abc',       '/abc');
-      itShouldResolve('../',       'abc',       '/abc');
-      itShouldResolve('./././',    '././abc',   '/abc');
-      itShouldResolve('../../../', '../../abc', '/abc');
-      itShouldResolve('.../././',  '././abc',   '.../abc');
-
-      // base path without authority
-      itShouldResolve('a:b:c/',    'def/../',   'a:b:c/');
-      itShouldResolve('a:b:c',     '/def',      'a:/def');
-      itShouldResolve('a:b/c',     '/def',      'a:/def');
-      itShouldResolve('a:',        '/.',        'a:/');
-      itShouldResolve('a:',        '/..',       'a:/');
-
-      // base path with slashes in query string
-      itShouldResolve('http://abc/def/ghi?q=xx/yyy/z', 'jjj', 'http://abc/def/jjj');
-      itShouldResolve('http://abc/def/ghi?q=xx/y?y/z', 'jjj', 'http://abc/def/jjj');
-    });
-  });
-});
-
-
-function itShouldResolve(baseIri, relativeIri, expected) {
-  $result;
-  describe('resolving <' . relativeIri . '> against <' . baseIri . '>', function () {
-    before(function (done) {
-      try {
-        $doc = '<urn:ex:s> <urn:ex:p> <' . relativeIri . '>.';
-        new TriGParser([ "documentIRI" : $baseIri]).parse(doc, function ($error, $triple) {
-          if (done)
-            result = triple, done(error);
-          done = null;
-        });
-      }
-      catch (\Exception $error) { $this->fail($error->getMessage()); }
-    });
-    it('should result in ' . expected, function () {
-      expect(result.object).to.equal(expected);
-    });
-  });
-}
 */
