@@ -1987,7 +1987,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         $parser->_resetBlankNodeIds();
         //hackish way so we only act upon first error
         $errorReceived = false;
-        $parser->parse($input, function ($error, $triple = null) use (&$expectedError, &$errorReceived){
+        $parser->parse($input, function ($error, $triple = null) use ($expectedError, &$errorReceived){
             //expect($error).not.to.exist;
             if (isset($error) && !$errorReceived) {
                 $this->assertEquals($expectedError, $error->getMessage());

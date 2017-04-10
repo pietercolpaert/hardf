@@ -981,7 +981,7 @@ class TriGParser
         // Parse asynchronously otherwise, executing the read callback when a token arrives
         $this->callback = $tripleCallback;
         try {
-            $tokens = $this->lexer->tokenize($input);            
+            $tokens = $this->lexer->tokenize($input);
             foreach($tokens as $token) {
                 if (isset($this->readCallback)) {
                     $this->readCallback = call_user_func($this->readCallback, $token);

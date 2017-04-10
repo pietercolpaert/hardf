@@ -34,13 +34,15 @@ class N3Lexer
             $this->boolean = '/$0^/';
             // Swap the tokenize method for a restricted version
             $this->_oldTokenize = $this->_tokenize;
-            $this->_tokenize = function ($input, $callback) {
-                $this->_oldTokenize($input, function ($error, $token) {
-                    if (!$error && preg_match('/^(?:IRI|prefixed|literal|langcode|type|\.|eof)$/',$token["type"]))
-                        $callback && callback($error, $token);
-                    else
-                        $callback && callback($error || $this->syntaxError($token['type'], $callback = null));
-                });
+            $self = $this;
+            $this->_tokenize = function ($input, $finalize = true) use ($self) {
+                $tokens = call_user_func($this->_oldTokenize, $input, $finalize);
+                foreach ($tokens as $token) {
+                    if (!preg_match('/^(?:IRI|prefixed|literal|langcode|type|\.|eof)$/',$token["type"])) {
+                        throw $self->syntaxError($token['type'], $token['line']);
+                    }
+                }
+                return $tokens;
             };
         }
         // Enable N3 functionality by default
@@ -421,7 +423,7 @@ class N3Lexer
                 array_push($tokens, $t);
             }, $finalize);
             if ($error) throw $error;
-            return $tokens;     
+            return $tokens;
         };
     }
 
@@ -430,7 +432,11 @@ class N3Lexer
     // ### `tokenize` starts the transformation of an N3 document into an array of tokens.
     // The input can be a string or a stream.
     public function tokenize($input, $finalize = true) {
-        return call_user_func($this->_tokenize, $input, $finalize);
+        try {
+            return call_user_func($this->_tokenize, $input, $finalize);
+        } catch (\Exception $e) {
+            throw $e;
+        }
     }
     
     // Adds the data chunk to the buffer and parses as far as possible        
