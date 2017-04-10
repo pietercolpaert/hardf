@@ -46,9 +46,10 @@ class TriGParser
         $isTurtle = $format === 'turtle';
         $isTriG = $format === 'trig';
         
-        $isNTriples = strpos($format,"triple")?true:false;
-        $isNQuads = strpos($format, "quad")?true:false;
-        $isN3 = strpos($format, "n3")?true:false;
+        $isNTriples = strpos($format,"triple")!==false?true:false;
+        $isNQuads = strpos($format, "quad")!==false?true:false;
+        $isN3 = strpos($format, "n3")!==false?true:false;
+        $this->n3Mode = $isN3;
         $isLineMode = $isNTriples || $isNQuads;
         if (!($this->supportsNamedGraphs = !($isTurtle || $isN3)))
             $this->readPredicateOrNamedGraph = $this->readPredicate;
@@ -86,11 +87,11 @@ class TriGParser
         else {
             // Remove fragment if present
             $fragmentPos = strpos($baseIRI,'#');
-            if ($fragmentPos)
+            if ($fragmentPos !== false)
                 $baseIRI = substr($baseIRI,0, $fragmentPos);
             // Set base IRI and its components
             $this->base = $baseIRI;
-            $this->basePath = !strpos($baseIRI,'/') ? $baseIRI : preg_replace('/[^\/?]*(?:\?.*)?$/', '',$baseIRI);
+            $this->basePath = strpos($baseIRI,'/') === false ? $baseIRI : preg_replace('/[^\/?]*(?:\?.*)?$/', '',$baseIRI);
             preg_match($this->schemeAuthority, $baseIRI, $matches);
             $this->baseRoot   = isset($matches[0])?$matches[0]:'';
             $this->baseScheme = isset($matches[1])?$matches[1]:'';
@@ -100,7 +101,7 @@ class TriGParser
     // ### `_saveContext` stores the current parsing context
     // when entering a new scope (list, blank node, formula)
     private function saveContext($type, $graph, $subject, $predicate, $object) {
-        $n3Mode = isset($this->n3Mode)?$this->n3Mode:null;
+        $n3Mode = $this->n3Mode?$this->n3Mode:null;
         array_push($this->contextStack,[
             "subject"=> $subject, "predicate"=> $predicate,"object"=> $object,
             "graph" => $graph, "type"=> $type,
@@ -109,14 +110,14 @@ class TriGParser
             "quantified"=> $n3Mode ? $this->quantified : null
         ]);
         // The settings below only apply to N3 streams
-        if (isset($n3Mode)) {
+        if ($n3Mode) {
             // Every new scope resets the predicate direction
             $this->inversePredicate = false;
             // In N3, blank nodes are scoped to a formula
             // (using a dot as separator, as a blank node label cannot start with it)
             $this->prefixes["_"] = $this->graph . '.';
             // Quantifiers are scoped to a formula TODO: is this correct?
-            $this->quantified = clone $this->quantified;
+            $this->quantified = $this->quantified;
         }
     }
 
@@ -124,13 +125,13 @@ class TriGParser
     // when leaving a scope (list, blank node, formula)
     private function restoreContext() {
         $context = array_pop($this->contextStack);
-        $n3Mode = isset($this->n3Mode)?$this->n3Mode:null;
+        $n3Mode = $this->n3Mode;
         $this->subject   = $context["subject"];
         $this->predicate = $context["predicate"];
         $this->object    = $context["object"];
         $this->graph     = $context["graph"];
         // The settings below only apply to N3 streams
-        if (isset($n3Mode)) {
+        if ($n3Mode) {
             $this->inversePredicate = $context["inverse"];
             $this->prefixes["_"] = $context["blankPrefix"];
             $this->quantified = $context["quantified"];
@@ -205,7 +206,7 @@ class TriGParser
                     return call_user_func($this->error,'Expected entity but got ' . $token["type"], $token);
             }
             // In N3 mode, replace the entity if it is quantified
-            if (!isset($quantifier) && isset($this->n3Mode) && isset($this->quantified[$value]))
+            if (!isset($quantifier) && $this->n3Mode && isset($this->quantified[$value]))
                 $value = $this->quantified[$value];
             return $value;
         };
@@ -213,7 +214,6 @@ class TriGParser
         // ### `_readSubject` reads a triple's subject
         $this->readSubject = function ($token) {
             $this->predicate = null;
-            
             switch ($token["type"]) {
                 case '[':
                     // Start a new triple with a new blank node as subject
@@ -226,10 +226,9 @@ class TriGParser
                     return $this->readListItem;
                 case '{':
                     // Start a new formula
-                    if (!isset($this->n3Mode))
+                    if (!$this->n3Mode)
                         return call_user_func($this->error,'Unexpected graph', $token);
-                    $this->saveContext('formula', $this->graph,
-                    $this->graph = '_:b' . $this->blankNodeCount++, null, null);
+                    $this->saveContext('formula', $this->graph, $this->graph = '_:b' . $this->blankNodeCount++, null, null);
                     return $this->readSubject;
                 case '}':
                     // No subject; the graph in which we are reading is closed instead
@@ -250,7 +249,7 @@ class TriGParser
                     if ($this->subject == null) 
                         return;
                     // In N3 mode, the subject might be a path
-                    if (isset($this->n3Mode))
+                    if ($this->n3Mode)
                         return call_user_func($this->getPathReader,$this->readPredicateOrNamedGraph);
             }
 
@@ -280,7 +279,7 @@ class TriGParser
                     // Extra semicolons can be safely ignored
                     return $this->readPredicate;
                 case 'blank':
-                    if (!isset($this->n3Mode))
+                    if (!$this->n3Mode)
                         return call_user_func($this->error,'Disallowed blank node as predicate', $token);
                 default:
                     $this->predicate = call_user_func($this->readEntity,$token);
@@ -309,7 +308,7 @@ class TriGParser
                 return $this->readListItem;
                 case '{':
                 // Start a new formula
-                if (!isset($this->n3Mode))
+                if (!$this->n3Mode)
                     return call_user_func($this->error,'Unexpected graph', $token);
                 $this->saveContext('formula', $this->graph, $this->subject, $this->predicate,
                 $this->graph = '_:b' . $this->blankNodeCount++);
@@ -320,7 +319,7 @@ class TriGParser
                 if ($this->object == null)
                     return;
                 // In N3 mode, the object might be a path
-                if (isset($this->n3Mode))
+                if ($this->n3Mode)
                     return call_user_func($this->getPathReader,$this->getContextEndReader());
             }
             return call_user_func($this->getContextEndReader);
@@ -465,7 +464,7 @@ class TriGParser
             // Add the item's value
             if ($item !== null) {
                 // In N3 mode, the item might be a path
-                if (isset($this->n3Mode) && ($token["type"] === 'IRI' || $token["type"] === 'prefixed')) {
+                if ($this->n3Mode && ($token["type"] === 'IRI' || $token["type"] === 'prefixed')) {
                     // Create a new context to add the item's path
                     $this->saveContext('item', $this->graph, $list, self::RDF_FIRST, $item);
                     $this->subject = $item;
@@ -549,7 +548,7 @@ class TriGParser
                 case '}':
                     if ($this->graph === null)
                         return call_user_func($this->error,'Unexpected graph closing', $token);
-                    if (isset($this->n3Mode))
+                    if ($this->n3Mode)
                         return $this->readFormulaTail($token);
                     $this->graph = null;
                     // A dot just ends the statement, without sharing anything with the next
@@ -679,11 +678,11 @@ class TriGParser
 
         // Reads a list of quantified symbols from a @forSome or @forAll statement
         $this->readQuantifierList = function ($token) {
-                        $entity;
+            $entity;
             switch ($token["type"]) {
                 case 'IRI':
                 case 'prefixed':
-                    $entity = call_user_func($this->readEntity,$token, true);
+                    $entity = call_user_func($this->readEntity, $token, true);
                     if (!$entity)
                         break;
                 default:
