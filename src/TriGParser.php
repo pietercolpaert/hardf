@@ -67,9 +67,8 @@ class TriGParser
             $this->blankNodePrefix = '_:' . preg_replace('/^_:/', '', $options["blankNodePrefix"]);
         }
         
-        
         $this->lexer = isset($options["lexer"])? $options["lexer"] : new N3Lexer([ "lineMode"=> $isLineMode, "n3"=> $isN3 ]);
-        // Disable explicit quantifiers by default - TODO: is !! same in PHP?
+        // Disable explicit quantifiers by default
         $this->explicitQuantifiers = isset($options["explicitQuantifiers"])?$options["explicitQuantifiers"]:null;
         
     }
@@ -826,7 +825,7 @@ class TriGParser
 
         // ### `_error` emits an error message through the callback
         $this->error = function ($message, $token) {
-            call_user_func($this->callback, new \Exception($message . ' on line ' . $token['line'] . '.'));
+            call_user_func($this->callback, new \Exception($message . ' on line ' . $token['line'] . '.'),null);
         };
 
         // ### `_resolveIRI` resolves a relative IRI token against the base path,

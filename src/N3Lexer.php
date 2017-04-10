@@ -25,7 +25,7 @@ class N3Lexer
     private $prevTokenType;
     
     public function __construct($options = []) {
-        
+        $this->initTokenize();
         // In line mode (N-Triples or N-Quads), only simple features may be parsed
         if ($options["lineMode"]) {
             // Don't tokenize special literals
@@ -33,15 +33,15 @@ class N3Lexer
             $this->number = '/$0^/';
             $this->boolean = '/$0^/';
             // Swap the tokenize method for a restricted version
-            /*$this->tokenize = $this->tokenize; //TODO: what was this originally?
-            $this->tokenize = function ($input, $callback) {
-                $this->tokenize($input, function ($error, $token) {
+            $this->_oldTokenize = $this->_tokenize;
+            $this->_tokenize = function ($input, $callback) {
+                $this->_oldTokenize($input, function ($error, $token) {
                     if (!$error && preg_match('/^(?:IRI|prefixed|literal|langcode|type|\.|eof)$/',$token["type"]))
                         $callback && callback($error, $token);
                     else
-                        $callback && callback($error || self::_syntaxError($token['type'], $callback = null));
+                        $callback && callback($error || $this->syntaxError($token['type'], $callback = null));
                 });
-                };*/
+            };
         }
         // Enable N3 functionality by default
         $this->n3Mode = $options["n3"] !== false;
@@ -65,7 +65,6 @@ class N3Lexer
     private $variable = '/^\?(?:(?:[A-Z_a-z\xc0-\xd6\xd8-\xf6])(?:[\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)(?=[.,;!\^\s#()\[\]\{\}"\'<])/';
     
     private $blank = '/^_:((?:[0-9A-Z_a-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)(?:[ \t]+|(?=\.?[,;:\s#()\[\]\{\}"\'<]))/';
-    //TODO: this doesn't work
     private $number = "/^[\-+]?(?:\d+\.?\d*([eE](?:[\-\+])?\d+)|\d*\.?\d+)(?=[.,;:\s#()\[\]\{\}\"'<])/";
     private $boolean = '/^(?:true|false)(?=[.,;\s#()\[\]\{\}"\'<])/';
     private $keyword = '/^@[a-z]+(?=[\s#<])/i';
@@ -407,24 +406,31 @@ class N3Lexer
         return new \Exception('Unexpected "' . $issue . '" on line ' . $line . '.');
     }
 
+    // When handling tokenize as a variable, we can hotswap its functionality when dealing with various serializations
+    private function initTokenize() 
+    {
+        $this->_tokenize = function ($input, $finalize) {
+            // If the input is a string, continuously emit tokens through the callback until the end
+            $this->input = $input;
+            $tokens = [];
+            $error = "";
+            $this->tokenizeToEnd(function ($e, $t) use (&$tokens,&$error) {
+                if (isset($e)) {
+                    $error = $e;
+                }
+                array_push($tokens, $t);
+            }, $finalize);
+            if ($error) throw $error;
+            return $tokens;     
+        };
+    }
 
     // ## Public methods
 
     // ### `tokenize` starts the transformation of an N3 document into an array of tokens.
     // The input can be a string or a stream.
     public function tokenize($input, $finalize = true) {
-        // If the input is a string, continuously emit tokens through the callback until the end
-        $this->input = $input;
-        $tokens = [];
-        $error = "";
-        $this->tokenizeToEnd(function ($e, $t) use (&$tokens,&$error) {
-            if (isset($e)) {
-                $error = $e;
-            }
-            array_push($tokens, $t);
-        }, $finalize);
-        if ($error) throw $error;
-        return $tokens;
+        return call_user_func($this->_tokenize, $input, $finalize);
     }
     
     // Adds the data chunk to the buffer and parses as far as possible        
