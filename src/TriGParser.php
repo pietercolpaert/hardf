@@ -320,7 +320,7 @@ class TriGParser
                     return;
                 // In N3 mode, the object might be a path
                 if ($this->n3Mode)
-                    return call_user_func($this->getPathReader,$this->getContextEndReader());
+                    return call_user_func($this->getPathReader,call_user_func($this->getContextEndReader));
             }
             return call_user_func($this->getContextEndReader);
         };
@@ -527,14 +527,14 @@ class TriGParser
                 return call_user_func($this->readPunctuation,$token);
 
             // Store the last triple of the formula
-            if ($this->subject !== null)
+            if (isset($this->subject))
                 call_user_func($this->triple,$this->subject, $this->predicate, $this->object, $this->graph);
 
             // Restore the parent context containing this formula
             $this->restoreContext();
             // If the formula was the subject, continue reading the predicate.
             // If the formula was the object, read punctuation.
-            return $this->object === null ? $this->readPredicate : call_user_func($this->getContextEndReader);
+            return !isset($this->object) ? $this->readPredicate : call_user_func($this->getContextEndReader);
         };
 
         // ### `_readPunctuation` reads punctuation between triples or triple parts
@@ -549,7 +549,7 @@ class TriGParser
                     if ($this->graph === null)
                         return call_user_func($this->error,'Unexpected graph closing', $token);
                     if ($this->n3Mode)
-                        return $this->readFormulaTail($token);
+                        return call_user_func($this->readFormulaTail, $token);
                     $this->graph = null;
                     // A dot just ends the statement, without sharing anything with the next
                 case '.':
@@ -683,7 +683,7 @@ class TriGParser
                 case 'IRI':
                 case 'prefixed':
                     $entity = call_user_func($this->readEntity, $token, true);
-                    if (!$entity)
+                    if (isset($entity))
                         break;
                 default:
                     return call_user_func($this->error,'Unexpected ' . $token["type"], $token);
@@ -742,7 +742,10 @@ class TriGParser
                 // Not a path; resume reading where we left off
                 default:
                 $stack = $this->contextStack;
-                $parent = is_array($stack) && $stack[sizeof($stack) - 1];
+                $parent = null;
+                if (is_array($stack) && sizeof($stack) - 1 > 0 && isset($stack[sizeof($stack) - 1])) {
+                    $parent = $stack[sizeof($stack) - 1];
+                }
                 // If we were reading a list item, we still need to output it
                 if ($parent && $parent["type"] === 'item') {
                     // The list item is the remaining subejct after reading the path
