@@ -1264,7 +1264,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
         // ### should not parse a @forSome statement with a variable
         $this->shouldNotParse($parser, '@forSome ?a.',
-        'Unexpected $on line 1.');
+        'Unexpected var on line 1.');
 
         // ### should correctly scope @forSome statements
         $this->shouldParse($parser, '@forSome <x>. <x> <x> { @forSome <x>. <x> <x> <x>. }. <x> <x> <x>.',
@@ -1290,7 +1290,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
         // ### should not parse a @forAll statement with a variable
         $this->shouldNotParse($parser, '@forAll ?a.',
-        'Unexpected $on line 1.');
+        'Unexpected var on line 1.');
 
         // ### should correctly scope @forAll statements
         $this->shouldParse($parser, '@forAll <x>. <x> <x> { @forAll <x>. <x> <x> <x>. }. <x> <x> <x>.',
