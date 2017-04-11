@@ -165,7 +165,7 @@ class N3Lexer
                     
                     // Try to find a full IRI with escape sequences
                     else if (preg_match($this->iri, $input, $match)) {
-                        $unescaped = $this->unescape(match[1]);
+                        $unescaped = $this->unescape($match[1]);
                         if ($unescaped === null || preg_match($illegalIriChars,$unescaped))
                             return $reportSyntaxError($this);
                         $type = 'IRI';
