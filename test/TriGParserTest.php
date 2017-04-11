@@ -494,7 +494,6 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         $this->shouldParse("@base <http://ex.org/foo>.\n" .
         "<#> <b#> <#c>.\n",
         ['http://ex.org/foo#', 'http://ex.org/b#', 'http://ex.org/foo#c']);
-//TODO : solve plus to dot and newlines
         // ### should not resolve prefixed names
         $this->shouldParse('PREFIX ex: <http://ex.org/a/bb/ccc/../>' . "\n" .
         'ex:a ex:b ex:c .',

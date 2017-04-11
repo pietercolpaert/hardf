@@ -29,6 +29,7 @@ class TriGWriter
     
     public function __construct($options = [])
     {
+        $this->initWriter ();
         /* Initialize writer, depending on the format*/
         $this->subject = null;
         if (!isset($options["format"]) || !(preg_match("/triple|quad/i", $options["format"]))) {
@@ -37,8 +38,10 @@ class TriGWriter
             if (isset($options["prefixes"])) {
                 $this->addPrefixes($options["prefixes"]);
             }
+        } else {
+            $this->writeTriple = $this->writeTripleLine;
         }
-
+        
         // TODO: I think we could do without this...
         $this->characterReplacer = function ($character) {
             // Replace a single character by its escaped version
@@ -63,6 +66,65 @@ class TriGWriter
             }
         };
     }
+
+    private function initWriter () 
+    {
+        // ### `_writeTriple` writes the triple to the output stream
+        $this->writeTriple = function($subject, $predicate, $object, $graph, $done = null) {
+            try {
+                if (isset($graph) && $graph === "") {
+                    $graph = null;
+                }
+                // Write the graph's label if it has changed
+                if ($this->graph !== $graph) {
+                    // Close the previous graph and start the new one
+                    $this->write(($this->subject === null ? '' : ($this->graph ? "\n}\n" : ".\n")) . (isset($graph) ? $this->encodeIriOrBlankNode($graph) . " {\n" : ''));
+                    $this->subject = null;
+                    // Don't treat identical blank nodes as repeating graphs
+                    $this->graph = $graph[0] !== '[' ? $graph : ']';
+                }
+                // Don't repeat the subject if it's the same
+                if ($this->subject === $subject) {
+                    // Don't repeat the predicate if it's the same
+                    if ($this->predicate === $predicate)
+                        $this->write(', ' . $this->encodeObject($object), $done);
+                    // Same subject, different predicate
+                    else {
+                        $this->predicate = $predicate;
+                        $this->write(";\n    " . $this->encodePredicate($predicate) . ' ' . $this->encodeObject($object), $done);
+                    }
+                }
+                // Different subject; write the whole triple
+                else {
+                    $this->write(($this->subject === null ? '' : ".\n") . $this->encodeSubject($this->subject = $subject) . ' ' . $this->encodePredicate($this->predicate = $predicate) . ' ' . $this->encodeObject($object), $done);
+                }
+            } catch (\Exception $error) {
+                if (isset($done)) {
+                    $done($error);
+                }
+            }
+        };
+    
+  
+        // ### `_writeTripleLine` writes the triple or quad to the output stream as a single line
+        $this->writeTripleLine = function ($subject, $predicate, $object, $graph, $done = null) {
+            if (isset($graph) && $graph === "") {
+                $graph = null;
+            }
+            // Don't use prefixes
+            unset($this->prefixMatch);
+            // Write the triple
+            try {
+                $this->write($this->encodeIriOrBlankNode($subject) . ' ' .$this->encodeIriOrBlankNode($predicate) . ' ' . $this->encodeObject($object) . (isset($graph) ? ' ' . $this->encodeIriOrBlankNode($graph) . ".\n" : ".\n"), $done);
+            } catch (\Exception $error) {
+                if (isset($done)) {
+                    $done($error);
+                }
+            }
+        };
+  
+    }
+    
 
     // ### `_write` writes the argument to the output stream
     private function write ($string, $callback = null) {
@@ -90,57 +152,6 @@ class TriGWriter
             return $string;
         }
     }
-    
-    // ### `_writeTriple` writes the triple to the output stream
-    private function writeTriple ($subject, $predicate, $object, $graph, $done = null) {
-        try {
-            if (isset($graph) && $graph === ""){
-                $graph = null;
-            }
-            // Write the graph's label if it has changed
-            if ($this->graph !== $graph) {
-                // Close the previous graph and start the new one
-                $this->write(($this->subject === null ? '' : ($this->graph ? "\n}\n" : ".\n")) . (isset($graph) ? $this->encodeIriOrBlankNode($graph) . " {\n" : ''));
-                $this->subject = null;
-                // Don't treat identical blank nodes as repeating graphs
-                $this->graph = $graph[0] !== '[' ? $graph : ']';
-            }
-            // Don't repeat the subject if it's the same
-            if ($this->subject === $subject) {
-                // Don't repeat the predicate if it's the same
-                if ($this->predicate === $predicate)
-                    $this->write(', ' . $this->encodeObject($object), $done);
-                // Same subject, different predicate
-                else {
-                    $this->predicate = $predicate;
-                    $this->write(";\n    " . $this->encodePredicate($predicate) . ' ' . $this->encodeObject($object), $done);
-                }
-            }
-            // Different subject; write the whole triple
-            else {
-                $this->write(($this->subject === null ? '' : ".\n") . $this->encodeSubject($this->subject = $subject) . ' ' . $this->encodePredicate($this->predicate = $predicate) . ' ' . $this->encodeObject($object), $done);
-            }
-        } catch (\Exception $error) {
-            if (isset($done)) {
-                $done($error);
-            }
-        }
-    }
-  
-    // ### `_writeTripleLine` writes the triple or quad to the output stream as a single line
-    private function writeTripleLine ($subject, $predicate, $object, $graph, $done = null) {
-        // Don't use prefixes
-        unset($this->prefixMatch);
-        // Write the triple
-        try {
-            $this->write($this->encodeIriOrBlankNode($subject) . ' ' .$this->encodeIriOrBlankNode($predicate) . ' ' . $this->encodeObject($object) . (isset($graph) ? ' ' . $this->encodeIriOrBlankNode($graph) . ".\n" : ".\n"), $done);
-        } catch (\Exception $error) {
-            if (isset($done)) {
-                $done($error);
-            }
-        }
-    }
-  
 
     // ### `_encodeIriOrBlankNode` represents an IRI or blank node
     private function encodeIriOrBlankNode ($entity) {
@@ -232,14 +243,14 @@ class TriGWriter
         // The triple was given as a triple object, so shift parameters
         if (is_array($subject)) {
             $g = isset($subject["graph"])?$subject["graph"]:null;
-            $this->writeTriple($subject["subject"], $subject["predicate"], $subject["object"], $g, $predicate);
+            call_user_func($this->writeTriple, $subject["subject"], $subject["predicate"], $subject["object"], $g, $predicate);
         }
         // The optional `graph` parameter was not provided
         else if (!is_string($graph))
-            $this->writeTriple($subject, $predicate, $object, '', $graph);
+            call_user_func($this->writeTriple, $subject, $predicate, $object, '', $graph);
         // The `graph` parameter was provided
         else
-            $this->writeTriple($subject, $predicate, $object, $graph, $done);
+            call_user_func($this->writeTriple, $subject, $predicate, $object, $graph, $done);
     }
     
     // ### `addTriples` adds the triples to the output stream

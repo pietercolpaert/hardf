@@ -103,19 +103,17 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
 
     public function testWrongLiterals()
     {
-/*
         //should not serialize a literal in the subject',
-        shouldNotSerialize(['"a"', 'b', '"c"'],
+        $this->shouldNotSerialize(['"a"', 'b', '"c"'],
         'A literal as subject is not allowed: "a"');
 
         //should not serialize a literal in the predicate',
-        shouldNotSerialize(['a', '"b"', '"c"'],
+        $this->shouldNotSerialize(['a', '"b"', '"c"'],
         'A literal as predicate is not allowed: "b"');
 
         //should not serialize an invalid object literal',
-        shouldNotSerialize(['a', 'b', '"c'],
+        $this->shouldNotSerialize(['a', 'b', '"c'],
         'Invalid literal: "c');
-*/
     }
 
     public function testPrefixes () 
@@ -458,6 +456,18 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         });
     }
 
+    public function testNTriples () 
+    {
+        //should write simple triples in N-Triples mode', function (done) {
+        $writer = new TriGWriter(['format' => 'N-Triples' ]);
+        $writer->addTriple('a', 'b', 'c');
+        $writer->addTriple('a', 'b', 'd');
+        $writer->end(function ($error, $output) {
+            $this->assertEquals('<a> <b> <c>.' . "\n" . '<a> <b> <d>.' . "\n",$output);
+        });
+    }
+    
+
 /*
         //should not allow writing after end', function (done) {
 $writer = new TriGWriter();
@@ -468,13 +478,7 @@ $writer->addTriple(['subject' => 'd','predicate' => 'e','object' => 'f' ], funct
     error.should.have.property('message', 'Cannot write because the writer has been closed.');
 });
 
-        //should write simple triples in N-Triples mode', function (done) {
-$writer = new TriGWriter({'format' => 'N-Triples' });
-$writer->addTriple('a', 'b', 'c');
-$writer->addTriple('a', 'b', 'd');
-$writer->end(function ($error, $output) {
-    $this->assertEquals('<a> <b> <c>.' . "\n" . '<a> <b> <d>.' . "\n",$output);
-});
+   
 
         //should not write an invalid literal in N-Triples mode', function (done) {
 $writer = new TriGWriter({'format' => 'N-Triples' });

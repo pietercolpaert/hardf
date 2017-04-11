@@ -1,5 +1,4 @@
 <?php
-
 namespace pietercolpaert\hardf;
 use pietercolpaert\hardf\N3Lexer;
 /** a clone of the N3Parser class from the N3js code by Ruben Verborgh **/
@@ -71,6 +70,15 @@ class TriGParser
         $this->lexer = isset($options["lexer"])? $options["lexer"] : new N3Lexer([ "lineMode"=> $isLineMode, "n3"=> $isN3 ]);
         // Disable explicit quantifiers by default
         $this->explicitQuantifiers = isset($options["explicitQuantifiers"])?$options["explicitQuantifiers"]:null;
+
+        // The read callback is the next function to be executed when a token arrives.
+        // We start reading in the top context.
+        $this->readCallback = $this->readInTopContext;
+        $this->sparqlStyle = false;
+        $this->prefixes = [];
+        $this->prefixes["_"] = isset($this->blankNodePrefix)?$this->blankNodePrefix:'_:b' . $this->blankNodeCount . '_';
+        $this->inversePredicate = false;
+        $this->quantified = [];
         
     }
     
@@ -151,7 +159,7 @@ class TriGParser
                 if ($this->graph !== null)
                     return call_user_func($this->error,'Unclosed graph', $token);
                 unset($this->prefixes["_"]);
-                return call_user_func($this->callback,null, null, $this->prefixes);
+                return call_user_func($this->callback, null, null, $this->prefixes);
                 // It could be a prefix declaration
                 case 'PREFIX':
                 $this->sparqlStyle = true;
@@ -948,22 +956,12 @@ class TriGParser
     // ## Public methods
 
     // ### `parse` parses the N3 input and emits each parsed triple through the callback
-    public function parse($input, $tripleCallback = null, $prefixCallback = null) {
-        $self = $this;
-        // The read callback is the next function to be executed when a token arrives.
-        // We start reading in the top context.
-        $this->readCallback = $this->readInTopContext;
-        $this->sparqlStyle = false;
-        $this->prefixes = [];
-        $this->prefixes["_"] = isset($this->blankNodePrefix)?$this->blankNodePrefix:'_:b' . $this->blankNodeCount . '_';
+    public function parse($input, $tripleCallback = null, $prefixCallback = null, $finalize = true) {
         $this->prefixCallback = isset($prefixCallback)?$prefixCallback:function () {};
-        $this->inversePredicate = false;
-        $this->quantified = [];
-        
         // Parse synchronously if no triple callback is given
         if (!isset($tripleCallback)) {
             $triples = [];
-            $error= null;
+            $error = null;
             $this->callback = function ($e, $t = null) use (&$triples, &$error) {
                 if (!$e && $t) {
                     array_push($triples,$t);
@@ -971,11 +969,12 @@ class TriGParser
                     //DONE
                 } else {
                     $error = $e;
-                }   
+                } 
             };
-            $tokens = $this->lexer->tokenize($input);            
+            $tokens = $this->lexer->tokenize($input, $finalize);
             foreach($tokens as $token) {
-                $this->readCallback = call_user_func($this->readCallback,$token);
+                if (isset($this->readCallback))
+                    $this->readCallback = call_user_func($this->readCallback, $token);
             }
             if ($error) throw $error;
             return $triples;
@@ -983,7 +982,7 @@ class TriGParser
         // Parse asynchronously otherwise, executing the read callback when a token arrives
         $this->callback = $tripleCallback;
         try {
-            $tokens = $this->lexer->tokenize($input);
+            $tokens = $this->lexer->tokenize($input, $finalize);
             foreach($tokens as $token) {
                 if (isset($this->readCallback)) {
                     $this->readCallback = call_user_func($this->readCallback, $token);
@@ -997,5 +996,15 @@ class TriGParser
             $this->callback = function () {};
         }
     }
+
+    public function parseChunk($input, $tripleCallback = null, $prefixCallback = null) {
+        return $this->parse($input, $tripleCallback, $prefixCallback, false);
+    }
+
+    public function end($tripleCallback = null, $prefixCallback = null) 
+    {
+        return $this->parse("",$tripleCallback, $prefixCallback, true);   
+    }
+    
     
 }
