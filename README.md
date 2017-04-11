@@ -1,15 +1,13 @@
 # hardf
 [![Build Status](https://travis-ci.org/pietercolpaert/hardf.svg?branch=master)](https://travis-ci.org/pietercolpaert/hardf)
 
-Current Status: early port of [N3.js](https://github.com/RubenVerborgh/N3.js) to PHP
+**hardf** is a PHP library that lets you handle RDF easily. It offers:
+ - [**Parsing**](#parsing) triples/quads from [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), [N-Quads](http://www.w3.org/TR/n-quads/), and [Notation3 (N3)](https://www.w3.org/TeamSubmission/n3/)
+ - [**Writing**](#writing) triples/quads to [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/)
 
-Basic PHP library for RDF1.1. Currently provides simple tools (an Util library) for an array of triples/quads.
+Both the parser as the serializer have _streaming_ support.
 
-For now, [EasyRDF](https://github.com/njh/easyrdf) is the best PHP library for RDF (naming of this library is a contraction of "Hard" and "RDF", in which we try to make the point that you should at this point only use hardf when you know what you’re doing).
-The EasyRDF library is a high-level library which abstracts all the difficult parts of dealing with RDF.
-Hardf on the other hand, aims at a high performance for triple representations.
-We will only support formats such as turtle or trig and n-triples or n-quads.
-If you want other other formats, you will have to write some logic to load the triples into memory according to our triple representation (e.g., for JSON-LD, check out [ml/json-ld](https://github.com/lanthaler/JsonLD)).
+_This library is a port of [N3.js](https://github.com/RubenVerborgh/N3.js) to PHP_
 
 ## Triple Representation
 
@@ -43,31 +41,7 @@ Install this library using [composer](http://getcomposer.org):
 composer install pietercolpaert/hardf
 ```
 
-### Util class
-```php
-use pietercolpaert\hardf\Util;
-```
-
-A static class with a couple of helpful functions for handling our specific triple representation. It will help you to create and evaluate literals, IRIs, and expand prefixes.
-
-```php
-$bool = isIRI($term);
-$bool = isLiteral($term);
-$bool = isBlank($term);
-$bool = isDefaultGraph($term);
-$bool = inDefaultGraph($triple);
-$value = getLiteralValue($literal);
-$literalType = getLiteralType($literal);
-$lang = getLiteralLanguage($literal);
-$bool = isPrefixedName($term);
-$expanded = expandPrefixedName($prefixedName, $prefixes);
-$iri = createIRI($iri);
-$literalObject = createLiteral($value, $modifier = null);
-```
-
-See the documentation at https://github.com/RubenVerborgh/N3.js#utility for more information about what the functions exactly do.
-
-### TriGWriter class
+### Writing
 ```php
 use pietercolpaert\hardf\TriGWriter;
 ```
@@ -117,7 +91,7 @@ $out .= $writer->read();
 $out .= $writer->end();
 ```
 
-### TriGParser class
+### Parsing
 
 Next to [TriG](https://www.w3.org/TR/trig/), the TriGParser class also parses [Turtle](https://www.w3.org/TR/turtle/), [N-Triples](https://www.w3.org/TR/n-triples/), [N-Quads](https://www.w3.org/TR/n-quads/) and the [W3C Team Submission N3](https://www.w3.org/TeamSubmission/n3/)
 
@@ -151,4 +125,36 @@ Parse chunks until end also works this way:
 ```php
 $parser->parseChunk(chunk, callback);
 $parser->end(callback);
+```
+
+### Utility
+```php
+use pietercolpaert\hardf\Util;
+```
+
+A static class with a couple of helpful functions for handling our specific triple representation. It will help you to create and evaluate literals, IRIs, and expand prefixes.
+
+```php
+$bool = isIRI($term);
+$bool = isLiteral($term);
+$bool = isBlank($term);
+$bool = isDefaultGraph($term);
+$bool = inDefaultGraph($triple);
+$value = getLiteralValue($literal);
+$literalType = getLiteralType($literal);
+$lang = getLiteralLanguage($literal);
+$bool = isPrefixedName($term);
+$expanded = expandPrefixedName($prefixedName, $prefixes);
+$iri = createIRI($iri);
+$literalObject = createLiteral($value, $modifier = null);
+```
+
+See the documentation at https://github.com/RubenVerborgh/N3.js#utility for more information.
+
+## Two executables
+
+We also offer 2 simple tools in `bin/` as an example implementation: one validator and one translator. Try for example:
+```bash
+curl -H "accept: application/trig" http://fragments.dbpedia.org/2015/en | php bin/validator.php trig
+curl -H "accept: application/trig" http://fragments.dbpedia.org/2015/en | php bin/convert.php trig n-triples
 ```

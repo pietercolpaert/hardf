@@ -1,3 +1,4 @@
+#!/usr/bin/php
 <?php
 /** Converts TriG, Turtle, N3, N-QUADS or N-TRIPLES input to TriG, Turtle, N-QUADS or N-TRIPLES*/
 include_once(__DIR__ . '/../vendor/autoload.php');
