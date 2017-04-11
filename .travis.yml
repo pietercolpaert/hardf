@@ -1,6 +1,10 @@
 language: php
 php:
-  - "7.0"
+  - '5.6'
+  - '7.0'
+  - '7.1'
+  - hhvm
+  - nightly
 sudo: false
 env:
 before_script:
