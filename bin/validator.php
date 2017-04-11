@@ -9,15 +9,17 @@ if (isset($argv[1]))
 
 $parser = new TriGParser(["format" => $format]);
 $errored = false;
-$tripleCount = 0;
 $finished = false;
-while ($finished) {
+$tripleCount = 0;
+while (!$finished) {
     try {
         $line = fgets(STDIN);
-        if (isset($line))
+        if ($line)
             $tripleCount += sizeof($parser->parseChunk($line));
-        else
-            $tripleCount += sizeof($parser->end($line));       
+        else {
+            $tripleCount += sizeof($parser->end($line));
+            $finished = true;
+        }
     } catch (\Exception $e) {
         echo $e->getMessage() . "\n";
         $errored = true;

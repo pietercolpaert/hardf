@@ -159,7 +159,9 @@ class TriGParser
                 if ($this->graph !== null)
                     return call_user_func($this->error,'Unclosed graph', $token);
                 unset($this->prefixes["_"]);
-                return call_user_func($this->callback, null, null, $this->prefixes);
+                if ($this->callback) {
+                    return call_user_func($this->callback, null, null, $this->prefixes);
+                }
                 // It could be a prefix declaration
                 case 'PREFIX':
                 $this->sparqlStyle = true;
