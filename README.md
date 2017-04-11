@@ -83,7 +83,8 @@ $writer = new TriGWriter([
         "geo" =>"http://www.w3.org/2003/01/geo/wgs84_pos#",
         "rdf" => "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
         "rdfs"=> "http://www.w3.org/2000/01/rdf-schema#"
-        ]
+        ],
+    "format" => "n-quads" //Other possible values: n-quads, trig or turtle
 ]);
 
 $writer->addPrefix("ex","http://example.org/");
@@ -108,24 +109,27 @@ $writer->addPrefixes($prefixes);
 $writer->blank($predicate, $object);
 //Creates rdf:list with $elements
 $list = $writer->list($elements);
+
 //Returns the current output it is already able to create and clear the internal memory use (useful for streaming)
 $out .= $writer->read();
+
 //Call this at the end. The return value will be the full triple output, or the rest of the output such as closing dots and brackets
 $out .= $writer->end();
 ```
 
 ### TriGParser class
 
-Next to TriG, the TriGParser class also parses Turtle, N-Triples, N-Quads and the W3C “Team Submission” N3
+Next to [TriG](https://www.w3.org/TR/trig/), the TriGParser class also parses [Turtle](https://www.w3.org/TR/turtle/), [N-Triples](https://www.w3.org/TR/n-triples/), [N-Quads](https://www.w3.org/TR/n-quads/) and the [W3C Team Submission N3](https://www.w3.org/TeamSubmission/n3/)
 
 Basic example:
+
 ```php
 use pietercolpaert\hardf\TriGParser;
 use pietercolpaert\hardf\TriGWriter;
 
 echo "--- First, simple implementation ---\n";
-$parser = new TriGParser();
-$writer = new TriGWriter(["format"=>"trig"]);
+$parser = new TriGParser(["format" => "n-quads"]); //also parser n-triples, n3, turtle and trig. Format is optional
+$writer = new TriGWriter();
 $triples = $parser->parse("<A> <B> <C> <G> .");
 $writer->addTriples($triples);
 echo $writer->end();
@@ -143,3 +147,8 @@ $parser->parse("<http://A> <https://B> <http://C> <http://G> . <A2> <https://B2>
 });
 ```
 
+Parse chunks until end also works this way:
+```php
+$parser->parseChunk(chunk, callback);
+$parser->end(callback);
+```
