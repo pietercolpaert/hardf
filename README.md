@@ -158,3 +158,9 @@ We also offer 2 simple tools in `bin/` as an example implementation: one validat
 curl -H "accept: application/trig" http://fragments.dbpedia.org/2015/en | php bin/validator.php trig
 curl -H "accept: application/trig" http://fragments.dbpedia.org/2015/en | php bin/convert.php trig n-triples
 ```
+## License, status and contributions
+The N3.js library is copyrighted by [Ruben Verborgh](http://ruben.verborgh.org/) and [Pieter Colpaert](https://pietercolpaert.be)
+and released under the [MIT License](https://github.com/RubenVerborgh/N3.js/blob/master/LICENSE.md).
+
+Contributions are welcome, and bug reports or pull requests are always helpful.
+If you plan to implement a larger feature, it's best to discuss this first by filing an issue.
