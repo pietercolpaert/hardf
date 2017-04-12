@@ -14,10 +14,8 @@ class TriGWriter
     // Characters in literals that require escaping
     CONST ESCAPE = "/[\"\\\t\n\r\f]/u"; #/u';
     CONST ESCAPEALL = "/[\"\\\t\n\r\b\f]/u";
-    CONST ESCAPEREPLACEMENTS = [
-      '\\' => '\\\\', '"' => '\\"', "\t" => "\\t",
-      "\n" => '\\n', "\r" => "\\r", "\b"=> "\\b", "\f"=> "\\f"
-    ];
+    //HHVM does not allow this to be a constant
+    private $ESCAPEREPLACEMENTS;
     
     // ### `_prefixRegex` matches a prefixed name or IRI that begins with one of the added prefixes
     private $prefixRegex = "/$0^/";
@@ -29,6 +27,10 @@ class TriGWriter
     
     public function __construct($options = [])
     {
+        $this->ESCAPEREPLACEMENTS = [
+            '\\' => '\\\\', '"' => '\\"', "\t" => "\\t",
+            "\n" => '\\n', "\r" => "\\r", "\b"=> "\\b", "\f"=> "\\f"
+        ];
         $this->initWriter ();
         /* Initialize writer, depending on the format*/
         $this->subject = null;
