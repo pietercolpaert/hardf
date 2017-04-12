@@ -385,18 +385,19 @@ class N3Lexer
         return preg_replace_callback($this->escapeSequence, function ($sequence, $unicode4, $unicode8, $escapedChar) {
             $charCode;
             if ($unicode4) {
-                $charCode = parseInt($unicode4, 16);
-                return fromCharCode($charCode);
+                $charCode = intval($unicode4, 16);
+                return mb_convert_encoding('&#' . intval($charCode) . ';', 'UTF-8', 'HTML-ENTITIES');
             }
             else if ($unicode8) {
-                $charCode = parseInt($unicode8, 16);
-                if ($charCode <= 0xFFFF) return fromCharCode($charCode);
-                return fromCharCode(0xD800 . (($charCode -= 0x10000) / 0x400), 0xDC00 . ($charCode & 0x3FF));
+                $charCode = intval($unicode8, 16);
+                return mb_convert_encoding('&#' . intval($charCode) . ';', 'UTF-8', 'HTML-ENTITIES');
+                //if ($charCode <= 0xFFFF) return fromCharCode($charCode);
+                //return fromCharCode(0xD800 . (($charCode -= 0x10000) / 0x400), 0xDC00 . ($charCode & 0x3FF));
             }
             else {
-                $replacement = escapeReplacements[$escapedChar];
+                $replacement = $this->escapeReplacements[$escapedChar];
                 if (!$replacement)
-                    throw new Error();
+                    throw new \Exception();
                 return $replacement;
             }
         },$item);

@@ -14,10 +14,8 @@ class TriGWriter
     // Characters in literals that require escaping
     CONST ESCAPE = "/[\"\\\t\n\r\f]/u"; #/u';
     CONST ESCAPEALL = "/[\"\\\t\n\r\b\f]/u";
-    CONST ESCAPEREPLACEMENTS = [
-      '\\' => '\\\\', '"' => '\\"', "\t" => "\\t",
-      "\n" => '\\n', "\r" => "\\r", "\b"=> "\\b", "\f"=> "\\f"
-    ];
+    //HHVM does not allow this to be a constant
+    private $ESCAPEREPLACEMENTS;
     
     // ### `_prefixRegex` matches a prefixed name or IRI that begins with one of the added prefixes
     private $prefixRegex = "/$0^/";
@@ -29,6 +27,10 @@ class TriGWriter
     
     public function __construct($options = [])
     {
+        $this->ESCAPEREPLACEMENTS = [
+            '\\' => '\\\\', '"' => '\\"', "\t" => "\\t",
+            "\n" => '\\n', "\r" => "\\r", "\b"=> "\\b", "\f"=> "\\f"
+        ];
         $this->initWriter ();
         /* Initialize writer, depending on the format*/
         $this->subject = null;
@@ -43,11 +45,11 @@ class TriGWriter
         }
         
         // TODO: I think we could do without this...
-        $this->characterReplacer = function ($character) {
+        /*$this->characterReplacer = function ($character) {
             // Replace a single character by its escaped version
             $character = $character[0];
-            if (isset($character) && isset(self::ESCAPEREPLACEMENTS[$character])) {
-                return self::ESCAPEREPLACEMENTS[$character];
+            if (strlen($character) > 0 && isset(self::ESCAPEREPLACEMENTS[$character[0]])) {
+                return self::ESCAPEREPLACEMENTS[$character[0]];
             } else {
                 // Replace a single character with its 4-bit unicode escape sequence
                 $result = "";
@@ -64,7 +66,7 @@ class TriGWriter
                 }
                 return $result;
             }
-        };
+            };*/
     }
 
     private function initWriter () 
@@ -161,8 +163,9 @@ class TriGWriter
             return $entity;
         }
         // Escape special characters
-        if (preg_match(self::ESCAPE, $entity))
-            $entity = preg_replace_callback(self::ESCAPEALL, $this->characterReplacer,$entity);
+        //if (preg_match(self::ESCAPE, $entity))
+        //    $entity = preg_replace_callback(self::ESCAPEALL, $this->characterReplacer,$entity);
+        
         // Try to represent the IRI as prefixed name
         preg_match($this->prefixRegex, $entity, $prefixMatch);
         if (!isset($prefixMatch[1]) && !isset($prefixMatch[2])) {
@@ -349,7 +352,7 @@ class TriGWriter
     }
 
     // ### `list` creates a list node with the given content
-    public function list ($elements = null) {
+    public function addList ($elements = null) {
         $length = 0;
         if (isset($elements)) {
             $length = sizeof($elements);
