@@ -396,7 +396,7 @@ class N3Lexer
             else {
                 $replacement = escapeReplacements[$escapedChar];
                 if (!$replacement)
-                    throw new Error();
+                    throw new \Exception();
                 return $replacement;
             }
         },$item);

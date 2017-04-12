@@ -43,11 +43,11 @@ class TriGWriter
         }
         
         // TODO: I think we could do without this...
-        $this->characterReplacer = function ($character) {
+        /*$this->characterReplacer = function ($character) {
             // Replace a single character by its escaped version
             $character = $character[0];
-            if (isset($character) && isset(self::ESCAPEREPLACEMENTS[$character])) {
-                return self::ESCAPEREPLACEMENTS[$character];
+            if (strlen($character) > 0 && isset(self::ESCAPEREPLACEMENTS[$character[0]])) {
+                return self::ESCAPEREPLACEMENTS[$character[0]];
             } else {
                 // Replace a single character with its 4-bit unicode escape sequence
                 $result = "";
@@ -64,7 +64,7 @@ class TriGWriter
                 }
                 return $result;
             }
-        };
+            };*/
     }
 
     private function initWriter () 
@@ -161,8 +161,9 @@ class TriGWriter
             return $entity;
         }
         // Escape special characters
-        if (preg_match(self::ESCAPE, $entity))
-            $entity = preg_replace_callback(self::ESCAPEALL, $this->characterReplacer,$entity);
+        //if (preg_match(self::ESCAPE, $entity))
+        //    $entity = preg_replace_callback(self::ESCAPEALL, $this->characterReplacer,$entity);
+        
         // Try to represent the IRI as prefixed name
         preg_match($this->prefixRegex, $entity, $prefixMatch);
         if (!isset($prefixMatch[1]) && !isset($prefixMatch[2])) {
