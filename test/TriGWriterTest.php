@@ -386,47 +386,47 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
     {
         //should serialize triples with an empty list as object', function (done) {
         $writer = new TriGWriter();
-        $writer->addTriple('a1', 'b', $writer->list());
-        $writer->addTriple('a2', 'b', $writer->list([]));
+        $writer->addTriple('a1', 'b', $writer->addList());
+        $writer->addTriple('a2', 'b', $writer->addList([]));
         $writer->end(function ($error, $output) {
             $this->assertEquals('<a1> <b> ().' . "\n" .    '<a2> <b> ().' . "\n",$output);
         });
 
         //should serialize triples with a one-element list as object', function (done) {
         $writer = new TriGWriter();
-        $writer->addTriple('a1', 'b', $writer->list(['c']));
-        $writer->addTriple('a2', 'b', $writer->list(['"c"']));
+        $writer->addTriple('a1', 'b', $writer->addList(['c']));
+        $writer->addTriple('a2', 'b', $writer->addList(['"c"']));
         $writer->end(function ($error, $output) {
             $this->assertEquals('<a1> <b> (<c>).' . "\n" .    '<a2> <b> ("c").' . "\n",$output);
         });
 
         //should serialize triples with a three-element list as object', function (done) {
         $writer = new TriGWriter();
-        $writer->addTriple('a1', 'b', $writer->list(['c', 'd', 'e']));
-        $writer->addTriple('a2', 'b', $writer->list(['"c"', '"d"', '"e"']));
+        $writer->addTriple('a1', 'b', $writer->addList(['c', 'd', 'e']));
+        $writer->addTriple('a2', 'b', $writer->addList(['"c"', '"d"', '"e"']));
         $writer->end(function ($error, $output) {
             $this->assertEquals('<a1> <b> (<c> <d> <e>).' . "\n" .    '<a2> <b> ("c" "d" "e").' . "\n",$output);
         });
 
         //should serialize triples with an empty list as subject', function (done) {
         $writer = new TriGWriter();
-        $writer->addTriple($writer->list(),   'b1', 'c');
-        $writer->addTriple($writer->list([]), 'b2', 'c');
+        $writer->addTriple($writer->addList(),   'b1', 'c');
+        $writer->addTriple($writer->addList([]), 'b2', 'c');
         $writer->end(function ($error, $output) {
             $this->assertEquals('() <b1> <c>;' . "\n" .    '    <b2> <c>.' . "\n",$output);
         });
 
         //should serialize triples with a one-element list as subject', function (done) {
         $writer = new TriGWriter();
-        $writer->addTriple($writer->list(['a']), 'b1', 'c');
-        $writer->addTriple($writer->list(['a']), 'b2', 'c');
+        $writer->addTriple($writer->addList(['a']), 'b1', 'c');
+        $writer->addTriple($writer->addList(['a']), 'b2', 'c');
         $writer->end(function ($error, $output) {
             $this->assertEquals('(<a>) <b1> <c>;' . "\n" .    '    <b2> <c>.' . "\n",$output);
         });
 
         //should serialize triples with a three-element list as subject', function (done) {
         $writer = new TriGWriter();
-        $writer->addTriple($writer->list(['a', '"b"', '"c"']), 'd', 'e');
+        $writer->addTriple($writer->addList(['a', '"b"', '"c"']), 'd', 'e');
         $output = $writer->end();
         $this->assertEquals('(<a> "b" "c") <d> <e>.' . "\n",$output);
     }
@@ -436,7 +436,7 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
     {
         //should only partially output the already given data and then continue writing until end
         $writer = new TriGWriter();
-        $writer->addTriple($writer->list(['a', '"b"', '"c"']), 'd', 'e');
+        $writer->addTriple($writer->addList(['a', '"b"', '"c"']), 'd', 'e');
         $output = $writer->read();
         $this->assertEquals('(<a> "b" "c") <d> <e>', $output);
         $writer->addTriple('a', 'b', 'c');

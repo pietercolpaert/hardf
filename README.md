@@ -82,7 +82,7 @@ $writer->addPrefixes($prefixes);
 //Creates blank node($predicate and/or $object are optional)
 $writer->blank($predicate, $object);
 //Creates rdf:list with $elements
-$list = $writer->list($elements);
+$list = $writer->addList($elements);
 
 //Returns the current output it is already able to create and clear the internal memory use (useful for streaming)
 $out .= $writer->read();

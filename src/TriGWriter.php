@@ -350,7 +350,7 @@ class TriGWriter
     }
 
     // ### `list` creates a list node with the given content
-    public function list ($elements = null) {
+    public function addList ($elements = null) {
         $length = 0;
         if (isset($elements)) {
             $length = sizeof($elements);
