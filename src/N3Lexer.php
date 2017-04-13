@@ -9,7 +9,7 @@ class N3Lexer
 
     // Regular expression and replacement string to escape N3 strings.
     // Note how we catch invalid unicode sequences separately (they will trigger an error).
-    private $escapeSequence = '/\\[uU]|\\\(.)/';
+    private $escapeSequence = '/\\\\u([a-fA-F0-9]{4})|\\\\U([a-fA-F0-9]{8})|\\\\[uU]|\\\\(.)/';
     private $escapeReplacements = [
       '\\' => '\\', "'"=> "'", '"' => '"',
       'n' => '\n', 'r' => '\r', 't' => '\t', 'f' => '\f', 'b' => '\b',
@@ -53,12 +53,15 @@ class N3Lexer
     }
 
     // ## Regular expressions
-    private $iri ='/^<((?:[^ <>{}\\]|\\[uU])+)>[ \t]*/'; // IRI with escape sequences; needs sanity check after unescaping
-    private $unescapedIri =  '/^<([^\x00-\x20<>\\"\{\}\|\^\`]*)>[ \t]*/'; // IRI without escape sequences; no unescaping
+    //_iri:        /^<((?:[^ <>{}\\]|\\[uU])+)>[ \t]*/, // IRI with escape sequences; needs sanity check after unescaping
+    private $iri ='/^<((?:[^ <>{}\\\\]|\\\\[uU])+)>[ \\t]*/'; // IRI with escape sequences; needs sanity check after unescaping
+    //      _unescapedIri:    /^<([^\x00-\x20<>\\"\{\}\|\^\`]*)>[ \t]*/, // IRI without escape sequences; no unescaping
+    private $unescapedIri =  '/^<([^\\x00-\\x20<>\\\\"\\{\\}\\|\\^\\`]*)>[ \\t]*/'; // IRI without escape sequences; no unescaping
     //  _unescapedString:      /^"[^"\\]+"(?=[^"\\])/, // non-empty string without escape sequences
-    private $unescapedString= '/^"[^\\"]+"(?=[^\\"])/'; // non-empty string without escape sequences
+    private $unescapedString= '/^"[^\\\\"]+"(?=[^\\\\"])/'; // non-empty string without escape sequences
     //  _singleQuotedString:      /^"[^"\\]*(?:\\.[^"\\]*)*"(?=[^"\\])|^'[^'\\]*(?:\\.[^'\\]*)*'(?=[^'\\])/,
-    private $singleQuotedString= '/^"[^"\\]*(?:\\.[^"\\]*)*"(?=[^"\\])|^\'[^\\\']*(?:\\.[^\'\\]*)*\'(?=[^\\\'])/';
+    private $singleQuotedString= '/^"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"(?=[^"\\\\])|^\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\'(?=[^\'\\\\])/';
+    //TODO
     private $tripleQuotedString = '/^""("[^\\"]*(?:(?:\\.|"(?!""))[^\\"]*)*")""|^\'\'(\'[^\\\']*(?:(?:\\.|\'(?!\'\'))[^\\\']*)*\')\'\'/';
     private $langcode =  '/^@([a-z]+(?:-[a-z0-9]+)*)(?=[^a-z0-9\-])/i';
     private $prefix = '/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)?:(?=[#\s<])/';
@@ -168,7 +171,7 @@ class N3Lexer
                     // Try to find a full IRI with escape sequences
                     else if (preg_match($this->iri, $input, $match)) {
                         $unescaped = $this->unescape($match[1]);
-                        if ($unescaped === null || preg_match($illegalIriChars,$unescaped))
+                        if ($unescaped === null || preg_match($this->illegalIriChars,$unescaped))
                             return $reportSyntaxError($this);
                         $type = 'IRI';
                         $value = $unescaped;
@@ -179,7 +182,6 @@ class N3Lexer
                         $matchLength = 2;
                         $value = 'http://www.w3.org/2000/10/swap/log#implies';
                     }
-                    
                     break;
                 case '_':
                     // Try to find a blank node. Since it can contain (but not end with) a dot,
@@ -206,7 +208,7 @@ class N3Lexer
                         if ($unescaped === null)
                             return $reportSyntaxError($this);
                         $type = 'literal';
-                        $value = preg_replace('/^'|'$/g', '"',$unescaped);
+                        $value = preg_replace('/^\'|\'$/', '"',$unescaped);
                     }
                     // Try to find a literal wrapped in three pairs of single or double quotes
                     else if (preg_match($this->tripleQuotedString, $input, $match)) {
@@ -384,7 +386,11 @@ class N3Lexer
 
     // ### `_unescape` replaces N3 escape codes by their corresponding characters
     private function unescape($item) {
-        return preg_replace_callback($this->escapeSequence, function ($sequence, $unicode4, $unicode8, $escapedChar) {
+        return preg_replace_callback($this->escapeSequence, function ($match) {
+            $sequence = $match[0];
+            $unicode4 = isset($match[1])?$match[1]:null;
+            $unicode8 = isset($match[2])?$match[2]:null;
+            $escapedChar = isset($match[3])?$match[3]:null;
             $charCode;
             if ($unicode4) {
                 $charCode = intval($unicode4, 16);
@@ -393,8 +399,6 @@ class N3Lexer
             else if ($unicode8) {
                 $charCode = intval($unicode8, 16);
                 return mb_convert_encoding('&#' . intval($charCode) . ';', 'UTF-8', 'HTML-ENTITIES');
-                //if ($charCode <= 0xFFFF) return fromCharCode($charCode);
-                //return fromCharCode(0xD800 . (($charCode -= 0x10000) / 0x400), 0xDC00 . ($charCode & 0x3FF));
             }
             else {
                 $replacement = $this->escapeReplacements[$escapedChar];

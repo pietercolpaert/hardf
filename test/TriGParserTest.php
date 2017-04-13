@@ -626,13 +626,18 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         // ### should parse triple quotes
         $this->shouldParse("<a> <b> \"\"\" abc \"\"\".",
         ['a', 'b', '" abc "']);
+
+        
+        // ### should parse triple quotes with a newline
+        $this->shouldParse("<a> <b> \"\"\" abc\nabc \"\"\".",
+        ['a', 'b', '" abc' . "\n" . 'abc "']);
     }
 
-    public function testUnicodeSequences () 
+    public function testUnicodeSequences ()
     {
-        // ### should parse a graph with 8-bit unicode escape sequences //TODO: no idea how we can fix this in PHP
-        //$this->shouldParse('<\\U0001d400> {'."\n".'<\\U0001d400> <\\U0001d400> "\\U0001d400"^^<\\U0001d400>'."\n".'}' . "\n",
-        //['\ud835\udC00', '\ud835\udc00', '"\ud835\udc00"^^\ud835\udc00', '\ud835\udc00']);
+        // ### should parse a graph with 8-bit unicode escape sequences
+        $this->shouldParse('<\\U0001d400> {'."\n".'<\\U0001d400> <\\U0001d400> "\\U0001d400"^^<\\U0001d400>'."\n".'}' . "\n",
+        ['𝐀', '𝐀', '"𝐀"^^𝐀', '𝐀']);
     }
 
     public function testParseErrors () 
