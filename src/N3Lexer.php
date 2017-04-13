@@ -55,9 +55,11 @@ class N3Lexer
     // ## Regular expressions
     private $iri ='/^<((?:[^ <>{}\\]|\\[uU])+)>[ \t]*/'; // IRI with escape sequences; needs sanity check after unescaping
     private $unescapedIri =  '/^<([^\x00-\x20<>\\"\{\}\|\^\`]*)>[ \t]*/'; // IRI without escape sequences; no unescaping
-    private $unescapedString= '/^"[^"\\\]+"(?=[^"\\\])/'; // non-empty string without escape sequences 
-    private $singleQuotedString= '/^"[^"\\]*(?:\\.[^"\\]*)*"(?=[^"\\])|^\'[^\'\\]*(?:\\.[^\'\\]*)*\'(?=[^\'\\])/';
-    private $tripleQuotedString = '/^""("[^"\\]*(?:(?:\\.|"(?!""))[^"\\]*)*")""|^\'\'(\'[^\'\\]*(?:(?:\\.|\'(?!\'\'))[^\'\\]*)*\')\'\'/';
+    //  _unescapedString:      /^"[^"\\]+"(?=[^"\\])/, // non-empty string without escape sequences
+    private $unescapedString= '/^"[^\\"]+"(?=[^\\"])/'; // non-empty string without escape sequences
+    //  _singleQuotedString:      /^"[^"\\]*(?:\\.[^"\\]*)*"(?=[^"\\])|^'[^'\\]*(?:\\.[^'\\]*)*'(?=[^'\\])/,
+    private $singleQuotedString= '/^"[^"\\]*(?:\\.[^"\\]*)*"(?=[^"\\])|^\'[^\\\']*(?:\\.[^\'\\]*)*\'(?=[^\\\'])/';
+    private $tripleQuotedString = '/^""("[^\\"]*(?:(?:\\.|"(?!""))[^\\"]*)*")""|^\'\'(\'[^\\\']*(?:(?:\\.|\'(?!\'\'))[^\\\']*)*\')\'\'/';
     private $langcode =  '/^@([a-z]+(?:-[a-z0-9]+)*)(?=[^a-z0-9\-])/i';
     private $prefix = '/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)?:(?=[#\s<])/';
 
@@ -198,7 +200,7 @@ class N3Lexer
                         $type = 'literal';
                         $value = $match[0];
                     }
-                // Try to find any other literal wrapped in a pair of single or double quotes
+                    // Try to find any other literal wrapped in a pair of single or double quotes
                     else if (preg_match($this->singleQuotedString, $input, $match)) {
                         $unescaped = $this->unescape($match[0]);
                         if ($unescaped === null)
@@ -210,12 +212,12 @@ class N3Lexer
                     else if (preg_match($this->tripleQuotedString, $input, $match)) {
                         $unescaped = isset($match[1])?$match[1]:$match[2];
                         // Count the newlines and advance line counter
-                        $this->line .= strlen(preg_split('/\r\n|\r|\n/',$unescaped)) - 1;
+                        $this->line += sizeof(preg_split('/\r\n|\r|\n/',$unescaped)) - 1;
                         $unescaped = $this->unescape($unescaped);
                         if ($unescaped === null)
                             return $reportSyntaxError($this);
                         $type = 'literal';
-                        $value = preg_replace("/^'|'$/g", '"',$unescaped);
+                        $value = preg_replace("/^'|'$/", '"',$unescaped);
                     }
                 break;
 

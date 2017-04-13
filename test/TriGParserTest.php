@@ -477,6 +477,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['http://ex.org/a', 'http://ex.org/b', 'http://ex.org/c'],
         ['A:',  'b:',  'c:'],
         ['a:a', 'b:B', 'C-D:c']);
+
         // ### should resolve datatype IRIs against @base
         $this->shouldParse("@base <http://ex.org/>.\n" .
         "<a> <b> \"c\"^^<d>.\n" .
@@ -484,7 +485,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         '<e> <f> "g"^^<h>.',
         ['http://ex.org/a', 'http://ex.org/b', '"c"^^http://ex.org/d'],
         ['http://ex.org/d/e', 'http://ex.org/d/f', '"g"^^http://ex.org/d/h']);
-
+        
         // ### should resolve IRIs against a base with a fragment
         $this->shouldParse("@base <http://ex.org/foo#bar>.\n" .
         "<a> <b> <#c>.\n",
@@ -617,6 +618,14 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         // ### should parse a one-triple anonymous graph and the GRAPH keyword
         $this->shouldParse('GRAPH [] {<a> <b> <c>}',
         ['a', 'b', 'c', '_:b0']);
+
+    }
+
+    public function testLiterals () 
+    {
+        // ### should parse triple quotes
+        $this->shouldParse("<a> <b> \"\"\" abc \"\"\".",
+        ['a', 'b', '" abc "']);
     }
 
     public function testUnicodeSequences () 
