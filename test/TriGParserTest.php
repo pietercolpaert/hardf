@@ -70,9 +70,9 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['noturn:a', 'noturn:b', '"x"^^noturn:urn:foo']);
 
         // ### should not parse a triple with a literal and a prefixed name type with an inexistent prefix
-/*        shouldNotParse('<a> <b> "string"^^x:z.',
+        $this->shouldNotParse('<a> <b> "string"^^x:z.',
           'Undefined prefix "x:" on line 1.');
-*/
+
 
         // ### should parse a triple with the "a" shorthand predicate
         $this->shouldParse('<a> a <t>.',
