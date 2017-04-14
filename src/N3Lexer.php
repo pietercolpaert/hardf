@@ -5,18 +5,10 @@ namespace pietercolpaert\hardf;
 // **N3Lexer** tokenizes N3 documents.
 class N3Lexer
 {
-    //private $fromCharCode = String.fromCharCode; //TODO
-
     // Regular expression and replacement string to escape N3 strings.
     // Note how we catch invalid unicode sequences separately (they will trigger an error).
     private $escapeSequence = '/\\\\u([a-fA-F0-9]{4})|\\\\U([a-fA-F0-9]{8})|\\\\[uU]|\\\\(.)/';
-    private $escapeReplacements = [
-      '\\' => '\\', "'"=> "'", '"' => '"',
-      'n' => '\n', 'r' => '\r', 't' => '\t', 'f' => '\f', 'b' => '\b',
-      '_' => '_', '~' => '~', '.' => '.', '-' => '-', '!' => '!', '$' => '$', '&' => '&',
-      '(' => '(', ')' => ')', '*' => '*', '+' => '+', ',' => ',', ';' => ';', '=' => '=',
-      '/' => '/', '?' => '?', '#' => '#', '@' => '@', '%' => '%'
-    ];
+    private $escapeReplacements;
     private $illegalIriChars = '/[\x00-\x20<>\\"\{\}\|\^\`]/';
 
     private $input;
@@ -26,6 +18,13 @@ class N3Lexer
     
     public function __construct($options = []) {
         $this->initTokenize();
+        $this->escapeReplacements = [
+            '\\' => '\\', "'"=> "'", '"' => '"',
+            'n' => "\n", 'r' => "\r", 't' => "\t", 'f' => "\f", 'b' => chr(8),
+            '_' => '_', '~' => '~', '.' => '.', '-' => '-', '!' => '!', '$' => '$', '&' => '&',
+            '(' => '(', ')' => ')', '*' => '*', '+' => '+', ',' => ',', ';' => ';', '=' => '=',
+            '/' => '/', '?' => '?', '#' => '#', '@' => '@', '%' => '%'
+        ];
         // In line mode (N-Triples or N-Quads), only simple features may be parsed
         if ($options["lineMode"]) {
             // Don't tokenize special literals
@@ -61,26 +60,25 @@ class N3Lexer
     private $unescapedString= '/^"[^\\\\"]+"(?=[^\\\\"])/'; // non-empty string without escape sequences
     //  _singleQuotedString:      /^"[^"\\]*(?:\\.[^"\\]*)*"(?=[^"\\])|^'[^'\\]*(?:\\.[^'\\]*)*'(?=[^'\\])/,
     private $singleQuotedString= '/^"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"(?=[^"\\\\])|^\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\'(?=[^\'\\\\])/';
-    //TODO
-    private $tripleQuotedString = '/^""("[^\\"]*(?:(?:\\.|"(?!""))[^\\"]*)*")""|^\'\'(\'[^\\\']*(?:(?:\\.|\'(?!\'\'))[^\\\']*)*\')\'\'/';
-    private $langcode =  '/^@([a-z]+(?:-[a-z0-9]+)*)(?=[^a-z0-9\-])/i';
-    private $prefix = '/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)?:(?=[#\s<])/';
+    //  _tripleQuotedString:       /^""("[^"\\]*(?:(?:\\.|"(?!""))[^"\\]*)*")""|^''('[^'\\]*(?:(?:\\.|'(?!''))[^'\\]*)*')''/,
+    private $tripleQuotedString = '/^""("[^\\\\"]*(?:(?:\\\\.|"(?!""))[^\\\\"]*)*")""|^\'\'(\'[^\\\\\']*(?:(?:\\\\.|\'(?!\'\'))[^\\\\\']*)*\')\'\'/';
+    private $langcode =  '/^@([a-z]+(?:-[a-z0-9]+)*)(?=[^a-z0-9\\-])/i';
+    private $prefix = '/^((?:[A-Za-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)?:(?=[#\\s<])/';
 
-    private $prefixed = "/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)?:((?:(?:[0-:A-Z_a-z\xc0-\xd6\xd8-\xf6]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])(?:(?:[\.\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])*(?:[\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~]))?)?)(?:[ \t]+|(?=\.?[,;!\^\s#()\[\]\{\}\"'<]))/";
-
-    //private $prefixed = "/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff])*)?:((?:(?:[0-:A-Z_a-z\xc0-\xd6\xd8-\xf6]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])(?:(?:[\.\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])*(?:[\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~]))?)?)(?:[ \t]+|(?=\.?[,;!\^\s#()\[\]\{\}\"'<]))/";
-    private $variable = '/^\?(?:(?:[A-Z_a-z\xc0-\xd6\xd8-\xf6])(?:[\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)(?=[.,;!\^\s#()\[\]\{\}"\'<])/';
+    private $prefixed = "/^((?:[A-Za-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)?:((?:(?:[0-:A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~])(?:(?:[\\.\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~])*(?:[\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~]))?)?)(?:[ \\t]+|(?=\.?[,;!\\^\\s#()\\[\\]\\{\\}\"'<]))/";
+    //OLD VERSION private $prefixed = "/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff])*)?:((?:(?:[0-:A-Z_a-z\xc0-\xd6\xd8-\xf6]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])(?:(?:[\.\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])*(?:[\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~]))?)?)(?:[ \t]+|(?=\.?[,;!\^\s#()\[\]\{\}\"'<]))/";
+    private $variable = '/^\\?(?:(?:[A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6])(?:[\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)(?=[.,;!\\^\\s#()\\[\\]\\{\\}"\'<])/';
     
-    private $blank = '/^_:((?:[0-9A-Z_a-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)(?:[ \t]+|(?=\.?[,;:\s#()\[\]\{\}"\'<]))/';
-    private $number = "/^[\-+]?(?:\d+\.?\d*([eE](?:[\-\+])?\d+)|\d*\.?\d+)(?=[.,;:\s#()\[\]\{\}\"'<])/";
-    private $boolean = '/^(?:true|false)(?=[.,;\s#()\[\]\{\}"\'<])/';
-    private $keyword = '/^@[a-z]+(?=[\s#<])/i';
-    private $sparqlKeyword= '/^(?:PREFIX|BASE|GRAPH)(?=[\s#<])/i';
-    private $shortPredicates= '/^a(?=\s+|<)/';
-    private $newline= '/^[ \t]*(?:#[^\n\r]*)?(?:\r\n|\n|\r)[ \t]*/';
-    private $comment= '/#([^\n\r]*)/';
-    private $whitespace= '/^[ \t]+/';
-    private $endOfFile= '/^(?:#[^\n\r]*)?$/';
+    private $blank = '/^_:((?:[0-9A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)(?:[ \\t]+|(?=\\.?[,;:\\s#()\\[\\]\\{\\}"\'<]))/';
+    private $number = "/^[\\-+]?(?:\\d+\\.?\\d*([eE](?:[\\-\\+])?\\d+)|\\d*\\.?\\d+)(?=[.,;:\\s#()\\[\\]\\{\\}\"'<])/";
+    private $boolean = '/^(?:true|false)(?=[.,;\\s#()\\[\\]\\{\\}"\'<])/';
+    private $keyword = '/^@[a-z]+(?=[\\s#<])/i';
+    private $sparqlKeyword= '/^(?:PREFIX|BASE|GRAPH)(?=[\\s#<])/i';
+    private $shortPredicates= '/^a(?=\\s+|<)/';
+    private $newline= '/^[ \\t]*(?:#[^\\n\\r]*)?(?:\\r\\n|\\n|\\r)[ \\t]*/';
+    private $comment= '/#([^\\n\\r]*)/';
+    private $whitespace= '/^[ \\t]+/';
+    private $endOfFile= '/^(?:#[^\\n\\r]*)?$/';
     
     // ## Private methods
     // ### `_tokenizeToEnd` tokenizes as for as possible, emitting tokens through the callback
@@ -403,8 +401,7 @@ class N3Lexer
             else {
                 if (!isset($this->escapeReplacements[$escapedChar]))
                     throw new \Exception();
-                $replacement = $this->escapeReplacements[$escapedChar];
-                return $replacement;
+                return $this->escapeReplacements[$escapedChar];
             }
         },$item);
     }
