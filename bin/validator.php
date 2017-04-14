@@ -11,7 +11,8 @@ $parser = new TriGParser(["format" => $format]);
 $errored = false;
 $finished = false;
 $tripleCount = 0;
-while (!$finished) {
+$line = true;
+while (!$finished && $line) {
     try {
         $line = fgets(STDIN);
         if ($line)

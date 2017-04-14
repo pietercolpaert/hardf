@@ -837,7 +837,10 @@ class TriGParser
 
         // ### `_error` emits an error message through the callback
         $this->error = function ($message, $token) {
-            call_user_func($this->callback, new \Exception($message . ' on line ' . $token['line'] . '.'),null);
+            if ($this->callback) 
+                call_user_func($this->callback, new \Exception($message . ' on line ' . $token['line'] . '.'),null);
+            else
+                throw new \Exception($message . ' on line ' . $token['line'] . '.');
         };
 
         // ### `_resolveIRI` resolves a relative IRI token against the base path,
@@ -994,7 +997,10 @@ class TriGParser
                 }
             }
         } catch (\Exception $e) {
-            call_user_func($this->callback, $e, null);
+            if ($this->callback)
+                call_user_func($this->callback, $e, null);
+            else
+                throw $e;
             $this->callback = function () {};
         }
     }

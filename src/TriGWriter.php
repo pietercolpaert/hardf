@@ -6,14 +6,13 @@ namespace pietercolpaert\hardf;
 class TriGWriter
 {
     // Matches a literal as represented in memory by the N3 library
-    CONST LITERALMATCHER = '/^"(.*)"(?:\^\^(.+)|@([\-a-z]+))?$/is';
+    CONST LITERALMATCHER = '/^"(.*)"(?:\\^\\^(.+)|@([\\-a-z]+))?$/is';
     // rdf:type predicate (for 'a' abbreviation)
     CONST RDF_PREFIX = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
     CONST RDF_TYPE   = self::RDF_PREFIX . 'type';
     
     // Characters in literals that require escaping
-    CONST ESCAPE = "/[\"\\\t\n\r\f]/u"; #/u';
-    CONST ESCAPEALL = "/[\"\\\t\n\r\b\f]/u";
+    CONST ESCAPE =    "/[\"\\\\\\t\\n\\r\\b\\f]/";
     //HHVM does not allow this to be a constant
     private $ESCAPEREPLACEMENTS;
     
@@ -29,7 +28,7 @@ class TriGWriter
     {
         $this->ESCAPEREPLACEMENTS = [
             '\\' => '\\\\', '"' => '\\"', "\t" => "\\t",
-            "\n" => '\\n', "\r" => "\\r", "\b"=> "\\b", "\f"=> "\\f"
+            "\n" => '\\n', "\r" => "\\r", chr(8) => "\\b", "\f"=> "\\f"
         ];
         $this->initWriter ();
         /* Initialize writer, depending on the format*/
@@ -44,29 +43,15 @@ class TriGWriter
             $this->writeTriple = $this->writeTripleLine;
         }
         
-        // TODO: I think we could do without this...
-        /*$this->characterReplacer = function ($character) {
+        $this->characterReplacer = function ($character) {
             // Replace a single character by its escaped version
             $character = $character[0];
-            if (strlen($character) > 0 && isset(self::ESCAPEREPLACEMENTS[$character[0]])) {
-                return self::ESCAPEREPLACEMENTS[$character[0]];
+            if (strlen($character) > 0 && isset($this->ESCAPEREPLACEMENTS[$character[0]])) {
+                return $this->ESCAPEREPLACEMENTS[$character[0]];
             } else {
-                // Replace a single character with its 4-bit unicode escape sequence
-                $result = "";
-                if (strlen($character) === 1) {
-                    //TODO
-                    //$result = $character.charCodeAt(0).toString(16);
-                    //$result = \'\\u0000\'.substr(0, 6 - strlen($result)) + $result;
-                }
-                // Replace a surrogate pair with its 8-bit unicode escape sequence
-                else {
-                    //$result = (($character.charCodeAt(0) - 0xD800) * 0x400 +
-                    //$character.charCodeAt(1) + 0x2400).toString(16);
-                    //$result = \'\\U00000000\'.substr(0, 10 - strlen($result)) + $result;
-                }
-                return $result;
+                return $result; //no escaping necessary, should not happen, or something is wrong in our regex
             }
-            };*/
+        };
     }
 
     private function initWriter () 
@@ -163,8 +148,8 @@ class TriGWriter
             return $entity;
         }
         // Escape special characters
-        //if (preg_match(self::ESCAPE, $entity))
-        //    $entity = preg_replace_callback(self::ESCAPEALL, $this->characterReplacer,$entity);
+        if (preg_match(self::ESCAPE, $entity))
+            $entity = preg_replace_callback(self::ESCAPE, $this->characterReplacer,$entity);
         
         // Try to represent the IRI as prefixed name
         preg_match($this->prefixRegex, $entity, $prefixMatch);
@@ -181,8 +166,15 @@ class TriGWriter
 
     // ### `_encodeLiteral` represents a literal
     private function encodeLiteral ($value, $type = null, $language = null) {
+        //TODO: change back to a single quote and escape all the other things
         // Escape special characters - TODO: unicode characters?
-        if (preg_match('/[\t\n\r\f]/',$value)) {
+        
+        // Escape special characters
+        if (preg_match(self::ESCAPE, $value))
+            $value = preg_replace_callback(self::ESCAPE, $this->characterReplacer,$value);
+
+        
+        /*if (preg_match('/[\\t\\n\\r\\f]/',$value)) {
             
             $value = str_replace(array('\\', '"""'), array('\\\\', '\\"""'), $value);
             
@@ -194,10 +186,11 @@ class TriGWriter
             }
             // enclose between 3 double quotes
             $value = '"""' . $value . '"""';
-        } else {
+            } else {*/
             // enclose in double quotes, while escaping back slashes
-            $value = '"' . str_replace(array('\\', '"'), array('\\\\', '\\"'), $value) . '"';
-        }
+//            $value = '"' . str_replace(array('\\', '"'), array('\\\\', '\\"'), $value) . '"';
+//        }
+        $value = '"' . $value . '"';
         
         // Write the literal, possibly with type or language
         if (isset($language))

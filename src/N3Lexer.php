@@ -5,18 +5,10 @@ namespace pietercolpaert\hardf;
 // **N3Lexer** tokenizes N3 documents.
 class N3Lexer
 {
-    //private $fromCharCode = String.fromCharCode; //TODO
-
     // Regular expression and replacement string to escape N3 strings.
     // Note how we catch invalid unicode sequences separately (they will trigger an error).
-    private $escapeSequence = '/\\[uU]|\\\(.)/';
-    private $escapeReplacements = [
-      '\\' => '\\', "'"=> "'", '"' => '"',
-      'n' => '\n', 'r' => '\r', 't' => '\t', 'f' => '\f', 'b' => '\b',
-      '_' => '_', '~' => '~', '.' => '.', '-' => '-', '!' => '!', '$' => '$', '&' => '&',
-      '(' => '(', ')' => ')', '*' => '*', '+' => '+', ',' => ',', ';' => ';', '=' => '=',
-      '/' => '/', '?' => '?', '#' => '#', '@' => '@', '%' => '%'
-    ];
+    private $escapeSequence = '/\\\\u([a-fA-F0-9]{4})|\\\\U([a-fA-F0-9]{8})|\\\\[uU]|\\\\(.)/';
+    private $escapeReplacements;
     private $illegalIriChars = '/[\x00-\x20<>\\"\{\}\|\^\`]/';
 
     private $input;
@@ -26,6 +18,13 @@ class N3Lexer
     
     public function __construct($options = []) {
         $this->initTokenize();
+        $this->escapeReplacements = [
+            '\\' => '\\', "'"=> "'", '"' => '"',
+            'n' => "\n", 'r' => "\r", 't' => "\t", 'f' => "\f", 'b' => chr(8),
+            '_' => '_', '~' => '~', '.' => '.', '-' => '-', '!' => '!', '$' => '$', '&' => '&',
+            '(' => '(', ')' => ')', '*' => '*', '+' => '+', ',' => ',', ';' => ';', '=' => '=',
+            '/' => '/', '?' => '?', '#' => '#', '@' => '@', '%' => '%'
+        ];
         // In line mode (N-Triples or N-Quads), only simple features may be parsed
         if ($options["lineMode"]) {
             // Don't tokenize special literals
@@ -53,29 +52,33 @@ class N3Lexer
     }
 
     // ## Regular expressions
-    private $iri ='/^<((?:[^ <>{}\\]|\\[uU])+)>[ \t]*/'; // IRI with escape sequences; needs sanity check after unescaping
-    private $unescapedIri =  '/^<([^\x00-\x20<>\\"\{\}\|\^\`]*)>[ \t]*/'; // IRI without escape sequences; no unescaping
-    private $unescapedString= '/^"[^"\\\]+"(?=[^"\\\])/'; // non-empty string without escape sequences 
-    private $singleQuotedString= '/^"[^"\\]*(?:\\.[^"\\]*)*"(?=[^"\\])|^\'[^\'\\]*(?:\\.[^\'\\]*)*\'(?=[^\'\\])/';
-    private $tripleQuotedString = '/^""("[^"\\]*(?:(?:\\.|"(?!""))[^"\\]*)*")""|^\'\'(\'[^\'\\]*(?:(?:\\.|\'(?!\'\'))[^\'\\]*)*\')\'\'/';
-    private $langcode =  '/^@([a-z]+(?:-[a-z0-9]+)*)(?=[^a-z0-9\-])/i';
-    private $prefix = '/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)?:(?=[#\s<])/';
+    //_iri:        /^<((?:[^ <>{}\\]|\\[uU])+)>[ \t]*/, // IRI with escape sequences; needs sanity check after unescaping
+    private $iri ='/^<((?:[^ <>{}\\\\]|\\\\[uU])+)>[ \\t]*/'; // IRI with escape sequences; needs sanity check after unescaping
+    //      _unescapedIri:    /^<([^\x00-\x20<>\\"\{\}\|\^\`]*)>[ \t]*/, // IRI without escape sequences; no unescaping
+    private $unescapedIri =  '/^<([^\\x00-\\x20<>\\\\"\\{\\}\\|\\^\\`]*)>[ \\t]*/'; // IRI without escape sequences; no unescaping
+    //  _unescapedString:      /^"[^"\\]+"(?=[^"\\])/, // non-empty string without escape sequences
+    private $unescapedString= '/^"[^\\\\"]+"(?=[^\\\\"])/'; // non-empty string without escape sequences
+    //  _singleQuotedString:      /^"[^"\\]*(?:\\.[^"\\]*)*"(?=[^"\\])|^'[^'\\]*(?:\\.[^'\\]*)*'(?=[^'\\])/,
+    private $singleQuotedString= '/^"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"(?=[^"\\\\])|^\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\'(?=[^\'\\\\])/';
+    //  _tripleQuotedString:       /^""("[^"\\]*(?:(?:\\.|"(?!""))[^"\\]*)*")""|^''('[^'\\]*(?:(?:\\.|'(?!''))[^'\\]*)*')''/,
+    private $tripleQuotedString = '/^""("[^\\\\"]*(?:(?:\\\\.|"(?!""))[^\\\\"]*)*")""|^\'\'(\'[^\\\\\']*(?:(?:\\\\.|\'(?!\'\'))[^\\\\\']*)*\')\'\'/';
+    private $langcode =  '/^@([a-z]+(?:-[a-z0-9]+)*)(?=[^a-z0-9\\-])/i';
+    private $prefix = '/^((?:[A-Za-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)?:(?=[#\\s<])/';
 
-    private $prefixed = "/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)?:((?:(?:[0-:A-Z_a-z\xc0-\xd6\xd8-\xf6]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])(?:(?:[\.\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])*(?:[\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~]))?)?)(?:[ \t]+|(?=\.?[,;!\^\s#()\[\]\{\}\"'<]))/";
-
-    //private $prefixed = "/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff])*)?:((?:(?:[0-:A-Z_a-z\xc0-\xd6\xd8-\xf6]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])(?:(?:[\.\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])*(?:[\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~]))?)?)(?:[ \t]+|(?=\.?[,;!\^\s#()\[\]\{\}\"'<]))/";
-    private $variable = '/^\?(?:(?:[A-Z_a-z\xc0-\xd6\xd8-\xf6])(?:[\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)(?=[.,;!\^\s#()\[\]\{\}"\'<])/';
+    private $prefixed = "/^((?:[A-Za-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)?:((?:(?:[0-:A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~])(?:(?:[\\.\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~])*(?:[\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~]))?)?)(?:[ \\t]+|(?=\.?[,;!\\^\\s#()\\[\\]\\{\\}\"'<]))/";
+    //OLD VERSION private $prefixed = "/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff])*)?:((?:(?:[0-:A-Z_a-z\xc0-\xd6\xd8-\xf6]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])(?:(?:[\.\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~])*(?:[\-0-:A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\u037d\u037f-\u1fff\u200c\u200d\u203f\u2040\u2070-\u218f\u2c00-\u2fef\u3001-\ud7ff\uf900-\ufdcf\ufdf0-\ufffd]|[\ud800-\udb7f][\udc00-\udfff]|%[0-9a-fA-F]{2}|\\[!#-\/;=?\-@_~]))?)?)(?:[ \t]+|(?=\.?[,;!\^\s#()\[\]\{\}\"'<]))/";
+    private $variable = '/^\\?(?:(?:[A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6])(?:[\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)(?=[.,;!\\^\\s#()\\[\\]\\{\\}"\'<])/';
     
-    private $blank = '/^_:((?:[0-9A-Z_a-z\xc0-\xd6\xd8-\xf6])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6])*)(?:[ \t]+|(?=\.?[,;:\s#()\[\]\{\}"\'<]))/';
-    private $number = "/^[\-+]?(?:\d+\.?\d*([eE](?:[\-\+])?\d+)|\d*\.?\d+)(?=[.,;:\s#()\[\]\{\}\"'<])/";
-    private $boolean = '/^(?:true|false)(?=[.,;\s#()\[\]\{\}"\'<])/';
-    private $keyword = '/^@[a-z]+(?=[\s#<])/i';
-    private $sparqlKeyword= '/^(?:PREFIX|BASE|GRAPH)(?=[\s#<])/i';
-    private $shortPredicates= '/^a(?=\s+|<)/';
-    private $newline= '/^[ \t]*(?:#[^\n\r]*)?(?:\r\n|\n|\r)[ \t]*/';
-    private $comment= '/#([^\n\r]*)/';
-    private $whitespace= '/^[ \t]+/';
-    private $endOfFile= '/^(?:#[^\n\r]*)?$/';
+    private $blank = '/^_:((?:[0-9A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)(?:[ \\t]+|(?=\\.?[,;:\\s#()\\[\\]\\{\\}"\'<]))/';
+    private $number = "/^[\\-+]?(?:\\d+\\.?\\d*([eE](?:[\\-\\+])?\\d+)|\\d*\\.?\\d+)(?=[.,;:\\s#()\\[\\]\\{\\}\"'<])/";
+    private $boolean = '/^(?:true|false)(?=[.,;\\s#()\\[\\]\\{\\}"\'<])/';
+    private $keyword = '/^@[a-z]+(?=[\\s#<])/i';
+    private $sparqlKeyword= '/^(?:PREFIX|BASE|GRAPH)(?=[\\s#<])/i';
+    private $shortPredicates= '/^a(?=\\s+|<)/';
+    private $newline= '/^[ \\t]*(?:#[^\\n\\r]*)?(?:\\r\\n|\\n|\\r)[ \\t]*/';
+    private $comment= '/#([^\\n\\r]*)/';
+    private $whitespace= '/^[ \\t]+/';
+    private $endOfFile= '/^(?:#[^\\n\\r]*)?$/';
     
     // ## Private methods
     // ### `_tokenizeToEnd` tokenizes as for as possible, emitting tokens through the callback
@@ -166,7 +169,7 @@ class N3Lexer
                     // Try to find a full IRI with escape sequences
                     else if (preg_match($this->iri, $input, $match)) {
                         $unescaped = $this->unescape($match[1]);
-                        if ($unescaped === null || preg_match($illegalIriChars,$unescaped))
+                        if ($unescaped === null || preg_match($this->illegalIriChars,$unescaped))
                             return $reportSyntaxError($this);
                         $type = 'IRI';
                         $value = $unescaped;
@@ -177,7 +180,6 @@ class N3Lexer
                         $matchLength = 2;
                         $value = 'http://www.w3.org/2000/10/swap/log#implies';
                     }
-                    
                     break;
                 case '_':
                     // Try to find a blank node. Since it can contain (but not end with) a dot,
@@ -198,24 +200,24 @@ class N3Lexer
                         $type = 'literal';
                         $value = $match[0];
                     }
-                // Try to find any other literal wrapped in a pair of single or double quotes
+                    // Try to find any other literal wrapped in a pair of single or double quotes
                     else if (preg_match($this->singleQuotedString, $input, $match)) {
                         $unescaped = $this->unescape($match[0]);
                         if ($unescaped === null)
                             return $reportSyntaxError($this);
                         $type = 'literal';
-                        $value = preg_replace('/^'|'$/g', '"',$unescaped);
+                        $value = preg_replace('/^\'|\'$/', '"',$unescaped);
                     }
                     // Try to find a literal wrapped in three pairs of single or double quotes
                     else if (preg_match($this->tripleQuotedString, $input, $match)) {
                         $unescaped = isset($match[1])?$match[1]:$match[2];
                         // Count the newlines and advance line counter
-                        $this->line .= strlen(preg_split('/\r\n|\r|\n/',$unescaped)) - 1;
+                        $this->line += sizeof(preg_split('/\r\n|\r|\n/',$unescaped)) - 1;
                         $unescaped = $this->unescape($unescaped);
                         if ($unescaped === null)
                             return $reportSyntaxError($this);
                         $type = 'literal';
-                        $value = preg_replace("/^'|'$/g", '"',$unescaped);
+                        $value = preg_replace("/^'|'$/", '"',$unescaped);
                     }
                 break;
 
@@ -382,7 +384,11 @@ class N3Lexer
 
     // ### `_unescape` replaces N3 escape codes by their corresponding characters
     private function unescape($item) {
-        return preg_replace_callback($this->escapeSequence, function ($sequence, $unicode4, $unicode8, $escapedChar) {
+        return preg_replace_callback($this->escapeSequence, function ($match) {
+            $sequence = $match[0];
+            $unicode4 = isset($match[1])?$match[1]:null;
+            $unicode8 = isset($match[2])?$match[2]:null;
+            $escapedChar = isset($match[3])?$match[3]:null;
             $charCode;
             if ($unicode4) {
                 $charCode = intval($unicode4, 16);
@@ -391,14 +397,11 @@ class N3Lexer
             else if ($unicode8) {
                 $charCode = intval($unicode8, 16);
                 return mb_convert_encoding('&#' . intval($charCode) . ';', 'UTF-8', 'HTML-ENTITIES');
-                //if ($charCode <= 0xFFFF) return fromCharCode($charCode);
-                //return fromCharCode(0xD800 . (($charCode -= 0x10000) / 0x400), 0xDC00 . ($charCode & 0x3FF));
             }
             else {
-                $replacement = $this->escapeReplacements[$escapedChar];
-                if (!$replacement)
+                if (!isset($this->escapeReplacements[$escapedChar]))
                     throw new \Exception();
-                return $replacement;
+                return $this->escapeReplacements[$escapedChar];
             }
         },$item);
     }
