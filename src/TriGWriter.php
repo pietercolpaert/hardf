@@ -49,7 +49,6 @@ class TriGWriter
             if (strlen($character) > 0 && isset($this->ESCAPEREPLACEMENTS[$character[0]])) {
                 return $this->ESCAPEREPLACEMENTS[$character[0]];
             } else {
-                throw new \Exception('Something is wrong in regex to replace strings');
                 return $result; //no escaping necessary, should not happen, or something is wrong in our regex
             }
         };
