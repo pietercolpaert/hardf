@@ -74,8 +74,8 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         '<a> <b> "c\\rde".' ."\n");
 
         //should serialize a literal containing a backspace character',
-        /*$this->shouldSerialize(['a', 'b', '"c' . "\b" . 'de"'],
-          '<a> <b> "' . "c\bde". '".' . "\n");*/ //→ TODO: Doesn’t work properly
+        $this->shouldSerialize(['a', 'b', '"c' . chr(8) . 'de"'],
+          '<a> <b> "' . "c\bde". '".' . "\n"); //→ TODO: Doesn’t work properly
 
         //should serialize a literal containing a form feed character',
         $this->shouldSerialize(['a', 'b', '"c' . "\f" . 'de"'],

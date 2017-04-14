@@ -28,7 +28,7 @@ class TriGWriter
     {
         $this->ESCAPEREPLACEMENTS = [
             '\\' => '\\\\', '"' => '\\"', "\t" => "\\t",
-            "\n" => '\\n', "\r" => "\\r", "\b"=> "\\b", "\f"=> "\\f"
+            "\n" => '\\n', "\r" => "\\r", chr(8) => "\\b", "\f"=> "\\f"
         ];
         $this->initWriter ();
         /* Initialize writer, depending on the format*/
