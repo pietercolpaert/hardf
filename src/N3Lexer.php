@@ -401,9 +401,9 @@ class N3Lexer
                 return mb_convert_encoding('&#' . intval($charCode) . ';', 'UTF-8', 'HTML-ENTITIES');
             }
             else {
-                $replacement = $this->escapeReplacements[$escapedChar];
-                if (!$replacement)
+                if (!isset($this->escapeReplacements[$escapedChar]))
                     throw new \Exception();
+                $replacement = $this->escapeReplacements[$escapedChar];
                 return $replacement;
             }
         },$item);

@@ -61,25 +61,25 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
 
         //should serialize a literal containing a tab character',
         $this->shouldSerialize(['a', 'b', "\"c\tde\""],
-        "<a> <b> \"\"\"c\tde\"\"\".\n");
+        "<a> <b> \"c\\tde\".\n");
 
         //should serialize a literal containing a newline character',
         /*      shouldSerialize(['a', 'b', '"c\nde"'],
                       '<a> <b> "c\\nde".\n'));*/
         $this->shouldSerialize(['a', 'b', '"c' . "\n" . 'de"'],
-        '<a> <b> """c' . "\n" . 'de""".' . "\n");
+        '<a> <b> "c\\nde".' . "\n");
 
         //should serialize a literal containing a cariage return character',
         $this->shouldSerialize(['a', 'b', '"c' . "\r" . 'de"'],
-        '<a> <b> """' . "c\rde" . '""".' . "\n");
+        '<a> <b> "c\\rde".' ."\n");
 
         //should serialize a literal containing a backspace character',
         /*$this->shouldSerialize(['a', 'b', '"c' . "\b" . 'de"'],
-          '<a> <b> """' . "c\bde". '""".' . "\n");*/ //→ TODO: Doesn’t work properly
+          '<a> <b> "' . "c\bde". '".' . "\n");*/ //→ TODO: Doesn’t work properly
 
         //should serialize a literal containing a form feed character',
         $this->shouldSerialize(['a', 'b', '"c' . "\f" . 'de"'],
-        '<a> <b> """c' . "\f" . 'de""".' . "\n");
+        '<a> <b> "c\\fde".' . "\n");
 
         //should serialize a literal containing a line separator', - These tests willl not work for PHP5.6, hence commented. PHP7 only introduced the unicode escape sequence.
         //$this->shouldSerialize(['a', 'b', "\"c\u{2028}de\""],
