@@ -782,7 +782,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
         
         // ### should return prefixes at the last triple callback function (done) {
-        $tripleCallback = function ($error, $triple, null) use (&$prefixes) {
+        $tripleCallback = function ($error, $triple) use (&$prefixes) {
             if (!isset($triple)) {
                 $this->assertEquals(2, sizeof(array_keys($prefixes)));
             }
