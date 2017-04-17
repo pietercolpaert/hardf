@@ -13,8 +13,8 @@ class TriGParser
     CONST QUANTIFIERS_GRAPH = 'urn:n3:quantifiers';
 
     private $absoluteIRI = '/^[a-z][a-z0-9+.-]*:/i';
-    private $schemeAuthority = '/^(?:([a-z][a-z0-9+.-]*:))?(?:\/\/[^\/]*)?/i';
-    private $dotSegments = '/(?:^|\/)\.\.?(?:$|[\/#?])/';
+    private $schemeAuthority = '/^(?:([a-z][a-z0-9+.-]*:))?(?:\\/\\/[^\\/]*)?/i';
+    private $dotSegments = '/(?:^|\\/)\\.\\.?(?:$|[\\/#?])/';
 
     // The next ID for new blank nodes
     private $blankNodePrefix;
@@ -27,7 +27,9 @@ class TriGParser
     private $readCallback;
     
     // ## Constructor
-    public function __construct($options = []) {
+    public function __construct($options = [], $tripleCallback = null, $prefixCallback = null) {
+        $this->setTripleCallback($tripleCallback);
+        $this->setPrefixCallback($prefixCallback);
         $this->contextStack = [];
         $this->graph = null;
         
@@ -565,7 +567,7 @@ class TriGParser
                 case '.':
                     $this->subject = null;
                     $next = sizeof($this->contextStack) ? $this->readSubject : $this->readInTopContext;
-                    if ($inversePredicate) $this->inversePredicate = false;//TODO: What’s this?
+                    if ($inversePredicate) $this->inversePredicate = false; //TODO: What’s this?
                     break;
                     // Semicolon means the subject is shared; predicate and object are different
                 case ';':
@@ -635,9 +637,9 @@ class TriGParser
         $this->readPrefixIRI = function ($token) {
             if ($token["type"] !== 'IRI')
                 return call_user_func($this->error,'Expected IRI to follow prefix "' . $this->prefix . ':"', $token);
-            $prefixIRI = call_user_func($this->readEntity,$token);
+            $prefixIRI = call_user_func($this->readEntity, $token);
             $this->prefixes[$this->prefix] = $prefixIRI;
-            call_user_func($this->prefixCallback,$this->prefix, $prefixIRI);
+            call_user_func($this->prefixCallback, $this->prefix, $prefixIRI);
             return $this->readDeclarationPunctuation;
         };
 
@@ -961,10 +963,15 @@ class TriGParser
     // ## Public methods
 
     // ### `parse` parses the N3 input and emits each parsed triple through the callback
-    public function parse($input, $tripleCallback = null, $prefixCallback = null, $finalize = true) {
-        $this->prefixCallback = isset($prefixCallback)?$prefixCallback:function () {};
-        // Parse synchronously if no triple callback is given
-        if (!isset($tripleCallback)) {
+    public function parse($input, $tripleCallback = null, $prefixCallback = null) {
+        $this->setTripleCallback($tripleCallback);
+        $this->setPrefixCallback($prefixCallback);
+        return $this->parseChunk($input, true);
+    }
+
+    // ### New method for streaming possibilities: parse only a chunk
+    public function parseChunk($input, $finalize = false) {
+        if (!isset($this->tripleCallback)) {
             $triples = [];
             $error = null;
             $this->callback = function ($e, $t = null) use (&$triples, &$error) {
@@ -982,37 +989,46 @@ class TriGParser
                     $this->readCallback = call_user_func($this->readCallback, $token);
             }
             if ($error) throw $error;
-            return $triples;
-        }
-        // Parse asynchronously otherwise, executing the read callback when a token arrives
-        $this->callback = $tripleCallback;
-        try {
-            $tokens = $this->lexer->tokenize($input, $finalize);
-            foreach($tokens as $token) {
-                if (isset($this->readCallback)) {
-                    $this->readCallback = call_user_func($this->readCallback, $token);
-                } else {
-                    //error occured in parser
-                    break;
+            return $triples;            
+        } else {
+            // Parse asynchronously otherwise, executing the read callback when a token arrives
+            $this->callback = $this->tripleCallback;
+            try {
+                $tokens = $this->lexer->tokenize($input, $finalize);
+                foreach($tokens as $token) {
+                    if (isset($this->readCallback)) {
+                        $this->readCallback = call_user_func($this->readCallback, $token);
+                    } else {
+                        //error occured in parser
+                        break;
+                    }
                 }
+            } catch (\Exception $e) {
+                if ($this->callback)
+                    call_user_func($this->callback, $e, null);
+                else
+                    throw $e;
+                $this->callback = function () {};
             }
-        } catch (\Exception $e) {
-            if ($this->callback)
-                call_user_func($this->callback, $e, null);
-            else
-                throw $e;
-            $this->callback = function () {};
         }
     }
 
-    public function parseChunk($input, $tripleCallback = null, $prefixCallback = null) {
-        return $this->parse($input, $tripleCallback, $prefixCallback, false);
+    public function setTripleCallback ($tripleCallback = null)
+    {
+        $this->tripleCallback = $tripleCallback;
     }
 
-    public function end($tripleCallback = null, $prefixCallback = null) 
+    public function setPrefixCallback ($prefixCallback = null) 
     {
-        return $this->parse("",$tripleCallback, $prefixCallback, true);   
+        if (isset($prefixCallback))
+            $this->prefixCallback = $prefixCallback;
+        else {
+            $this->prefixCallback = function () {};
+        }
     }
     
-    
+    public function end() 
+    {
+        return $this->parseChunk("", true);
+    }
 }

@@ -753,81 +753,98 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
     public function testInterface() 
     {
-        /*                      // ### should not error if there is no triple callback function () {
-      new N3Parser().parse('');
-    });
+        $prefixes = [];
+        $tripleCallback = function ($error, $triple) use (&$prefixes) {
+            //when end of stream
+            if (!isset($triple)) {
+                $this->assertEquals(2, sizeof(array_keys($prefixes)));
+            }
+        };
 
-                        // ### should return prefixes through a callback function (done) {
-      $prefixes = {};
-      new N3Parser().parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.',
-                           tripleCallback, prefixCallback);
+        $prefixCallback = function ($prefix, $iri) use (&$prefixes) {
+            //$this->assertExists($prefix);
+            //$this->assertExists($iri);
+            $prefixes[$prefix] = $iri;
+        };
+        
+        // ### should return prefixes through a callback function
+        (new TriGParser())->parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.', $tripleCallback, $prefixCallback);
+    
 
-      function tripleCallback($error, $triple) {
-        expect(error).not.to.exist;
-        if (!triple) {
-          Object.keys(prefixes).should.have.length(2);
-          expect(prefixes).to.have.property('a', 'IRIa');
-          expect(prefixes).to.have.property('b', 'IRIb');
-          done();
-        }
-      }
+        // ### should return prefixes through a callback without triple callback function (done) {
+        $prefixes = [];
+        $prefixCallback = function ($prefix, $iri) use (&$prefixes) {
+            $prefixes[$prefix] = $iri;
+        };
+        (new TriGParser())->parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.', null, $prefixCallback);
+        
+        $this->assertEquals(2, sizeof(array_keys($prefixes)));
 
-      function prefixCallback(prefix, iri) {
-        expect(prefix).to.exist;
-        expect(iri).to.exist;
-        prefixes[prefix] = iri;
-      }
-    });
+        
+        // ### should return prefixes at the last triple callback function (done) {
+        $tripleCallback = function ($error, $triple, $prefixes = null) use (&$prefixes) {
+            if (!isset($triple)) {
+                $this->assertEquals(2, sizeof(array_keys($prefixes)));
+            }
+        };
+        (new TriGParser())->parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.', $tripleCallback);
+        
+        // ### should parse a string synchronously if no callback is given function () {
+        $triples = (new TriGParser())->parse('@prefix a: <urn:a:>. a:a a:b a:c.');
+        $this->assertEquals([["subject"=> 'urn:a:a', "predicate"=> 'urn:a:b', "object"=> 'urn:a:c', "graph"=> '']], $triples);
+    }
 
-                        // ### should return prefixes through a callback without triple callback function (done) {
-      $prefixes = {};
-      new N3Parser().parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.',
-                           null, prefixCallback);
+    public function testParsingChunks () 
+    {
+        $count = 0;
+        $parser = new TriGParser([], function ($error, $triple) use (&$count) {
+            if (isset($triple)) {
+                $this->assertEquals($triple, ["subject"=>"http://ex.org/a","predicate"=>"http://ex.org/b","object"=>"http://ex.org/c", "graph" => ""]);
+                $count ++;
+            } else if (isset($error)) {
+                throw $error;
+            }
+        });
+        $parser->parseChunk('@prefix a: <http://ex.org/>. a:a a:b a:c.' . "\n");
+        $parser->parseChunk('@prefix a: <http://ex.org/>. a:a a:b a:c.' . "\n");
+        $parser->parseChunk('@prefix a: <http://ex.org/>. a:a a:b a:c.' . "\n");
+        $this->assertEquals(3, $count);
+    }
 
-      function prefixCallback(prefix, iri) {
-        expect(prefix).to.exist;
-        expect(iri).to.exist;
-        prefixes[prefix] = iri;
-        if (Object.keys(prefixes).length === 2)
-          done();
-      }
-    });
 
-                        // ### should return prefixes at the last triple callback function (done) {
-      new N3Parser().parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.', tripleCallback);
-
-      function tripleCallback($error, $triple, prefixes) {
-        expect(error).not.to.exist;
-        if (triple)
-          expect(prefixes).not.to.exist;
-        else {
-          expect(prefixes).to.exist;
-          Object.keys(prefixes).should.have.length(2);
-          expect(prefixes).to.have.property('a', 'IRIa');
-          expect(prefixes).to.have.property('b', 'IRIb');
-          done();
-        }
-      }
-    });
-
-                        // ### should parse a string synchronously if no callback is given function () {
-      $triples = new N3Parser().parse('@prefix a: <urn:a:>. a:a a:b a:c.');
-      triples.should.deep.equal([{ subject: 'urn:a:a', predicate: 'urn:a:b', object: 'urn:a:c', graph: '' }]);
-    });
-
-                        // ### should throw on syntax errors if no callback is given function () {
-      (function () { new N3Parser().parse('<a> bar <c>'); })
-      .should.throw('Unexpected "bar" on line 1.');
-    });
-
-                        // ### should throw on grammar errors if no callback is given function () {
-      (function () { new N3Parser().parse('<a> <b> <c>'); })
-      .should.throw('Expected punctuation to follow "c" on line 1.');
-    });
-  });
-*/
+    public function testParsingWithLiteralNewline () 
+    {
+        // ### With a newline
+        $count = 0;
+        $parser = new TriGParser([], function ($error, $triple) use (&$count) {
+            if (isset($triple)) {
+                $this->assertEquals($triple, ["subject"=>"http://ex.org/a","predicate"=>"http://ex.org/b","object"=>"\"\n\"", "graph" => ""]);
+                $count ++;
+            } else if (isset($error)) {
+                throw $error;
+            }
+        });
+        $parser->parseChunk('@prefix a: <http://ex.org/>. a:a a:b """' . "\n");
+        $parser->parseChunk('""".');
+        $this->assertEquals(1, $count);
     }
     
+    public function testException () 
+    {
+        // ### should throw on syntax errors if no callback is given function () {
+        try {
+            (new TriGParser())->parse('<a> bar <c>');
+        } catch (\Exception $e) {
+            $this->assertEquals('Unexpected "bar" on line 1.', $e->getMessage());
+        }
+        
+        // ### should throw on grammar errors if no callback is given function () {
+        try {    
+            (new TriGParser())->parse('<a> <b> <c>');
+        } catch (\Exception $e) {
+            $this->assertEquals('Expected punctuation to follow "c" on line 1.', $e->getMessage());
+        }
+    }
 
     public function testParserWithIRI() 
     {

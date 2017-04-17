@@ -18,7 +18,7 @@ while (!$finished && $line) {
         if ($line)
             $tripleCount += sizeof($parser->parseChunk($line));
         else {
-            $tripleCount += sizeof($parser->end($line));
+            $tripleCount += sizeof($parser->end());
             $finished = true;
         }
     } catch (\Exception $e) {

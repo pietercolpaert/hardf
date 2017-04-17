@@ -24,8 +24,9 @@ class TriGWriter
     // Replaces a character by its escaped version
     private $characterReplacer;
     
-    public function __construct($options = [])
+    public function __construct($options = [], $readCallback = null)
     {
+        $this->setReadCallback($readCallback);
         $this->ESCAPEREPLACEMENTS = [
             '\\' => '\\\\', '"' => '\\"', "\t" => "\\t",
             "\n" => '\\n', "\r" => "\\r", chr(8) => "\\b", "\f"=> "\\f"
@@ -53,6 +54,12 @@ class TriGWriter
             }
         };
     }
+
+    public function setReadCallback($readCallback) 
+    {
+        $this->readCallback = $readCallback;
+    }
+    
 
     private function initWriter () 
     {
@@ -114,13 +121,12 @@ class TriGWriter
     
 
     // ### `_write` writes the argument to the output stream
-    private function write ($string, $callback = null) {
-        //this._outputStream.write(string, 'utf8', callback);
+    private function write ($string) {
         if ($this->blocked) {
             throw new \Exception('Cannot write because the writer has been closed.');
         } else {
-            if (isset($callback)) {
-                $callback($string);
+            if (isset($this->readCallback)) {
+                call_user_func($this->readCallback, $string);
             } else {
                 //buffer all
                 $this->string .= $string;
@@ -131,13 +137,9 @@ class TriGWriter
     // ### Reads a bit of the string
     public function read ()
     {
-        if ($this->blocked) {
-            throw new \Exception('Cannot write because the writer has been closed.');
-        } else {
-            $string = $this->string;
-            $this->string = "";
-            return $string;
-        }
+        $string = $this->string;
+        $this->string = "";
+        return $string;
     }
 
     // ### `_encodeIriOrBlankNode` represents an IRI or blank node
@@ -166,39 +168,17 @@ class TriGWriter
 
     // ### `_encodeLiteral` represents a literal
     private function encodeLiteral ($value, $type = null, $language = null) {
-        //TODO: change back to a single quote and escape all the other things
-        // Escape special characters - TODO: unicode characters?
-        
         // Escape special characters
         if (preg_match(self::ESCAPE, $value))
             $value = preg_replace_callback(self::ESCAPE, $this->characterReplacer,$value);
-
-        
-        /*if (preg_match('/[\\t\\n\\r\\f]/',$value)) {
-            
-            $value = str_replace(array('\\', '"""'), array('\\\\', '\\"""'), $value);
-            
-            // Check if the last character is a trailing double quote, if so, escape it.
-            $pos = strrpos($value, '"');
-            if ($pos !== false && $pos + 1 == strlen($value)) {
-                $value = substr($value, 0, -1);
-                $value .= '\"';
-            }
-            // enclose between 3 double quotes
-            $value = '"""' . $value . '"""';
-            } else {*/
-            // enclose in double quotes, while escaping back slashes
-//            $value = '"' . str_replace(array('\\', '"'), array('\\\\', '\\"'), $value) . '"';
-//        }
-        $value = '"' . $value . '"';
-        
+        $value =  $value ;
         // Write the literal, possibly with type or language
         if (isset($language))
-            return $value . '@' . $language;
+            return '"' . $value . '"@' . $language;
         else if (isset($type))
-            return $value . '^^' . $this->encodeIriOrBlankNode($type);
+            return '"' . $value . '"^^' . $this->encodeIriOrBlankNode($type);
         else
-            return $value;
+            return '"' . $value . '"';
     }
     
     // ### `_encodeSubject` represents a subject
@@ -358,17 +338,19 @@ class TriGWriter
     }
 
     // ### `end` signals the end of the output stream
-    public function end($callback = null)
+    public function end()
     {
         // Finish a possible pending triple
         if ($this->subject !== null) {
             $this->write($this->graph ? "\n}\n" : ".\n");
             $this->subject = null;
         }
+        if (isset($this->readCallbacks))
+            call_user_func($this->readCallback, $this->string);
+        
         // Disallow further writing
         $this->blocked = true;
-        if ($callback)
-            $callback(null,$this->string);
-        return $this->string;
+        if (!isset($this->readCallback))
+            return $this->string;
     }
 }
