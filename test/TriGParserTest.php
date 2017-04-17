@@ -820,12 +820,13 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
             if (isset($triple)) {
                 $this->assertEquals($triple, ["subject"=>"http://ex.org/a","predicate"=>"http://ex.org/b","object"=>"\"\n\"", "graph" => ""]);
                 $count ++;
-            } else if (isset($error)) {
+            } else if (!isset($triple) && isset($error)) {
                 throw $error;
             }
         });
         $parser->parseChunk('@prefix a: <http://ex.org/>. a:a a:b """' . "\n");
         $parser->parseChunk('""".');
+        $parser->end();
         $this->assertEquals(1, $count);
     }
     

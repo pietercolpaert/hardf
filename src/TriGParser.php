@@ -529,7 +529,7 @@ class TriGParser
                 return call_user_func($this->getContextEndReader);
             else {
                 $this->readCallback = call_user_func($this->getContextEndReader);
-                return call_user_func($this->readCallback,$token);
+                return call_user_func($this->readCallback, $token);
             }
         };
 
@@ -591,9 +591,9 @@ class TriGParser
                 $predicate = $this->predicate;
                 $object = $this->object;
                 if (!$inversePredicate)
-                    call_user_func($this->triple,$subject, $predicate, $object,  $graph);
+                    call_user_func($this->triple, $subject, $predicate, $object,  $graph);
                 else
-                    call_user_func($this->triple,$object,  $predicate, $subject, $graph);
+                    call_user_func($this->triple, $object,  $predicate, $subject, $graph);
             }
             return $next;
         };
@@ -834,7 +834,7 @@ class TriGParser
 
         // ### `_triple` emits a triple through the callback
         $this->triple = function ($subject, $predicate, $object, $graph) {
-            call_user_func($this->callback,null, [ 'subject'=> $subject, 'predicate'=> $predicate, 'object'=> $object, 'graph'=> isset($graph)?$graph:'' ]);
+            call_user_func($this->callback, null, [ 'subject'=> $subject, 'predicate'=> $predicate, 'object'=> $object, 'graph'=> isset($graph)?$graph:'' ]);
         };
 
         // ### `_error` emits an error message through the callback
@@ -1027,7 +1027,7 @@ class TriGParser
         }
     }
     
-    public function end() 
+    public function end()
     {
         return $this->parseChunk("", true);
     }

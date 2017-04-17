@@ -365,9 +365,9 @@ class N3Lexer
                 // We could be in streaming mode, and then we just wait for more input to arrive.
                 // Otherwise, a syntax error has occurred in the input.
                 // One exception: error on an unaccounted linebreak (= not inside a triple-quoted literal).
-                if ($inputFinished || (!preg_match("/^'''|^\"\"\"/",$input) && preg_match("/\n|\r/",$input)))
+                if ($inputFinished || (!preg_match('/^\'\'\'|^"""/',$input) && preg_match('/\\n|\\r/',$input))) {
                     return $reportSyntaxError($this);
-                else {
+                } else {
                     $this->input = $input;
                     return $input;
                 }
@@ -417,10 +417,12 @@ class N3Lexer
     {
         $this->_tokenize = function ($input, $finalize) {
             // If the input is a string, continuously emit tokens through the callback until the end
-            $this->input = $input;
+            if (!isset($this->input))
+                $this->input = "";
+            $this->input .= $input;
             $tokens = [];
             $error = "";
-            $this->tokenizeToEnd(function ($e, $t) use (&$tokens,&$error) {
+            $this->input = $this->tokenizeToEnd(function ($e, $t) use (&$tokens,&$error) {
                 if (isset($e)) {
                     $error = $e;
                 }
