@@ -197,6 +197,23 @@ We also offer 2 simple tools in `bin/` as an example implementation: one validat
 curl -H "accept: application/trig" http://fragments.dbpedia.org/2015/en | php bin/validator.php trig
 curl -H "accept: application/trig" http://fragments.dbpedia.org/2015/en | php bin/convert.php trig n-triples
 ```
+
+## Performance
+
+We compared the performance on two turtle files, and parsed it with the EasyRDF library in PHP, the N3.js library for NodeJS and with Hardf. These were the results:
+
+| #triples | framework               | time (ms) | memory (MB) |
+|----------:|-------------------------|------:|--------:|
+|1,866    | __Hardf__ without opcache |  27.6   |   0.722     |
+|1,866    | __Hardf__ with opcache    |   24.5   |    0.380    |
+|1,866    | [EasyRDF](https://github.com/njh/easyrdf) without opcache |   5,166.5   |    2.772   |
+|1,866    | [EasyRDF](https://github.com/njh/easyrdf) with opcache    |  5,176.2    |  2.421     |
+| 1,866  |   [N3.js](https://github.com/RubenVerborgh/N3.js) |  24.0    |  28.xxx  |
+| 3,896,560  |   __Hardf__ without opcache |  40,017.7    |  0.722   |
+| 3,896,560  |   __Hardf__ with opcache |    33,155.3  |    0.380   |
+| 3,896,560  |   [N3.js](https://github.com/RubenVerborgh/N3.js) |  7,004.0    |  59.xxx    |
+
+
 ## License, status and contributions
 The N3.js library is copyrighted by [Ruben Verborgh](http://ruben.verborgh.org/) and [Pieter Colpaert](https://pietercolpaert.be)
 and released under the [MIT License](https://github.com/RubenVerborgh/N3.js/blob/master/LICENSE.md).
