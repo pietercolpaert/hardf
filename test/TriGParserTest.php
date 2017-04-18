@@ -638,6 +638,14 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         // ### should parse a graph with 8-bit unicode escape sequences
         $this->shouldParse('<\\U0001d400> {'."\n".'<\\U0001d400> <\\U0001d400> "\\U0001d400"^^<\\U0001d400>'."\n".'}' . "\n",
         ['𝐀', '𝐀', '"𝐀"^^𝐀', '𝐀']);
+        $this->shouldParse('@prefix c: <http://example.org/>.
+        @prefix c: <http://example.org/>.
+c:test a <http://example.org/テスト> .' , ['http://example.org/test','b','http://example.org/テスト','']);
+        
+        // ### should parse unicode after prefix
+        $this->shouldParse('@prefix c: <http://example.org/>.
+c:test <b> c:テスト .', ['http://example.org/test','b','http://example.org/テスト','']);
+        
     }
 
     public function testParseErrors () 
