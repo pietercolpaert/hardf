@@ -640,7 +640,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['𝐀', '𝐀', '"𝐀"^^𝐀', '𝐀']);
         $this->shouldParse('@prefix c: <http://example.org/>.
         @prefix c: <http://example.org/>.
-c:test a <http://example.org/テスト> .' , ['http://example.org/test','b','http://example.org/テスト','']);
+c:test <b> <http://example.org/テスト> .' , ['http://example.org/test','b','http://example.org/テスト','']);
         
         // ### should parse unicode after prefix
         $this->shouldParse('@prefix c: <http://example.org/>.
