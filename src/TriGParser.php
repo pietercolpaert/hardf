@@ -130,7 +130,7 @@ class TriGParser
             $this->quantified = $this->quantified;
         }
     }
-
+    
     // ### `_restoreContext` restores the parent context
     // when leaving a scope (list, blank node, formula)
     private function restoreContext() {
