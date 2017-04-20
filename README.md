@@ -208,11 +208,12 @@ We compared the performance on two turtle files, and parsed it with the EasyRDF 
 |1,866    | __Hardf__ with opcache    |   24.5   |    0.380    |
 |1,866    | [EasyRDF](https://github.com/njh/easyrdf) without opcache |   5,166.5   |    2.772   |
 |1,866    | [EasyRDF](https://github.com/njh/easyrdf) with opcache    |  5,176.2    |  2.421     |
+|1,866    | [ARC2](https://github.com/semsol/arc2) with opcache | 71.9 | 1.966 |
 | 1,866  |   [N3.js](https://github.com/RubenVerborgh/N3.js) |  24.0    |  28.xxx  |
 | 3,896,560  |   __Hardf__ without opcache |  40,017.7    |  0.722   |
 | 3,896,560  |   __Hardf__ with opcache |    33,155.3  |    0.380   |
 | 3,896,560  |   [N3.js](https://github.com/RubenVerborgh/N3.js) |  7,004.0    |  59.xxx    |
-
+| 3,896,560  |  [ARC2](https://github.com/semsol/arc2) with opcache | 203,152.6 | 3,570.808  |
 
 ## License, status and contributions
 The N3.js library is copyrighted by [Ruben Verborgh](http://ruben.verborgh.org/) and [Pieter Colpaert](https://pietercolpaert.be)

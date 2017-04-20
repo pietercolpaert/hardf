@@ -633,11 +633,28 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['a', 'b', '" abc' . "\n" . 'abc "']);
     }
 
-    public function testUnicodeSequences ()
+    public function testUnicode ()
     {
         // ### should parse a graph with 8-bit unicode escape sequences
         $this->shouldParse('<\\U0001d400> {'."\n".'<\\U0001d400> <\\U0001d400> "\\U0001d400"^^<\\U0001d400>'."\n".'}' . "\n",
         ['𝐀', '𝐀', '"𝐀"^^𝐀', '𝐀']);
+        $this->shouldParse('@prefix c: <http://example.org/>.
+        @prefix c: <http://example.org/>.
+c:test <b> <http://example.org/テスト> .' , ['http://example.org/test','b','http://example.org/テスト','']);
+        
+        // ### should parse unicode after prefix
+        $this->shouldParse('@prefix c: <http://example.org/>.
+c:test <b> c:テスト .', ['http://example.org/test','b','http://example.org/テスト','']);
+
+        // ### should parse unicode in literal
+        $this->shouldParse('@prefix c: <http://example.org/>.
+c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"','']);
+
+        // ### should parse unicode in prefixname
+        $this->shouldParse('@prefix c: <http://example.org/テ>.
+<http://example.org/testprefixname> <b> c:スト .', ['http://example.org/testprefixname','b','http://example.org/テスト','']);
+        
+        
     }
 
     public function testParseErrors () 
