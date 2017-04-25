@@ -21,8 +21,8 @@ We have thus implemented this triple representation using associative arrays rat
 $triple = [
     'subject' =>   'http://example.org/cartoons#Tom',
     'predicate' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
-    'object' =>    'http://example.org/cartoons#Cat'
-    ,'graph' =>     'http://example.org/mycartoon' #optional
+    'object' =>    'http://example.org/cartoons#Cat',
+    'graph' =>     'http://example.org/mycartoon', #optional
     ];
 ```
 
