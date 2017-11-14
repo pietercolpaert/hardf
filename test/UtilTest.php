@@ -119,6 +119,14 @@ class UtilTest extends PHPUnit_Framework_TestCase
         //it('does not work with null', function () {
         //TODO: Util::getLiteralValue.bind(null, null).should.throw('null is not a literal');    
     }
+    
+    // tests reaction if no literal was given
+    public function testGetLiteralValueNoLiteralGiven()
+    {
+        $this->expectException('\Exception');
+
+        Util::getLiteralValue('invalid');
+    }
 
     public function testGetLiteralType () {
         //it('gets the type of a literal', function () {
@@ -190,7 +198,14 @@ class UtilTest extends PHPUnit_Framework_TestCase
         //it('does not work with null', function () {
         //TODO: Util::getLiteralLanguage.bind(null, null).should.throw('null is not a literal');    
     }
- 
+    
+    // tests reaction if no language was given
+    public function testGetLiteralLanguageNoLiteralGiven()
+    {
+        $this->expectException('\Exception');
+
+        Util::getLiteralLanguage('invalid');
+    } 
 
     public function testIsPrefixedName () {
         //it('matches a prefixed name', function () {
