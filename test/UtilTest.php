@@ -159,8 +159,18 @@ class UtilTest extends PHPUnit_Framework_TestCase
         //it('does not work with null', function () {
         //TODO: Util::getLiteralType.bind(null, null).should.throw('null is not a literal');
 
-    }    
-  
+    }
+
+    // tests getLiteralType if multi line string was given (check for adaption of Util.php,
+    // adding an s to the regex)
+    public function testGetLiteralTypeMultilineString()
+    {
+        $literal = '"This document is published by the Provenance Working Group (http://www.w3.org/2011/prov/wiki/Main_Page).
+
+If you wish to make comments regarding this document, please send them to public-prov-comments@w3.org (subscribe public-prov-comments-request@w3.org, archives http://lists.w3.org/Archives/Public/public-prov-comments/). All feedback is welcome."^^<http://>';
+
+        $this->assertEquals('<http://>', Util::getLiteralType($literal));
+    }
 
     public function testGetLiteralLanguage () {
         //it('gets the language of a literal', function () {
@@ -196,16 +206,27 @@ class UtilTest extends PHPUnit_Framework_TestCase
     
 
         //it('does not work with null', function () {
-        //TODO: Util::getLiteralLanguage.bind(null, null).should.throw('null is not a literal');    
+        //TODO: Util::getLiteralLanguage.bind(null, null).should.throw('null is not a literal');
     }
-    
+
+    // tests getLiteralLanguage if multi line string was given (check for adaption of Util.php,
+    // adding an s to the regex)
+    public function testGetLiteralLanguageMultilineString()
+    {
+        $literal = '"This document is published by the Provenance Working Group (http://www.w3.org/2011/prov/wiki/Main_Page).
+
+If you wish to make comments regarding this document, please send them to public-prov-comments@w3.org (subscribe public-prov-comments-request@w3.org, archives http://lists.w3.org/Archives/Public/public-prov-comments/). All feedback is welcome."@en';
+
+        $this->assertEquals('en', Util::getLiteralLanguage($literal));
+    }
+
     // tests reaction if no language was given
     public function testGetLiteralLanguageNoLiteralGiven()
     {
         $this->expectException('\Exception');
 
         Util::getLiteralLanguage('invalid');
-    } 
+    }
 
     public function testIsPrefixedName () {
         //it('matches a prefixed name', function () {
