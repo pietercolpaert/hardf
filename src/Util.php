@@ -49,16 +49,16 @@ class Util
     {
         preg_match("/^\"(.*)\"/", $literal, $match); //TODO: somehow the copied regex did not work. To be checked. Contained [^]
         if (empty($match)) {
-            throw new \Exception($literal + ' is not a literal');
+            throw new \Exception($literal . ' is not a literal');
         }
         return $match[1];
     }
     // Gets the type of a literal in the N3 library
     public static function getLiteralType ($literal)
     {
-        preg_match('/^".*"(?:\^\^([^"]+)|(@)[^@"]+)?$/',$literal,$match);//TODO: somehow the copied regex did not work. To be checked. Contained [^] instead of the .
+        preg_match('/^".*"(?:\^\^([^"]+)|(@)[^@"]+)?$/s',$literal,$match);//TODO: somehow the copied regex did not work. To be checked. Contained [^] instead of the .
         if (empty($match))
-            throw new \Exception($literal + ' is not a literal');
+            throw new \Exception($literal . ' is not a literal');
         if (!empty($match[1])) {
             return $match[1];
         } else {
@@ -70,9 +70,9 @@ class Util
     // Gets the language of a literal in the N3 library
     public static function getLiteralLanguage ($literal)
     {
-        preg_match('/^".*"(?:@([^@"]+)|\^\^[^"]+)?$/', $literal, $match);
+        preg_match('/^".*"(?:@([^@"]+)|\^\^[^"]+)?$/s', $literal, $match);
         if (empty($match))
-            throw new \Exception($literal + ' is not a literal');
+            throw new \Exception($literal . ' is not a literal');
         return isset($match[1]) ? strtolower($match[1]) : '';
     }
             

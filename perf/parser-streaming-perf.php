@@ -13,8 +13,7 @@ $base = 'file://' . $filename;
 $TEST = microtime(true);
 
 $count = 0;
-$parser = new TriGParser([ "documentIRI" => $base ]);
-$callback = function ($error, $triple) use (&$count, $TEST, $filename) {
+$parser = new TriGParser([ "documentIRI" => $base ], function ($error, $triple) use (&$count, $TEST, $filename) {
     if ($triple) {
         $count++;
     }
@@ -23,14 +22,14 @@ $callback = function ($error, $triple) use (&$count, $TEST, $filename) {
         echo '* Triples parsed: ' . $count . "\n";
         echo '* Memory usage: ' .  (memory_get_usage() / 1024 / 1024) . "MB\n";
     }
-};
+});
 
 $handle = fopen($filename, "r");
 if ($handle) {
-    while (($line = fgets($handle)) !== false) {
-        $parser->parseChunk($line, $callback);
+    while (($line = fgets($handle, 4096)) !== false) {
+        $parser->parseChunk($line);
     }
-    $parser->end($callback);
+    $parser->end();
     fclose($handle);
 } else {
     // error opening the file.
