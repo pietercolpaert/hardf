@@ -119,6 +119,14 @@ class UtilTest extends PHPUnit_Framework_TestCase
         //it('does not work with null', function () {
         //TODO: Util::getLiteralValue.bind(null, null).should.throw('null is not a literal');    
     }
+    
+    // tests reaction if no literal was given
+    public function testGetLiteralValueNoLiteralGiven()
+    {
+        $this->expectException('\Exception');
+
+        Util::getLiteralValue('invalid');
+    }
 
     public function testGetLiteralType () {
         //it('gets the type of a literal', function () {
@@ -210,6 +218,14 @@ If you wish to make comments regarding this document, please send them to public
 If you wish to make comments regarding this document, please send them to public-prov-comments@w3.org (subscribe public-prov-comments-request@w3.org, archives http://lists.w3.org/Archives/Public/public-prov-comments/). All feedback is welcome."@en';
 
         $this->assertEquals('en', Util::getLiteralLanguage($literal));
+    }
+
+    // tests reaction if no language was given
+    public function testGetLiteralLanguageNoLiteralGiven()
+    {
+        $this->expectException('\Exception');
+
+        Util::getLiteralLanguage('invalid');
     }
 
     public function testIsPrefixedName () {
