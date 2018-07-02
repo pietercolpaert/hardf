@@ -216,8 +216,8 @@ We compared the performance on two turtle files, and parsed it with the EasyRDF 
 | 3,896,560  |  [ARC2](https://github.com/semsol/arc2) with opcache | 203,152.6 | 3,570.808  |
 
 ## License, status and contributions
-The N3.js library is copyrighted by [Ruben Verborgh](http://ruben.verborgh.org/) and [Pieter Colpaert](https://pietercolpaert.be)
-and released under the [MIT License](https://github.com/RubenVerborgh/N3.js/blob/master/LICENSE.md).
+The hardf library is copyrighted by [Ruben Verborgh](http://ruben.verborgh.org/) and [Pieter Colpaert](https://pietercolpaert.be)
+and released under the [MIT License](https://github.com/pietercolpaert/hardf/blob/master/LICENSE).
 
 Contributions are welcome, and bug reports or pull requests are always helpful.
 If you plan to implement a larger feature, it's best to discuss this first by filing an issue.
