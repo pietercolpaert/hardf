@@ -1,17 +1,17 @@
-# hardf
+# The hardf turtle, n-triples, n-quads, TriG and N3 parser for PHP
 [![Build Status](https://travis-ci.org/pietercolpaert/hardf.svg?branch=master)](https://travis-ci.org/pietercolpaert/hardf)
 
-**hardf** is a PHP5.6+ library that lets you handle RDF easily. It offers:
+**hardf** is a PHP5.6+ library that lets you handle Linked Data (RDF). It offers:
  - [**Parsing**](#parsing) triples/quads from [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), [N-Quads](http://www.w3.org/TR/n-quads/), and [Notation3 (N3)](https://www.w3.org/TeamSubmission/n3/)
  - [**Writing**](#writing) triples/quads to [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/)
 
 Both the parser as the serializer have _streaming_ support.
 
-_This library is a port of [N3.js](https://github.com/RubenVerborgh/N3.js) to PHP_
+_This library is a port of [N3.js](https://github.com/rdfjs/N3.js/tree/v0.10.0) to PHP_
 
 ## Triple Representation
 
-We use the triple representation in  PHP ported from NodeJS N3.js library. Check https://github.com/RubenVerborgh/N3.js#triple-representation
+We use the triple representation in  PHP ported from NodeJS N3.js library. Check https://github.com/rdfjs/N3.js/tree/v0.10.0#triple-representation for more information
 
 On purpose, we focused on performance, and not on developer friendliness.
 We have thus implemented this triple representation using associative arrays rather than PHP object. Thus, the same that holds for N3.js, is now an array. E.g.:
