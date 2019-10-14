@@ -38,7 +38,7 @@ Encode literals as follows (similar to N3.js)
 Install this library using [composer](http://getcomposer.org):
 
 ```bash
-composer install pietercolpaert/hardf
+composer require pietercolpaert/hardf
 ```
 
 ### Writing
