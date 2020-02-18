@@ -334,7 +334,7 @@ class TriGWriter
         for ($i = 0; $i < $length; $i++) {
             $contents[$i] = $this->encodeObject($elements[$i]);
         }
-        return '(' . join($contents, ' ') . ')';
+        return '(' . join(' ', $contents) . ')';
     }
 
     // ### `end` signals the end of the output stream
