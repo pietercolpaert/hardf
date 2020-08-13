@@ -1,14 +1,16 @@
 <?php
 
+namespace Tests\hardf;
+
 use PHPUnit\Framework\TestCase;
 use pietercolpaert\hardf\TriGParser;
 
 /**
  * @covers TriGParser
  */
-class TriGParserTest extends PHPUnit_Framework_TestCase
+class TriGParserTest extends TestCase
 {
-    public function testZeroOrMoreTriples () 
+    public function testZeroOrMoreTriples ()
     {
         // ### should parse the empty string
         $this->shouldParse(''
@@ -27,7 +29,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['a', 'b', 'c'],
         ['d', 'e', 'f'],
         ['g', 'h', 'i']);
-        
+
         // ### should parse a triple with a literal
         $this->shouldParse('<a> <b> "string".',
         ['a', 'b', '"string"']);
@@ -171,7 +173,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
     }
 
-    public function testBlankNodes () 
+    public function testBlankNodes ()
     {
         // ### should parse diamonds
         $this->shouldParse("<> <> <> <>.\n(<>) <> (<>) <>.",
@@ -193,7 +195,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         // ### should parse statements with empty blank nodes
         $this->shouldParse('[] <b> [].',
         ['_:b0', 'b', '_:b1']);
-    
+
         // ### should parse statements with unnamed blank nodes in the subject
         $this->shouldParse('[<a> <b>] <c> <d>.',
         ['_:b0', 'c', 'd'],
@@ -459,8 +461,8 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['http://ex.org/d/?bar', 'http://ex.org/d/f', 'http://ex.org/d/g']);
 
         // ### should resolve IRIs with query string against @base
-        $this->shouldParse("@base <http://ex.org/>.\n" . 
-        "<?> <?a> <?a=b>.\n". 
+        $this->shouldParse("@base <http://ex.org/>.\n" .
+        "<?> <?a> <?a=b>.\n".
         "@base <d>.\n" .
         "<?> <?a> <?a=b>.".
         "@base <?e>.\n" .
@@ -470,8 +472,8 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         ['http://ex.org/d?e', 'http://ex.org/d?a', 'http://ex.org/d?a=b']);
 
         // ### should not resolve IRIs with colons
-        $this->shouldParse("@base <http://ex.org/>.\n" . 
-        "<a>   <b>   <c>.\n" . 
+        $this->shouldParse("@base <http://ex.org/>.\n" .
+        "<a>   <b>   <c>.\n" .
         "<A:>  <b:>  <c:>.\n" .
         "<a:a> <b:B> <C-D:c>.",
         ['http://ex.org/a', 'http://ex.org/b', 'http://ex.org/c'],
@@ -485,7 +487,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         '<e> <f> "g"^^<h>.',
         ['http://ex.org/a', 'http://ex.org/b', '"c"^^http://ex.org/d'],
         ['http://ex.org/d/e', 'http://ex.org/d/f', '"g"^^http://ex.org/d/h']);
-        
+
         // ### should resolve IRIs against a base with a fragment
         $this->shouldParse("@base <http://ex.org/foo#bar>.\n" .
         "<a> <b> <#c>.\n",
@@ -621,13 +623,13 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
 
     }
 
-    public function testLiterals () 
+    public function testLiterals ()
     {
         // ### should parse triple quotes
         $this->shouldParse("<a> <b> \"\"\" abc \"\"\".",
         ['a', 'b', '" abc "']);
 
-        
+
         // ### should parse triple quotes with a newline
         $this->shouldParse("<a> <b> \"\"\" abc\nabc \"\"\".",
         ['a', 'b', '" abc' . "\n" . 'abc "']);
@@ -641,7 +643,7 @@ class TriGParserTest extends PHPUnit_Framework_TestCase
         $this->shouldParse('@prefix c: <http://example.org/>.
         @prefix c: <http://example.org/>.
 c:test <b> <http://example.org/テスト> .' , ['http://example.org/test','b','http://example.org/テスト','']);
-        
+
         // ### should parse unicode after prefix
         $this->shouldParse('@prefix c: <http://example.org/>.
 c:test <b> c:テスト .', ['http://example.org/test','b','http://example.org/テスト','']);
@@ -653,11 +655,11 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         // ### should parse unicode in prefixname
         $this->shouldParse('@prefix c: <http://example.org/テ>.
 <http://example.org/testprefixname> <b> c:スト .', ['http://example.org/testprefixname','b','http://example.org/テスト','']);
-        
-        
+
+
     }
 
-    public function testParseErrors () 
+    public function testParseErrors ()
     {
         // ### should not parse a single closing brace
         $this->shouldNotParse('}',
@@ -667,7 +669,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->shouldNotParse('{',
         'Expected entity but got eof on line 1.');
 
-        // ### should not parse a superfluous closing brace 
+        // ### should not parse a superfluous closing brace
         $this->shouldNotParse('{}}',
         'Unexpected graph closing on line 1.');
 
@@ -768,7 +770,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         'Expected entity but got [ on line 1.');
     }
 
-    public function testInterface() 
+    public function testInterface()
     {
         $prefixes = [];
         $tripleCallback = function ($error, $triple) use (&$prefixes) {
@@ -783,10 +785,10 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
             //$this->assertExists($iri);
             $prefixes[$prefix] = $iri;
         };
-        
+
         // ### should return prefixes through a callback function
         (new TriGParser())->parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.', $tripleCallback, $prefixCallback);
-    
+
 
         // ### should return prefixes through a callback without triple callback function (done) {
         $prefixes = [];
@@ -794,10 +796,10 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
             $prefixes[$prefix] = $iri;
         };
         (new TriGParser())->parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.', null, $prefixCallback);
-        
+
         $this->assertEquals(2, sizeof(array_keys($prefixes)));
 
-        
+
         // ### should return prefixes at the last triple callback function (done) {
         $tripleCallback = function ($error, $triple) use (&$prefixes) {
             if (!isset($triple)) {
@@ -805,13 +807,13 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
             }
         };
         (new TriGParser())->parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.', $tripleCallback);
-        
+
         // ### should parse a string synchronously if no callback is given function () {
         $triples = (new TriGParser())->parse('@prefix a: <urn:a:>. a:a a:b a:c.');
         $this->assertEquals([["subject"=> 'urn:a:a', "predicate"=> 'urn:a:b', "object"=> 'urn:a:c', "graph"=> '']], $triples);
     }
 
-    public function testParsingChunks () 
+    public function testParsingChunks ()
     {
         $count = 0;
         $parser = new TriGParser([], function ($error, $triple) use (&$count) {
@@ -829,7 +831,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
     }
 
 
-    public function testParsingWithLiteralNewline () 
+    public function testParsingWithLiteralNewline ()
     {
         // ### With a newline
         $count = 0;
@@ -846,8 +848,8 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $parser->end();
         $this->assertEquals(1, $count);
     }
-    
-    public function testException () 
+
+    public function testException ()
     {
         // ### should throw on syntax errors if no callback is given function () {
         try {
@@ -855,19 +857,19 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         } catch (\Exception $e) {
             $this->assertEquals('Unexpected "bar" on line 1.', $e->getMessage());
         }
-        
+
         // ### should throw on grammar errors if no callback is given function () {
-        try {    
+        try {
             (new TriGParser())->parse('<a> <b> <c>');
         } catch (\Exception $e) {
             $this->assertEquals('Expected punctuation to follow "c" on line 1.', $e->getMessage());
         }
     }
 
-    public function testParserWithIRI() 
+    public function testParserWithIRI()
     {
         $parser = function () { return new TriGParser([ "documentIRI" => 'http://ex.org/x/yy/zzz/f.ttl' ]); };
-        
+
 
         // ### should resolve IRIs against the document IRI
         $this->shouldParse($parser,
@@ -929,7 +931,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', '_:b3'],
         ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'http://ex.org/x/yy/zzz/d'],
         ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil']);
-            
+
         // ### should respect @base statements
         $this->shouldParse($parser,
         '<a> <b> <c>.' . "\n" .
@@ -945,8 +947,8 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         ['http://ex.org/e/k', 'http://ex.org/e/l', 'http://ex.org/e/m']);
 
     }
-    
-    public function testParserWithDocumentIRI () 
+
+    public function testParserWithDocumentIRI ()
     {
         $parser = function () {
             return new TriGParser(["documentIRI" => 'http://ex.org/x/yy/zzz/f.ttl' ]);
@@ -1028,7 +1030,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         ['http://ex.org/e/k', 'http://ex.org/e/l', 'http://ex.org/e/m']);
     }
 
-    public function testDifferentSettings() 
+    public function testDifferentSettings()
     {
         $parser = function () { return new TriGParser([ "blankNodePrefix" => '_:blank' ]); };
 
@@ -1043,7 +1045,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->shouldParse($parser,
         '_:a <b> _:c.' . "\n",
         ['_:a', 'b', '_:c']);
-        
+
         $parser = function () { return new TriGParser([ "format" => 1 ]); };
 
         // ### should parse a single triple
@@ -1089,8 +1091,8 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->shouldNotParse($parser, '<a> <b> {}.', 'Unexpected graph on line 1.');
 
     }
-    
-    public function testTriGFormat () 
+
+    public function testTriGFormat ()
     {
       $parser = function () { return new TriGParser([ "format"=> 'TriG' ]); };
 
@@ -1126,7 +1128,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
 
     }
 
-    public function testNTriplesFormat () 
+    public function testNTriplesFormat ()
     {
         $parser = function () { return new TriGParser([ "format"=> 'N-Triples' ]); };
 
@@ -1158,7 +1160,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
 
         // ### should not parse a formula as object
         $this->shouldNotParse($parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.');
-  
+
     }
 
     public function testNQuadsFormat ()
@@ -1196,7 +1198,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
 
     }
 
-    public function testN3Format () 
+    public function testN3Format ()
     {
         $parser = function () { return new TriGParser([ "format"=> 'N3' ]); };
 
@@ -1499,7 +1501,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->shouldNotParse($parser, '<a>^"invalid" ', 'Expected entity but got literal on line 1.');
     }
 
-    public function testN3ExplicitQuantifiers () 
+    public function testN3ExplicitQuantifiers ()
     {
         $parser = function () { return new TriGParser([ "format"=> 'N3', "explicitQuantifiers" => true ]); };
 
@@ -1563,8 +1565,8 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         ['x', 'x', 'x', '_:b1'],
         ['x', 'x', 'x']);
     }
-    
-    public function testResolve() 
+
+    public function testResolve()
     {
         //describe('IRI resolution', function () {
         //describe('RFC3986 normal examples', function () {
@@ -1591,7 +1593,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/d;p?q', '../..',   'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/d;p?q', '../../',  'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/d;p?q', '../../g', 'http://a/g');
-    
+
 
         //describe('RFC3986 abnormal examples', function () {
         $this->itShouldResolve('http://a/bb/ccc/d;p?q', '../../../g',    'http://a/g');
@@ -1613,7 +1615,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
         $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
         $this->itShouldResolve('http://a/bb/ccc/d;p?q', 'http:g',        'http:g');
-    
+
 
         //describe('RFC3986 normal examples with trailing slash in base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/d/', 'g:h',     'g:h');
@@ -1639,7 +1641,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/d/', '../..',   'http://a/bb/');
         $this->itShouldResolve('http://a/bb/ccc/d/', '../../',  'http://a/bb/');
         $this->itShouldResolve('http://a/bb/ccc/d/', '../../g', 'http://a/bb/g');
-    
+
 
         //describe('RFC3986 abnormal examples with trailing slash in base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/d/', '../../../g',    'http://a/g');
@@ -1661,7 +1663,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/d/', 'g#s/./x',       'http://a/bb/ccc/d/g#s/./x');
         $this->itShouldResolve('http://a/bb/ccc/d/', 'g#s/../x',      'http://a/bb/ccc/d/g#s/../x');
         $this->itShouldResolve('http://a/bb/ccc/d/', 'http:g',        'http:g');
-    
+
 
         //describe('RFC3986 normal examples with /. in the base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g:h',     'g:h');
@@ -1687,7 +1689,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '../..',   'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '../../',  'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '../../g', 'http://a/g');
-    
+
 
         //describe('RFC3986 abnormal examples with /. in the base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/./d;p?q', '../../../g',    'http://a/g');
@@ -1709,7 +1711,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
         $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
         $this->itShouldResolve('http://a/bb/ccc/./d;p?q', 'http:g',        'http:g');
-    
+
 
         //describe('RFC3986 normal examples with /.. in the base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g:h',     'g:h');
@@ -1735,7 +1737,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '../..',   'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '../../',  'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '../../g', 'http://a/g');
-    
+
 
         //describe('RFC3986 abnormal examples with /.. in the base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/../d;p?q', '../../../g',    'http://a/g');
@@ -1757,7 +1759,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g#s/./x',       'http://a/bb/g#s/./x');
         $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'g#s/../x',      'http://a/bb/g#s/../x');
         $this->itShouldResolve('http://a/bb/ccc/../d;p?q', 'http:g',        'http:g');
-    
+
 
         //describe('RFC3986 normal examples with trailing /. in the base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/.', 'g:h',     'g:h');
@@ -1783,7 +1785,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/.', '../..',   'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/.', '../../',  'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/.', '../../g', 'http://a/g');
-    
+
 
         //describe('RFC3986 abnormal examples with trailing /. in the base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/.', '../../../g',    'http://a/g');
@@ -1805,7 +1807,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/.', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
         $this->itShouldResolve('http://a/bb/ccc/.', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
         $this->itShouldResolve('http://a/bb/ccc/.', 'http:g',        'http:g');
-    
+
 
         //describe('RFC3986 normal examples with trailing /.. in the base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/..', 'g:h',     'g:h');
@@ -1831,7 +1833,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/..', '../..',   'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/..', '../../',  'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/..', '../../g', 'http://a/g');
-    
+
 
         //describe('RFC3986 abnormal examples with trailing /.. in the base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/..', '../../../g',    'http://a/g');
@@ -1853,7 +1855,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/..', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
         $this->itShouldResolve('http://a/bb/ccc/..', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
         $this->itShouldResolve('http://a/bb/ccc/..', 'http:g',        'http:g');
-    
+
 
         //describe('RFC3986 normal examples with fragment in base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g:h',     'g:h');
@@ -1879,7 +1881,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '../..',   'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '../../',  'http://a/');
         $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '../../g', 'http://a/g');
-    
+
 
         //describe('RFC3986 abnormal examples with fragment in base IRI', function () {
         $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', '../../../g',    'http://a/g');
@@ -1901,7 +1903,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g#s/./x',       'http://a/bb/ccc/g#s/./x');
         $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'g#s/../x',      'http://a/bb/ccc/g#s/../x');
         $this->itShouldResolve('http://a/bb/ccc/d;p?q#f', 'http:g',        'http:g');
-    
+
 
         //describe('RFC3986 normal examples with file path', function () {
         $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g:h',     'g:h');
@@ -1927,7 +1929,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '../..',   'file:///a/');
         $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '../../',  'file:///a/');
         $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '../../g', 'file:///a/g');
-    
+
 
         //describe('RFC3986 abnormal examples with file path', function () {
         $this->itShouldResolve('file:///a/bb/ccc/d;p?q', '../../../g',    'file:///g');
@@ -1949,7 +1951,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g#s/./x',       'file:///a/bb/ccc/g#s/./x');
         $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'g#s/../x',      'file:///a/bb/ccc/g#s/../x');
         $this->itShouldResolve('file:///a/bb/ccc/d;p?q', 'http:g',        'http:g');
-    
+
 
         //describe('additional cases', function () {
         // relative paths ending with '.'
@@ -1991,11 +1993,11 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         // base path with slashes in query string
         $this->itShouldResolve('http://abc/def/ghi?q=xx/yyy/z', 'jjj', 'http://abc/def/jjj');
         $this->itShouldResolve('http://abc/def/ghi?q=xx/y?y/z', 'jjj', 'http://abc/def/jjj');
-    }    
-    
-    private function shouldParse($createParser, $input = "") 
+    }
+
+    private function shouldParse($createParser, $input = "")
     {
-        
+
         $expected = array_slice(func_get_args(),1);
         // Shift parameters as necessary
         if (is_callable($createParser))
@@ -2020,7 +2022,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
                 $this->assertEquals(self::toSortedJSON($items), self::toSortedJSON($results));
         });
     }
-    
+
     function shouldNotParse($createParser, $input, $expectedError = null) {
         $expected = array_slice(func_get_args(),1);
         // Shift parameters as necessary
@@ -2065,7 +2067,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test','b','"c:テスト"',''])
         catch (\Exception $error) { $this->fail("Resolving <$relativeIri> against <$baseIri>.\nError message: " . $error->getMessage()); }
     }
 
-    private static function toSortedJSON ($items) 
+    private static function toSortedJSON ($items)
     {
         $triples = array_map("json_encode", $items);
         sort($triples);

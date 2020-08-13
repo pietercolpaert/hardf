@@ -1,15 +1,17 @@
 <?php
 
+namespace Tests\hardf;
+
 use PHPUnit\Framework\TestCase;
 use pietercolpaert\hardf\TriGWriter;
 
 /**
  * @covers Util
  */
-class TriGWriterTest extends PHPUnit_Framework_TestCase
+class TriGWriterTest extends TestCase
 {
-    
-    public function testZeroOrMoreTriples () 
+
+    public function testZeroOrMoreTriples ()
     {
                 //should serialize 0 triples',
         $this->shouldSerialize('');
@@ -32,9 +34,9 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         '<stu> <vwx> <yz>.' . "\n");
     }
 
-    public function testLiterals() 
+    public function testLiterals()
     {
-       
+
         //should serialize a literal',
         $this->shouldSerialize(['a', 'b', '"cde"'],
         '<a> <b> "cde".' . "\n");
@@ -94,7 +96,7 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         //'<a> <b> "c'."\u{0000}\u{0001}" . '".' . "\n");
     }
 
-    public function testBlankNodes() 
+    public function testBlankNodes()
     {
         //should serialize blank nodes',
         $this->shouldSerialize(['_:a', 'b', '_:c'],
@@ -116,9 +118,9 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         'Invalid literal: "c');
     }
 
-    public function testPrefixes () 
+    public function testPrefixes ()
     {
-        
+
         //should not leave leading whitespace if the prefix set is empty',
         $this->shouldSerialize(["prefixes" => []],
         ['a', 'b', 'c'],
@@ -148,7 +150,7 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         'a:bc b:ef <c:bhi>.' . "\n");
     }
 
-    public function testRepitition () 
+    public function testRepitition ()
     {
         //should not repeat the same subjects',
         $this->shouldSerialize(['abc', 'def', 'ghi'],
@@ -169,17 +171,17 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         '<stu> <bef> <yz>.' . "\n");
     }
 
-    public function testRdfType () 
+    public function testRdfType ()
     {
-        
+
         //should write rdf:type as "a"',
         $this->shouldSerialize(['abc', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'def'],
         '<abc> a <def>.' . "\n");
     }
 
-    public function testQuads () 
+    public function testQuads ()
     {
-        
+
 
         //should serialize a graph with 1 triple',
         $this->shouldSerialize(['abc', 'def', 'ghi', 'xyz'],
@@ -214,7 +216,7 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         //$this->shouldSerialize(["_:\u{d835}\u{dc00}", "_:\u{d835}\u{dc00}", "_:\u{d835}\u{dc00}", "_:\u{d835}\u{dc00}"],
         //"_:\u{d835}\u{dc00} {" . "\n" . "_:\u{d835}\u{dc00} _:\u{d835}\u{dc00} _:\u{d835}\u{dc00}" . "\n" . '}' . "\n");
     }
-    
+
     public function testCallbackOnEnd () {
         //sends output through end
         $writer = new TriGWriter();
@@ -234,9 +236,9 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         });
     }
 
-    public function testOtherPrefixes () 
+    public function testOtherPrefixes ()
     {
-        
+
         //does not repeat identical prefixes', function (done) {
         $writer = new TriGWriter();
         $writer->addPrefix('a', 'b#');
@@ -277,7 +279,7 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         });
     }
 
-    public function testBlankNodes2 () 
+    public function testBlankNodes2 ()
     {
         //should serialize triples with an empty blank node as object', function (done) {
         $writer = new TriGWriter();
@@ -293,11 +295,11 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         $writer->addTriple('a2', 'b', $writer->blank(['predicate' => 'd','object' => 'e' ]));
         $writer->addTriple('a3', 'b', $writer->blank([['predicate' => 'd','object' => 'e' ]]));
         $writer->end(function ($error, $output) {
-            $this->assertEquals('<a1> <b> [ <d> <e> ].' . "\n" .    '<a2> <b> [ <d> <e> ].' . "\n" .    '<a3> <b> [ <d> <e> ].' . "\n",$output); 
+            $this->assertEquals('<a1> <b> [ <d> <e> ].' . "\n" .    '<a2> <b> [ <d> <e> ].' . "\n" .    '<a3> <b> [ <d> <e> ].' . "\n",$output);
         });
-        
 
- 
+
+
 
         //should serialize triples with a two-triple blank node as object', function (done) {
         $writer = new TriGWriter();
@@ -382,7 +384,7 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         });
     }
 
-    public function testLists () 
+    public function testLists ()
     {
         //should serialize triples with an empty list as object', function (done) {
         $writer = new TriGWriter();
@@ -431,8 +433,8 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         $this->assertEquals('(<a> "b" "c") <d> <e>.' . "\n",$output);
     }
 
-    
-    public function testPartialRead () 
+
+    public function testPartialRead ()
     {
         //should only partially output the already given data and then continue writing until end
         $writer = new TriGWriter();
@@ -443,9 +445,9 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         $output = $writer->end();
         $this->assertEquals(".\n<a> <b> <c>.\n",$output);
     }
-    
-    public function testTriplesBulk () 
-    {   
+
+    public function testTriplesBulk ()
+    {
         //should accept triples in bulk', function (done) {
         $writer = new TriGWriter();
         $writer->addTriples([['subject' => 'a','predicate' => 'b','object' => 'c' ],
@@ -456,7 +458,7 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
         });
     }
 
-    public function testNTriples () 
+    public function testNTriples ()
     {
         //should write simple triples in N-Triples mode', function (done) {
         $writer = new TriGWriter(['format' => 'N-Triples' ]);
@@ -466,7 +468,7 @@ class TriGWriterTest extends PHPUnit_Framework_TestCase
             $this->assertEquals('<a> <b> <c>.' . "\n" . '<a> <b> <d>.' . "\n",$output);
         });
     }
-    
+
 
 /*
         //should not allow writing after end', function (done) {
@@ -478,7 +480,7 @@ $writer->addTriple(['subject' => 'd','predicate' => 'e','object' => 'f' ], funct
     error.should.have.property('message', 'Cannot write because the writer has been closed.');
 });
 
-   
+
 
         //should not write an invalid literal in N-Triples mode', function (done) {
 $writer = new TriGWriter({'format' => 'N-Triples' });
@@ -527,7 +529,8 @@ $writer->end(function () {
 
 
     /**
-     **/
+     * @todo Use ... notation to describe variable parameter list
+     */
     private function shouldSerialize() {
         $numargs = func_num_args();
         $expectedResult = func_get_arg($numargs-1);
@@ -548,10 +551,15 @@ $writer->end(function () {
         });
     }
 
-    private function shouldNotSerialize() {
-        //TODO
+    private function shouldNotSerialize()
+    {
+        // TODO finish this function
+
+        /**
+         * these two lines are only here to avoid PHPStan complaining
+         */
+        $numargs = func_num_args();
+        $expectedResult = func_get_arg($numargs-1);
     }
-
-
 }
 

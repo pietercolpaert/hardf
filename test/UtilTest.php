@@ -1,15 +1,17 @@
 <?php
 
+namespace Tests\hardf;
+
 use PHPUnit\Framework\TestCase;
 use pietercolpaert\hardf\Util;
 
 /**
  * @covers Util
  */
-class UtilTest extends PHPUnit_Framework_TestCase
+class UtilTest extends TestCase
 {
     public function testIsIRI ()
-    {   
+    {
         $this->assertInternalType(
             "boolean",
             Util::isIRI("http://test.be")
@@ -49,8 +51,8 @@ class UtilTest extends PHPUnit_Framework_TestCase
         //it('does not match null', function () {
         $this->assertEquals(false,Util::isLiteral(null));
     }
-    
-    public function testIsBlank ()
+
+    public function testIsBlank(): void
     {
         //it('matches a blank node', function () {
         $this->assertEquals(true,Util::isBlank('_:x'));
@@ -61,9 +63,8 @@ class UtilTest extends PHPUnit_Framework_TestCase
         $this->assertEquals(false,Util::isBlank(null));
     }
 
-    public function testIsDefaultGraph () 
+    public function testIsDefaultGraph(): void
     {
-
         $this->assertEquals(false,Util::isDefaultGraph('_:x'));
         $this->assertEquals(false,Util::isDefaultGraph('http://example.org/'));
         $this->assertEquals(false,Util::isDefaultGraph('"http://example.org/"'));
@@ -74,7 +75,7 @@ class UtilTest extends PHPUnit_Framework_TestCase
     }
 
 
-    public function testinDefaultGraph () {
+    public function testinDefaultGraph (): void {
         //it('does not match a blank node', function () {
         $this->assertEquals(false,Util::inDefaultGraph(["graph" => '_:x' ]));
         //it('does not match an IRI', function () {
@@ -87,74 +88,74 @@ class UtilTest extends PHPUnit_Framework_TestCase
         $this->assertEquals(true,Util::inDefaultGraph(["graph" => '' ]));
     }
 
-    public function testGetLiteralValue () {
+    public function testGetLiteralValue (): void {
         //it('gets the value of a literal', function () {
         $this->assertEquals('Mickey', Util::getLiteralValue('"Mickey"'));
-    
+
 
         //it('gets the value of a literal with a language', function () {
         $this->assertEquals('English', Util::getLiteralValue('"English"@en'));
-    
+
 
         //it('gets the value of a literal with a language that contains a number', function () {
         $this->assertEquals('English', Util::getLiteralValue('"English"@es-419'));
-    
+
 
         //it('gets the value of a literal with a type', function () {
         $this->assertEquals('3', Util::getLiteralValue('"3"^^http://www.w3.org/2001/XMLSchema#integer'));
-    
+
 
         //it('gets the value of a literal with a newline', function () {
         $this->assertEquals('Mickey\nMouse', Util::getLiteralValue('"Mickey\nMouse"'));
-    
+
 
         //it('gets the value of a literal with a cariage return', function () {
         $this->assertEquals('Mickey\rMouse', Util::getLiteralValue('"Mickey\rMouse"'));
-    
+
 
         //it('does not work with non-literals', function () {
         //TODO: Util::getLiteralValue.bind(null, 'http://ex.org/').should.throw('http://ex.org/ is not a literal');
-    
+
 
         //it('does not work with null', function () {
-        //TODO: Util::getLiteralValue.bind(null, null).should.throw('null is not a literal');    
+        //TODO: Util::getLiteralValue.bind(null, null).should.throw('null is not a literal');
     }
-    
+
     // tests reaction if no literal was given
-    public function testGetLiteralValueNoLiteralGiven()
+    public function testGetLiteralValueNoLiteralGiven(): void
     {
         $this->expectException('\Exception');
 
         Util::getLiteralValue('invalid');
     }
 
-    public function testGetLiteralType () {
+    public function testGetLiteralType (): void {
         //it('gets the type of a literal', function () {
         $this->assertEquals('http://www.w3.org/2001/XMLSchema#string', Util::getLiteralType('"Mickey"'));
 
         //it('gets the type of a literal with a language', function () {
         $this->assertEquals('http://www.w3.org/1999/02/22-rdf-syntax-ns#langString', Util::getLiteralType('"English"@en'));
-    
+
 
         //it('gets the type of a literal with a language that contains a number', function () {
         $this->assertEquals('http://www.w3.org/1999/02/22-rdf-syntax-ns#langString', Util::getLiteralType('"English"@es-419'));
-    
+
 
         //it('gets the type of a literal with a type', function () {
         $this->assertEquals('http://www.w3.org/2001/XMLSchema#integer', Util::getLiteralType('"3"^^http://www.w3.org/2001/XMLSchema#integer'));
-    
+
 
         //it('gets the type of a literal with a newline', function () {
         $this->assertEquals('abc', Util::getLiteralType('"Mickey\nMouse"^^abc'));
-    
+
 
         //it('gets the type of a literal with a cariage return', function () {
         $this->assertEquals('abc', Util::getLiteralType('"Mickey\rMouse"^^abc'));
-    
+
 
         //it('does not work with non-literals', function () {
         //TODO: Util::getLiteralType.bind(null, 'http://example.org/').should.throw('http://example.org/ is not a literal');
-    
+
 
         //it('does not work with null', function () {
         //TODO: Util::getLiteralType.bind(null, null).should.throw('null is not a literal');
@@ -163,7 +164,7 @@ class UtilTest extends PHPUnit_Framework_TestCase
 
     // tests getLiteralType if multi line string was given (check for adaption of Util.php,
     // adding an s to the regex)
-    public function testGetLiteralTypeMultilineString()
+    public function testGetLiteralTypeMultilineString(): void
     {
         $literal = '"This document is published by the Provenance Working Group (http://www.w3.org/2011/prov/wiki/Main_Page).
 
@@ -172,38 +173,38 @@ If you wish to make comments regarding this document, please send them to public
         $this->assertEquals('<http://>', Util::getLiteralType($literal));
     }
 
-    public function testGetLiteralLanguage () {
+    public function testGetLiteralLanguage (): void {
         //it('gets the language of a literal', function () {
         $this->assertEquals('', Util::getLiteralLanguage('"Mickey"'));
-    
+
 
         //it('gets the language of a literal with a language', function () {
         $this->assertEquals('en', Util::getLiteralLanguage('"English"@en'));
-    
+
 
         //it('gets the language of a literal with a language that contains a number', function () {
         $this->assertEquals('es-419', Util::getLiteralLanguage('"English"@es-419'));
-    
+
 
         //it('normalizes the language to lowercase', function () {
         $this->assertEquals('en-gb', Util::getLiteralLanguage('"English"@en-GB'));
-    
+
 
         //it('gets the language of a literal with a type', function () {
         $this->assertEquals('', Util::getLiteralLanguage('"3"^^http://www.w3.org/2001/XMLSchema#integer'));
-    
+
 
         //it('gets the language of a literal with a newline', function () {
         $this->assertEquals('en', Util::getLiteralLanguage('"Mickey\nMouse"@en'));
-    
+
 
         //it('gets the language of a literal with a cariage return', function () {
         $this->assertEquals('en', Util::getLiteralLanguage('"Mickey\rMouse"@en'));
-    
+
 
         //it('does not work with non-literals', function () {
         //TODO: Util::getLiteralLanguage.bind(null, 'http://example.org/').should.throw('http://example.org/ is not a literal');
-    
+
 
         //it('does not work with null', function () {
         //TODO: Util::getLiteralLanguage.bind(null, null).should.throw('null is not a literal');
@@ -211,7 +212,7 @@ If you wish to make comments regarding this document, please send them to public
 
     // tests getLiteralLanguage if multi line string was given (check for adaption of Util.php,
     // adding an s to the regex)
-    public function testGetLiteralLanguageMultilineString()
+    public function testGetLiteralLanguageMultilineString(): void
     {
         $literal = '"This document is published by the Provenance Working Group (http://www.w3.org/2011/prov/wiki/Main_Page).
 
@@ -221,36 +222,38 @@ If you wish to make comments regarding this document, please send them to public
     }
 
     // tests reaction if no language was given
-    public function testGetLiteralLanguageNoLiteralGiven()
+    public function testGetLiteralLanguageNoLiteralGiven(): void
     {
         $this->expectException('\Exception');
 
         Util::getLiteralLanguage('invalid');
     }
 
-    public function testIsPrefixedName () {
+    public function testIsPrefixedName (): void
+    {
         //it('matches a prefixed name', function () {
         $this->assertEquals(true,Util::isPrefixedName('ex:Test'));
-    
+
 
         //it('does not match an IRI', function () {
         $this->assertEquals(false,Util::isPrefixedName('http://example.org/'));
-    
+
 
         //it('does not match a literal', function () {
         $this->assertEquals(false,Util::isPrefixedName('"http://example.org/"'));
-    
+
 
         //it('does not match a literal with a colon', function () {
         $this->assertEquals(false,Util::isPrefixedName('"a:b"'));
-    
+
 
         //it('does not match null', function () {
         $this->assertEquals(null, Util::isPrefixedName(null));
-    }    
-  
+    }
 
-    public function testExpandPrefixedName () {
+
+    public function testExpandPrefixedName (): void
+    {
         //it('expands a prefixed name', function () {
         $this->assertEquals('http://ex.org/#Test', Util::expandPrefixedName('ex:Test', [ 'ex' => 'http://ex.org/#' ]));
         //it('expands a type with a prefixed name', function () {
@@ -263,77 +266,79 @@ If you wish to make comments regarding this document, please send them to public
         $this->assertEquals('abc', Util::expandPrefixedName('abc', null));
     }
 
-    public function testCreateIRI () {
+    public function testCreateIRI (): void
+    {
         //it('converts a plain IRI', function () {
         $this->assertEquals('http://ex.org/foo#bar', Util::createIRI('http://ex.org/foo#bar'));
-    
+
 
         //it('converts a literal', function () {
         $this->assertEquals('http://ex.org/foo#bar', Util::createIRI('"http://ex.org/foo#bar"^^uri:type'));
-    
+
 
         //it('converts null', function () {
         $this->assertEquals(null, Util::createIRI(null));
-    
+
     }
 
-    public function testCreateLiteral () {
+    public function testCreateLiteral (): void
+    {
         //it('converts the empty string', function () {
         $this->assertEquals('""', Util::createLiteral(''));
-    
+
 
         //it('converts the empty string with a language', function () {
         $this->assertEquals('""@en-gb', Util::createLiteral('', 'en-GB'));
-    
+
 
         //it('converts the empty string with a type', function () {
         $this->assertEquals('""^^http://ex.org/type', Util::createLiteral('', 'http://ex.org/type'));
-    
+
 
         //it('converts a non-empty string', function () {
         $this->assertEquals('"abc"', Util::createLiteral('abc'));
-    
+
 
         //it('converts a non-empty string with a language', function () {
         $this->assertEquals('"abc"@en-gb', Util::createLiteral('abc', 'en-GB'));
-    
+
 
         //it('converts a non-empty string with a type', function () {
         $this->assertEquals('"abc"^^http://ex.org/type', Util::createLiteral('abc', 'http://ex.org/type'));
-    
+
 
         //it('converts an integer', function () {
         $this->assertEquals('"123"^^http://www.w3.org/2001/XMLSchema#integer', Util::createLiteral(123));
-    
+
 
         //it('converts a decimal', function () {
         $this->assertEquals('"2.3"^^http://www.w3.org/2001/XMLSchema#double', Util::createLiteral(2.3));
-    
+
 
         //it('converts infinity', function () {
         $this->assertEquals('"INF"^^http://www.w3.org/2001/XMLSchema#double', Util::createLiteral(INF));
-    
+
 
         //it('converts false', function () {
         $this->assertEquals('"false"^^http://www.w3.org/2001/XMLSchema#boolean', Util::createLiteral(false));
-    
+
 
         //it('converts true', function () {
         $this->assertEquals('"true"^^http://www.w3.org/2001/XMLSchema#boolean', Util::createLiteral(true));
-    
-    } 
+
+    }
 /*
   public function testprefix () {
   var baz = Util::prefix('http://ex.org/baz#');
   //it('should return a function', function () {
   $this->assertEquals(an.instanceof(Function), baz);
-    
+
   }
   public function testthe function () {
   //it('should expand the prefix', function () {
   expect(baz('bar')).to.equal('http://ex.org/baz#bar');
-      
-  }   
+
+  }
 */
 /*
   public function testprefixes () {
@@ -341,52 +346,52 @@ If you wish to make comments regarding this document, please send them to public
   var prefixes = Util::prefixes();
   //it('should return a function', function () {
   $this->assertEquals(an.instanceof(Function), prefixes);
-      
+
 
   public function testthe function () {
   //it('should not expand non-registered prefixes', function () {
   expect(prefixes('baz')('bar')).to.equal('bar');
-        
+
 
   //it('should allow registering prefixes', function () {
   var p = prefixes('baz', 'http://ex.org/baz#');
   expect(p).to.exist;
   expect(p).to.equal(prefixes('baz'));
-        
+
 
   //it('should expand the newly registered prefix', function () {
   expect(prefixes('baz')('bar')).to.equal('http://ex.org/baz#bar');
-        
-      
-  }*/    
+
+
+  }*/
 /*
     public function testCalled with a hash of prefixes () {
-        var prefixes = Util::prefixes({ foo: 'http://ex.org/foo#', bar: 'http://ex.org/bar#' 
+        var prefixes = Util::prefixes({ foo: 'http://ex.org/foo#', bar: 'http://ex.org/bar#'
                 //it('should return a function', function () {
                 $this->assertEquals(an.instanceof(Function), prefixes);
-      
+
 
             public function testthe function () {
                 //it('should expand registered prefixes', function () {
                 expect(prefixes('foo')('bar')).to.equal('http://ex.org/foo#bar');
                 expect(prefixes('bar')('bar')).to.equal('http://ex.org/bar#bar');
-        
+
 
                 //it('should not expand non-registered prefixes', function () {
                 expect(prefixes('baz')('bar')).to.equal('bar');
-        
+
 
                 //it('should allow registering prefixes', function () {
                 var p = prefixes('baz', 'http://ex.org/baz#');
                 expect(p).to.exist;
                 expect(p).to.equal(prefixes('baz'));
-        
+
 
                 //it('should expand the newly registered prefix', function () {
                 expect(prefixes('baz')('bar')).to.equal('http://ex.org/baz#bar');
-        
-      
+
+
             }
 */
 }
-        
+

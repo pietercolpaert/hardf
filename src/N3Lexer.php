@@ -10,12 +10,16 @@ class N3Lexer
     private $escapeSequence = '/\\\\u([a-fA-F0-9]{4})|\\\\U([a-fA-F0-9]{8})|\\\\[uU]|\\\\(.)/';
     private $escapeReplacements;
     private $illegalIriChars = '/[\x00-\x20<>\\"\{\}\|\^\`]/';
-
-    private $input;
     private $line = 1;
 
+    private $comments;
+    private $input;
+    private $n3Mode;
     private $prevTokenType;
-    
+
+    private $_tokenize;
+    private $_oldTokenize;
+
     public function __construct($options = []) {
         $this->initTokenize();
         $this->escapeReplacements = [
@@ -46,7 +50,7 @@ class N3Lexer
         }
         // Enable N3 functionality by default
         $this->n3Mode = $options["n3"] !== false;
-        
+
         // Disable comment tokens by default
         $this->comments = isset($options["comments"])?$options["comments"]:null;
     }
@@ -65,9 +69,9 @@ class N3Lexer
     private $langcode =  '/^@([a-z]+(?:-[a-z0-9]+)*)(?=[^a-z0-9\\-])/i';
     private $prefix = '/^((?:[A-Za-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)?:(?=[#\\s<])/';
     private $prefixed = "/^((?:[A-Za-z\\xc0-\\xd6\\xd8-\\xf6\\xf8-\\x{02ff}\\x{0370}-\\x{037d}\\x{037f}-\\x{1fff}\\x{200c}\\x{200d}\\x{2070}-\\x{218f}\\x{2c00}-\\x{2fef}\\x{3001}-\\x{d7ff}\\x{f900}-\\x{fdcf}\\x{fdf0}-\\x{fffd}])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6\\xf8-\\x{037d}\\x{037f}-\\x{1fff}\\x{200c}\\x{200d}\\x{203f}\\x{2040}\\x{2070}-\\x{218f}\\x{2c00}-\\x{2fef}\\x{3001}-\\x{d7ff}\\x{f900}-\\x{fdcf}\\x{fdf0}-\\x{fffd}])*)?:((?:(?:[0-:A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6\\xf8-\\x{02ff}\\x{0370}-\\x{037d}\\x{037f}-\\x{1fff}\\x{200c}\\x{200d}\\x{2070}-\\x{218f}\\x{2c00}-\\x{2fef}\\x{3001}-\\x{d7ff}\\x{f900}-\\x{fdcf}\\x{fdf0}-\\x{fffd}]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~])(?:(?:[\\.\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6\\xf8-\\x{037d}\\x{037f}-\\x{1fff}\\x{200c}\\x{200d}\\x{203f}\\x{2040}\\x{2070}-\\x{218f}\\x{2c00}-\\x{2fef}\\x{3001}-\\x{d7ff}\\x{f900}-\\x{fdcf}\\x{fdf0}-\\x{fffd}]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~])*(?:[\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6\\xf8-\\x{037d}\\x{037f}-\\x{1fff}\\x{200c}\\x{200d}\\x{203f}\\x{2040}\\x{2070}-\\x{218f}\\x{2c00}-\\x{2fef}\\x{3001}-\\x{d7ff}\\x{f900}-\\x{fdcf}\\x{fdf0}-\\x{fffd}]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~]))?)?)(?:[ \\t]+|(?=\\.?[,;!\\^\\s#()\\[\\]\\{\\}\"'<]))/u";
-    
+
     private $variable = '/^\\?(?:(?:[A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6])(?:[\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)(?=[.,;!\\^\\s#()\\[\\]\\{\\}"\'<])/';
-    
+
     private $blank = '/^_:((?:[0-9A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)(?:[ \\t]+|(?=\\.?[,;:\\s#()\\[\\]\\{\\}"\'<]))/';
     private $number = "/^[\\-+]?(?:\\d+\\.?\\d*([eE](?:[\\-\\+])?\\d+)|\\d*\\.?\\d+)(?=[.,;:\\s#()\\[\\]\\{\\}\"'<])/";
     private $boolean = '/^(?:true|false)(?=[.,;\\s#()\\[\\]\\{\\}"\'<])/';
@@ -78,11 +82,11 @@ class N3Lexer
     private $comment= '/#([^\\n\\r]*)/';
     private $whitespace= '/^[ \\t]+/';
     private $endOfFile= '/^(?:#[^\\n\\r]*)?$/';
-    
+
     // ## Private methods
     // ### `_tokenizeToEnd` tokenizes as for as possible, emitting tokens through the callback
     private function tokenizeToEnd($callback, $inputFinished) {
-        
+
         // Continue parsing as far as possible; the loop will return eventually
         $input = $this->input;
 
@@ -92,12 +96,12 @@ class N3Lexer
             preg_match("/^\S*/", $input, $match);
             $callback($self->syntaxError($match[0], $self->line), null);
         };
-        
+
         $outputComments = $this->comments;
         while (true) {
             // Count and skip whitespace lines
-            $whiteSpaceMatch;
-            $comment;
+            $whiteSpaceMatch = null;
+            $comment = null;
             while (preg_match($this->newline, $input, $whiteSpaceMatch)) {
                 // Try to find a comment
                 if ($outputComments && preg_match($this->comment, $whiteSpaceMatch[0], $comment))
@@ -133,7 +137,7 @@ class N3Lexer
             $matchLength = 0;
             $unescaped = null;
             $inconclusive = false;
-                        
+
             switch ($firstChar) {
                 case '^':
                     // We need at least 3 tokens lookahead to distinguish ^^<IRI> and ^^pre:fixed
@@ -164,7 +168,7 @@ class N3Lexer
                         $type = 'IRI';
                         $value = $match[1];
                     }
-                    
+
                     // Try to find a full IRI with escape sequences
                     else if (preg_match($this->iri, $input, $match)) {
                         $unescaped = $this->unescape($match[1]);
@@ -189,7 +193,7 @@ class N3Lexer
                         $prefix = '_';
                         $value = $match[1];
                     }
-                    
+
                     break;
 
                 case '"':
@@ -222,7 +226,7 @@ class N3Lexer
 
                 case '?':
                     // Try to find a variable
-                    if ($this->n3Mode && (preg_match($this->variable, $input, $match))) {    
+                    if ($this->n3Mode && (preg_match($this->variable, $input, $match))) {
                         $type = 'var';
                         $value = $match[0];
                     }
@@ -230,11 +234,11 @@ class N3Lexer
 
                 case '@':
                     // Try to find a language code
-                    if ($this->prevTokenType === 'literal' && preg_match($this->langcode, $input, $match)){   
+                    if ($this->prevTokenType === 'literal' && preg_match($this->langcode, $input, $match)){
                         $type = 'langcode';
                         $value = $match[1];
                     }
-            
+
                     // Try to find a keyword
                     else if (preg_match($this->keyword, $input, $match))
                         $type = $match[0];
@@ -307,7 +311,7 @@ class N3Lexer
                             $matchLength = 1;
                             $value = 'http://www.w3.org/2002/07/owl#sameAs';
                         }
-                        else{   
+                        else{
                             $matchLength = 2;
                             $value = 'http://www.w3.org/2000/10/swap/log#implies';
                         }
@@ -374,7 +378,7 @@ class N3Lexer
             // Emit the parsed token
             $callback(null, [ "line"=> $line, "type"=> $type, "value"=>$value, "prefix"=> $prefix ]);
             $this->prevTokenType = $type;
-            
+
             // Advance to next part to tokenize
             $input = substr($input,$matchLength>0?$matchLength:strlen($match[0]), strlen($input));
         }
@@ -384,11 +388,11 @@ class N3Lexer
     // ### `_unescape` replaces N3 escape codes by their corresponding characters
     private function unescape($item) {
         return preg_replace_callback($this->escapeSequence, function ($match) {
-            $sequence = $match[0];
+            // $match[0] => sequence
             $unicode4 = isset($match[1])?$match[1]:null;
             $unicode8 = isset($match[2])?$match[2]:null;
             $escapedChar = isset($match[3])?$match[3]:null;
-            $charCode;
+            $charCode = null;
             if ($unicode4) {
                 $charCode = intval($unicode4, 16);
                 return mb_convert_encoding('&#' . intval($charCode) . ';', 'UTF-8', 'HTML-ENTITIES');
@@ -412,7 +416,7 @@ class N3Lexer
     }
 
     // When handling tokenize as a variable, we can hotswap its functionality when dealing with various serializations
-    private function initTokenize() 
+    private function initTokenize()
     {
         $this->_tokenize = function ($input, $finalize) {
             // If the input is a string, continuously emit tokens through the callback until the end
@@ -443,9 +447,9 @@ class N3Lexer
             throw $e;
         }
     }
-    
-    // Adds the data chunk to the buffer and parses as far as possible        
-    public function tokenizeChunk($input) 
+
+    // Adds the data chunk to the buffer and parses as far as possible
+    public function tokenizeChunk($input)
     {
         return $this->tokenize($input, false);
     }
@@ -453,7 +457,7 @@ class N3Lexer
     public function end()
     {
         // Parses the rest
-        return $this->tokenizeToEnd(true);
+        return $this->tokenizeToEnd(true, null);
     }
 }
 
