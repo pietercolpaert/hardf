@@ -16,4 +16,5 @@ before_script:
   - composer install
 
 script:
-  - vendor/bin/phpunit
+  - composer phpstan
+  - composer phpunit-with-coverage
