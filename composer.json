@@ -42,6 +42,8 @@
         "phpunit/phpunit": "^8"
     },
     "scripts": {
+        "cs": "vendor/bin/php-cs-fixer fix",
+        "cs-dry-run": "vendor/bin/php-cs-fixer fix --dry-run",
         "phpstan": "vendor/bin/phpstan analyse -c phpstan.neon -vvv",
         "phpunit": "vendor/bin/phpunit",
         "phpunit-with-coverage": "vendor/bin/phpunit --coverage-text"

@@ -6,12 +6,12 @@ namespace pietercolpaert\hardf;
 class Util
 {
     const XSD = 'http://www.w3.org/2001/XMLSchema#';
-    const XSDSTRING  = self::XSD . 'string';
-    const XSDINTEGER = self::XSD . 'integer';
-    const XSDDECIMAL = self::XSD . 'decimal';
-    const XSDFLOAT = self::XSD . 'float';
-    const XSDDOUBLE = self::XSD . 'double';
-    const XSDBOOLEAN = self::XSD . 'boolean';
+    const XSDSTRING = self::XSD.'string';
+    const XSDINTEGER = self::XSD.'integer';
+    const XSDDECIMAL = self::XSD.'decimal';
+    const XSDFLOAT = self::XSD.'float';
+    const XSDDOUBLE = self::XSD.'double';
+    const XSDBOOLEAN = self::XSD.'boolean';
     const RDFLANGSTRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#langString';
 
     /**
@@ -22,18 +22,19 @@ class Util
         if (!$term) {
             return false;
         }
-        $firstChar = substr($term,0,1);
-        return $firstChar !== '"' && $firstChar !== '_';
+        $firstChar = substr($term, 0, 1);
+
+        return '"' !== $firstChar && '_' !== $firstChar;
     }
 
     public static function isLiteral(?string $term): bool
     {
-        return $term && substr($term,0,1) === '"';
+        return $term && '"' === substr($term, 0, 1);
     }
 
     public static function isBlank(?string $term): bool
     {
-        return $term && substr($term,0,2) === '_:';
+        return $term && '_:' === substr($term, 0, 2);
     }
 
     public static function isDefaultGraph(?string $term): bool
@@ -44,11 +45,11 @@ class Util
     /**
      * Tests whether the given $triple is in the default graph
      *
-     * @param array<string, string> $triple
+     * @param array<string, string|null> $triple
      */
-    public static function inDefaultGraph (array $triple): bool
+    public static function inDefaultGraph(array $triple): bool
     {
-        return !(isset($triple) && $triple["graph"]);
+        return !$triple['graph'];
     }
 
     /**
@@ -58,19 +59,21 @@ class Util
      */
     public static function getLiteralValue(string $literal)
     {
-        preg_match("/^\"(.*)\"/", $literal, $match); //TODO: somehow the copied regex did not work. To be checked. Contained [^]
+        preg_match('/^"(.*)"/', $literal, $match); //TODO: somehow the copied regex did not work. To be checked. Contained [^]
         if (empty($match)) {
-            throw new \Exception($literal . ' is not a literal');
+            throw new \Exception($literal.' is not a literal');
         }
+
         return $match[1];
     }
 
     // Gets the type of a literal in the N3 library
-    public static function getLiteralType (string $literal): string
+    public static function getLiteralType(string $literal): string
     {
-        preg_match('/^".*"(?:\^\^([^"]+)|(@)[^@"]+)?$/s',$literal,$match);//TODO: somehow the copied regex did not work. To be checked. Contained [^] instead of the .
-        if (empty($match))
-            throw new \Exception($literal . ' is not a literal');
+        preg_match('/^".*"(?:\^\^([^"]+)|(@)[^@"]+)?$/s', $literal, $match); //TODO: somehow the copied regex did not work. To be checked. Contained [^] instead of the .
+        if (empty($match)) {
+            throw new \Exception($literal.' is not a literal');
+        }
         if (!empty($match[1])) {
             return $match[1];
         } else {
@@ -82,13 +85,17 @@ class Util
     public static function getLiteralLanguage(string $literal): string
     {
         preg_match('/^".*"(?:@([^@"]+)|\^\^[^"]+)?$/s', $literal, $match);
-        if (empty($match))
-            throw new \Exception($literal . ' is not a literal');
+        if (empty($match)) {
+            throw new \Exception($literal.' is not a literal');
+        }
+
         return isset($match[1]) ? strtolower($match[1]) : '';
     }
 
-    // Tests whether the given entity ($triple object) represents a prefixed name
-    public static function isPrefixedName(?string $term)
+    /**
+     * Tests whether the given entity ($triple object) represents a prefixed name
+     */
+    public static function isPrefixedName(?string $term): bool
     {
         return !empty($term) && preg_match("/^[^:\/\"']*:[^:\/\"']+$/", $term);
     }
@@ -101,15 +108,14 @@ class Util
     public static function expandPrefixedName(string $prefixedName, ?array $prefixes = null): string
     {
         preg_match("/(?:^|\"\^\^)([^:\/#\"'\^_]*):[^\/]*$/", $prefixedName, $match, PREG_OFFSET_CAPTURE);
-        $prefix = "";
-        $base = "";
-        $index = "";
+        $prefix = '';
+        $base = '';
+        $index = '';
 
         if (!empty($match)) {
             $prefix = $match[1][0];
-            $base = "";
-            if (isset($prefixes[$prefix]))
-            {
+            $base = '';
+            if (isset($prefixes[$prefix])) {
                 $base = $prefixes[$prefix];
             } else {
                 $base = null;
@@ -121,32 +127,36 @@ class Util
         }
 
         // The match index is non-zero when expanding a literal's type
-        if ($index === 0) {
+        if (0 === $index) {
             // base + prefixedName.substr(prefix.length + 1)
-            return $base . substr($prefixedName, strlen($prefix) + 1);
+            return $base.substr($prefixedName, \strlen($prefix) + 1);
         } else {
             // prefixedName.substr(0, index + 3) + base + prefixedName.substr(index + prefix.length + 4);
-            return substr($prefixedName, 0, $index) . $base . substr($prefixedName, $index + strlen($prefix) + 1);
+            return substr($prefixedName, 0, $index).$base.substr($prefixedName, $index + \strlen($prefix) + 1);
         }
     }
 
     /**
      * Creates an IRI
+     *
+     * @return float|int|string|null
      */
-    public static function createIRI($iri)
+    public static function createIRI(?string $iri)
     {
-        return !empty($iri) && substr($iri,0,1) === '"' ? self::getLiteralValue($iri) : $iri;
+        return !empty($iri) && '"' === substr($iri, 0, 1) ? self::getLiteralValue($iri) : $iri;
     }
 
     /**
      * Creates a literal
+     *
+     * @param string|null $modifier
      */
     public static function createLiteral($value, $modifier = null): string
     {
         if (!$modifier) {
-            switch (gettype($value)) {
+            switch (\gettype($value)) {
                 case 'boolean':
-                    $value = $value ? "true":"false";
+                    $value = $value ? 'true' : 'false';
                     $modifier = self::XSDBOOLEAN;
                     break;
                 case 'integer':
@@ -159,13 +169,13 @@ class Util
                     $modifier = self::XSDFLOAT;
                     break;
                 default:
-                    return '"' . $value . '"';
+                    return '"'.$value.'"';
             }
         }
 
         $result = '"'.$value;
 
-        if (preg_match("/^[a-z]+(-[a-z0-9]+)*$/i", $modifier)) {
+        if (preg_match('/^[a-z]+(-[a-z0-9]+)*$/i', $modifier)) {
             $result .= '"@'.strtolower($modifier);
         } else {
             $result .= '"^^'.$modifier;
