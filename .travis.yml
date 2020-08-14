@@ -1,17 +1,20 @@
 language: php
+
+dist: xenial
+
+os: linux
+
 php:
   - '7.2'
   - '7.3'
   - '7.4'
   - nightly
 
-matrix:
+jobs:
     fast_finish: true
     allow_failures:
         - php: nightly
 
-sudo: false
-env:
 before_script:
   - composer install
 
