@@ -75,7 +75,11 @@ class TriGWriter
                     $this->write(($this->subject === null ? '' : ($this->graph ? "\n}\n" : ".\n")) . (isset($graph) ? $this->encodeIriOrBlankNode($graph) . " {\n" : ''));
                     $this->subject = null;
                     // Don't treat identical blank nodes as repeating graphs
-                    $this->graph = $graph[0] !== '[' ? $graph : ']';
+                    if (null === $graph) {
+                        $this->graph = $graph;
+                    } else {
+                        $this->graph = $graph[0] !== '[' ? $graph : ']';
+                    }
                 }
                 // Don't repeat the subject if it's the same
                 if ($this->subject === $subject) {
@@ -334,7 +338,7 @@ class TriGWriter
         for ($i = 0; $i < $length; $i++) {
             $contents[$i] = $this->encodeObject($elements[$i]);
         }
-        return '(' . join($contents, ' ') . ')';
+        return '(' . join(' ', $contents) . ')';
     }
 
     // ### `end` signals the end of the output stream
