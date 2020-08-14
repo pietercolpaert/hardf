@@ -5,6 +5,7 @@ use pietercolpaert\hardf\N3Lexer;
 /** TriGParser parses Turtle, TriG, N-Quads, N-Triples and N3 to our triple representation (see README.md) */
 class TriGParser
 {
+
     CONST RDF_PREFIX = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
     CONST RDF_NIL    = self::RDF_PREFIX . 'nil';
     CONST RDF_FIRST  = self::RDF_PREFIX . 'first';
@@ -12,87 +13,32 @@ class TriGParser
     CONST QUANTIFIERS_GRAPH = 'urn:n3:quantifiers';
 
     private $absoluteIRI = '/^[a-z][a-z0-9+.-]*:/i';
-    private $base;
     private $schemeAuthority = '/^(?:([a-z][a-z0-9+.-]*:))?(?:\\/\\/[^\\/]*)?/i';
     private $dotSegments = '/(?:^|\\/)\\.\\.?(?:$|[\\/#?])/';
 
     // The next ID for new blank nodes
     private $blankNodePrefix;
     private $blankNodeCount = 0;
-
-    private $afterPath;
-    private $basePath;
-    private $baseRoot;
-    private $baseScheme;
-    private $callback;
-    private $completeLiteral;
+    
     private $contextStack;
-    private $error;
-    private $explicitQuantifiers;
-    private $getContextEndReader;
-    private $getPathReader;
     private $graph;
-    private $inversePredicate;
-    private $lexer;
-    private $n3Mode;
-    private $object;
-    private $predicate;
-    private $prefix;
-    private $prefixCallback;
-    private $prefixes;
-    private $quantified;
-    private $quantifiedPrefix;
-    private $readBackwardPath;
-    private $readBaseIRI;
-    private $readBlankNodeHead;
-    private $readBlankNodePunctuation;
-    private $readBlankNodeTail;
-    private $readCallback;
-    private $readDataTypeOrLang;
-    private $readDeclarationPunctuation;
-    private $readEntity;
-    private $readFormulaTail;
-    private $readForwardPath;
-    private $readGraph;
+    
     private $readInTopContext;
-    private $readListItem;
-    private $readListItemDataTypeOrLang;
-    private $readNamedGraphBlankLabel;
-    private $readNamedGraphLabel;
-    private $readObject;
-    private $readQuantifierList;
-    private $readQuantifierPunctuation;
-    private $readQuadPunctuation;
-    private $readPath;
-    private $readPredicate;
-    private $readPredicateAfterBlank;
-    private $readPredicateOrNamedGraph;
-    private $readPrefix;
-    private $readPrefixIRI;
-    private $readPunctuation;
-    private $readSubject;
-    private $removeDotSegments;
-    private $resolveIRI;
-    private $sparqlStyle;
-    private $subject;
-    private $supportsNamedGraphs;
-    private $supportsQuads;
-    private $triple;
-    private $tripleCallback;
-
+    private $readCallback;
+    
     // ## Constructor
     public function __construct($options = [], $tripleCallback = null, $prefixCallback = null) {
         $this->setTripleCallback($tripleCallback);
         $this->setPrefixCallback($prefixCallback);
         $this->contextStack = [];
         $this->graph = null;
-
+        
         //This will initiate the callback methods
         $this->initReaders();
-
+        
         // Set the document IRI
         $this->setBase(isset($options["documentIRI"]) ? $options["documentIRI"]:null);
-
+        
         // Set supported features depending on the format
         if (!isset($options["format"])) {
             $options["format"] = "";
@@ -100,7 +46,7 @@ class TriGParser
         $format = strtolower($options["format"]);
         $isTurtle = $format === 'turtle';
         $isTriG = $format === 'trig';
-
+        
         $isNTriples = strpos($format,"triple")!==false?true:false;
         $isNQuads = strpos($format, "quad")!==false?true:false;
         $isN3 = strpos($format, "n3")!==false?true:false;
@@ -122,7 +68,7 @@ class TriGParser
         if (isset($options["blankNodePrefix"])) {
             $this->blankNodePrefix = '_:' . preg_replace('/^_:/', '', $options["blankNodePrefix"]);
         }
-
+        
         $this->lexer = isset($options["lexer"])? $options["lexer"] : new N3Lexer([ "lineMode"=> $isLineMode, "n3"=> $isN3 ]);
         // Disable explicit quantifiers by default
         $this->explicitQuantifiers = isset($options["explicitQuantifiers"])?$options["explicitQuantifiers"]:null;
@@ -135,9 +81,9 @@ class TriGParser
         $this->prefixes["_"] = isset($this->blankNodePrefix)?$this->blankNodePrefix:'_:b' . $this->blankNodeCount . '_';
         $this->inversePredicate = false;
         $this->quantified = [];
-
+        
     }
-
+    
     // ## Private class methods
     // ### `_resetBlankNodeIds` restarts blank node identification
     public function _resetBlankNodeIds () {
@@ -184,7 +130,7 @@ class TriGParser
             $this->quantified = $this->quantified;
         }
     }
-
+    
     // ### `_restoreContext` restores the parent context
     // when leaving a scope (list, blank node, formula)
     private function restoreContext() {
@@ -202,7 +148,7 @@ class TriGParser
         }
     }
 
-    private function initReaders ()
+    private function initReaders () 
     {
         // ### `_readInTopContext` reads a token when in the top context
         $this->readInTopContext =  function ($token) {
@@ -243,10 +189,10 @@ class TriGParser
                 return call_user_func($this->readSubject,$token);
             }
         };
-
+        
         // ### `_readEntity` reads an IRI, prefixed name, blank node, or variable
         $this->readEntity = function ($token, $quantifier = null) {
-            $value = null;
+            $value;
             switch ($token["type"]) {
                 // Read a relative or absolute IRI
                 case 'IRI':
@@ -260,7 +206,7 @@ class TriGParser
                     if (!isset($this->prefixes[$token["prefix"]])) {
                         return call_user_func($this->error,'Undefined prefix "' . $token["prefix"] . ':"', $token);
                     }
-
+                    
                     $prefix = $this->prefixes[$token["prefix"]];
                     $value = $prefix . $token["value"];
                     break;
@@ -312,7 +258,7 @@ class TriGParser
                 default:
                     // Read the subject entity
                     $this->subject = call_user_func($this->readEntity,$token);
-                    if ($this->subject == null)
+                    if ($this->subject == null) 
                         return;
                     // In N3 mode, the subject might be a path
                     if ($this->n3Mode)
@@ -323,7 +269,7 @@ class TriGParser
             // or, if the subject was actually a graph IRI, a named graph
             return $this->readPredicateOrNamedGraph;
         };
-
+        
         // ### `_readPredicate` reads a triple's predicate
         $this->readPredicate = function ($token) {
             $type = $token["type"];
@@ -448,7 +394,7 @@ class TriGParser
             }
             return call_user_func($this->readPredicate, $token);
         };
-
+        
         // ### `_readListItem` reads items from a list
         $this->readListItem = function ($token) {
             $item = null;                        // The item of the list
@@ -458,13 +404,13 @@ class TriGParser
             $parent = &$stack[sizeof($stack) - 1];// The parent containing the current list
             $next = $this->readListItem;         // The next function to execute
             $itemComplete = true;                // Whether the item has been read fully
-
+            
             switch ($token["type"]) {
                 case '[':
                     // Stack the current list triple and start a new triple with a blank node as subject
                     $list = '_:b' . $this->blankNodeCount++;
                     $item = '_:b' . $this->blankNodeCount++;
-                    $this->subject = $item;
+                    $this->subject = $item;                    
                     $this->saveContext('blank', $this->graph, $list, self::RDF_FIRST, $this->subject);
                     $next = $this->readBlankNodeHead;
                     break;
@@ -477,7 +423,7 @@ class TriGParser
                     // Closing the list; restore the parent context
                     $this->restoreContext();
                     // If this list is contained within a parent list, return the membership triple here.
-                    // This will be `<parent list element> rdf:first <this list>.`.
+                    // This will be `<parent list element> rdf:first <this list>.`.                    
                     if (sizeof($stack) !== 0 && $stack[sizeof($stack) - 1]["type"] === 'list') {
                         call_user_func($this->triple, $this->subject, $this->predicate, $this->object, $this->graph);
                     }
@@ -547,7 +493,7 @@ class TriGParser
             }
             return $next;
         };
-
+        
         // ### `_readDataTypeOrLang` reads an _optional_ data type or language
         $this->readDataTypeOrLang = function ($token) {
             return call_user_func($this->completeLiteral,$token, false);
@@ -605,7 +551,7 @@ class TriGParser
 
         // ### `_readPunctuation` reads punctuation between triples or triple parts
         $this->readPunctuation = function ($token) {
-            $next = null;
+            $next;
             $subject = isset($this->subject)?$this->subject:null;
             $graph = $this->graph;
             $inversePredicate = $this->inversePredicate;
@@ -654,7 +600,7 @@ class TriGParser
 
         // ### `_readBlankNodePunctuation` reads punctuation in a blank node
         $this->readBlankNodePunctuation = function ($token) {
-            $next = null;
+            $next;
             switch ($token["type"]) {
                 // Semicolon means the subject is shared; predicate and object are different
                 case ';':
@@ -712,22 +658,20 @@ class TriGParser
                 case 'IRI':
                 case 'blank':
                 case 'prefixed':
-                    call_user_func($this->readSubject,$token);
-                    return $this->readGraph;
+                call_user_func($this->readSubject,$token);
+                return $this->readGraph; 
                 case '[':
-                    return $this->readNamedGraphBlankLabel;
+                return $this->readNamedGraphBlankLabel;
                 default:
-                    return call_user_func($this->error,'Invalid graph label', $token);
+                return call_user_func($this->error,'Invalid graph label', $token);
             }
         };
 
         // ### `_readNamedGraphLabel` reads a blank node label of a named graph
         $this->readNamedGraphBlankLabel = function ($token) {
-            if ($token["type"] !== ']')
+                        if ($token["type"] !== ']')
                 return call_user_func($this->error,'Invalid graph label', $token);
-
             $this->subject = '_:b' . $this->blankNodeCount++;
-
             return $this->readGraph;
         };
 
@@ -746,7 +690,7 @@ class TriGParser
 
         // Reads a list of quantified symbols from a @forSome or @forAll statement
         $this->readQuantifierList = function ($token) {
-            $entity = null;
+            $entity;
             switch ($token["type"]) {
                 case 'IRI':
                 case 'prefixed':
@@ -809,29 +753,27 @@ class TriGParser
                 case '^': return $this->readBackwardPath;
                 // Not a path; resume reading where we left off
                 default:
-                    $stack = $this->contextStack;
-                    $parent = null;
-                    if (is_array($stack) && sizeof($stack) - 1 > 0 && isset($stack[sizeof($stack) - 1])) {
-                        $parent = $stack[sizeof($stack) - 1];
-                    }
-                    // If we were reading a list item, we still need to output it
-                    if ($parent && $parent["type"] === 'item') {
-                        // The list item is the remaining subejct after reading the path
-                        $item = $this->subject;
-                        // Switch back to the context of the list
-                        $this->restoreContext();
-                        // Output the list item
-                        call_user_func($this->triple,$this->subject, self::RDF_FIRST, $item, $this->graph);
-                    }
-                    return call_user_func($this->afterPath,$token);
+                $stack = $this->contextStack;
+                $parent = null;
+                if (is_array($stack) && sizeof($stack) - 1 > 0 && isset($stack[sizeof($stack) - 1])) {
+                    $parent = $stack[sizeof($stack) - 1];
+                }
+                // If we were reading a list item, we still need to output it
+                if ($parent && $parent["type"] === 'item') {
+                    // The list item is the remaining subejct after reading the path
+                    $item = $this->subject;
+                    // Switch back to the context of the list
+                    $this->restoreContext();
+                    // Output the list item
+                    call_user_func($this->triple,$this->subject, self::RDF_FIRST, $item, $this->graph);
+                }
+                return call_user_func($this->afterPath,$token);
             }
         };
 
         // ### `_readForwardPath` reads a '!' path
         $this->readForwardPath = function ($token) {
-            $subject = null;
-            $predicate = null;
-            $object = '_:b' . $this->blankNodeCount++;
+            $subject; $predicate; $object = '_:b' . $this->blankNodeCount++;
             // The next token is the predicate
             $predicate = call_user_func($this->readEntity,$token);
             if (!$predicate)
@@ -853,9 +795,8 @@ class TriGParser
 
         // ### `_readBackwardPath` reads a '^' path
         $this->readBackwardPath = function ($token) {
-            $subject = '_:b' . $this->blankNodeCount++;
-            $predicate = null;
-            $object = null;
+                        $subject = '_:b' . $this->blankNodeCount++;
+            $predicate; $object;
             // The next token is the predicate
             $predicate = call_user_func($this->readEntity,$token);
             if ($predicate)
@@ -866,7 +807,7 @@ class TriGParser
                 $this->subject = $subject;
             }
             // If we were reading an object, replace the subject by the path's subject
-            else {
+            else {   
                 $object = $this->object;
                 $this->object  = $subject;
             }
@@ -898,7 +839,7 @@ class TriGParser
 
         // ### `_error` emits an error message through the callback
         $this->error = function ($message, $token) {
-            if ($this->callback)
+            if ($this->callback) 
                 call_user_func($this->callback, new \Exception($message . ' on line ' . $token['line'] . '.'),null);
             else
                 throw new \Exception($message . ' on line ' . $token['line'] . '.');
@@ -908,10 +849,10 @@ class TriGParser
         // assuming that a base path has been set and that the IRI is indeed relative
         $this->resolveIRI = function ($token) {
             $iri = $token["value"];
-
+            
             if (!isset($iri[0])) // An empty relative IRI indicates the base IRI
                 return $this->base;
-
+            
             switch ($iri[0]) {
                 // Resolve relative fragment IRIs against the base IRI
                 case '#': return $this->base . $iri;
@@ -941,7 +882,7 @@ class TriGParser
             $pathStart = -1;
             $segmentStart = 0;
             $next = '/';
-
+            
             // a function we will need here to fetch the last occurence
             //search backwards for needle in haystack, and return its position
             $rstrpos = function ($haystack, $needle){
@@ -951,7 +892,7 @@ class TriGParser
                     return false;
                 return $size - $pos -1;
             };
-
+            
             while ($i < $length) {
                 switch ($next) {
                     // The path starts with the first slash after the authority
@@ -1014,11 +955,11 @@ class TriGParser
                     $next = $iri[$i];
                 }
             }
-
+            
             return $result . substr($iri, $segmentStart);
         };
     }
-
+    
     // ## Public methods
 
     // ### `parse` parses the N3 input and emits each parsed triple through the callback
@@ -1040,7 +981,7 @@ class TriGParser
                     //DONE
                 } else {
                     $error = $e;
-                }
+                } 
             };
             $tokens = $this->lexer->tokenize($input, $finalize);
             foreach($tokens as $token) {
@@ -1048,7 +989,7 @@ class TriGParser
                     $this->readCallback = call_user_func($this->readCallback, $token);
             }
             if ($error) throw $error;
-            return $triples;
+            return $triples;            
         } else {
             // Parse asynchronously otherwise, executing the read callback when a token arrives
             $this->callback = $this->tripleCallback;
@@ -1077,7 +1018,7 @@ class TriGParser
         $this->tripleCallback = $tripleCallback;
     }
 
-    public function setPrefixCallback ($prefixCallback = null)
+    public function setPrefixCallback ($prefixCallback = null) 
     {
         if (isset($prefixCallback))
             $this->prefixCallback = $prefixCallback;
@@ -1085,7 +1026,7 @@ class TriGParser
             $this->prefixCallback = function () {};
         }
     }
-
+    
     public function end()
     {
         return $this->parseChunk("", true);

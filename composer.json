@@ -44,6 +44,6 @@
     "scripts": {
         "phpstan": "vendor/bin/phpstan analyse -c phpstan.neon -vvv",
         "phpunit": "vendor/bin/phpunit",
-        "phpunit-with-coverage": "vendor/bin/phpunit --coverage-clover gen/coverage/clover.xml"
+        "phpunit-with-coverage": "vendor/bin/phpunit --coverage-text"
     }
 }

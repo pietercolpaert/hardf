@@ -5,36 +5,92 @@ namespace pietercolpaert\hardf;
 /** TriGWriter writes both Turtle and TriG from our triple representation depending on the options */
 class TriGWriter
 {
-    // Matches a literal as represented in memory by the N3 library
+    /**
+     * Matches a literal as represented in memory
+     *
+     * @var string
+     */
     CONST LITERALMATCHER = '/^"(.*)"(?:\\^\\^(.+)|@([\\-a-z]+))?$/is';
-    // rdf:type predicate (for 'a' abbreviation)
+
+    /**
+     * rdf:type predicate (for 'a' abbreviation)
+     *
+     * @var string
+     */
     CONST RDF_PREFIX = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
+
+    /**
+     * @var string
+     */
     CONST RDF_TYPE   = self::RDF_PREFIX . 'type';
 
-    // Characters in literals that require escaping
+    /**
+     * Characters in literals that require escaping
+     *
+     * @var string
+     */
     CONST ESCAPE =    "/[\"\\\\\\t\\n\\r\\b\\f]/";
-    //HHVM does not allow this to be a constant
-    private $ESCAPEREPLACEMENTS;
 
-    // ### `_prefixRegex` matches a prefixed name or IRI that begins with one of the added prefixes
+    /**
+     * @var array
+     */
+    private $escapeReplacements;
+
+    /**
+     * matches a prefixed name or IRI that begins with one of the added prefixes
+     *
+     * @var string
+     */
     private $prefixRegex = "/$0^/";
 
-    private $subject, $graph, $prefixIRIs, $blocked = false, $string;
+    /**
+     * @var string
+     */
+    private $subject;
 
-    // Replaces a character by its escaped version
+    /**
+     * @var string|null
+     */
+    private $graph;
+
+    /**
+     * @var array
+     */
+    private $prefixIRIs;
+
+    /**
+     * @var bool
+     */
+    private $blocked = false;
+
+    /**
+     * @var string|null
+     */
+    private $string;
+
+    /**
+     * @var callable
+     */
+    private $readCallback;
+
+    /**
+     * Replaces a character by its escaped version
+     *
+     * @todo remove
+     */
     private $characterReplacer;
 
-    private $predicate;
-    private $readCallback;
+    private $writeTriple;
 
     public function __construct($options = [], $readCallback = null)
     {
-        $this->setReadCallback($readCallback);
-        $this->ESCAPEREPLACEMENTS = [
+        $this->escapeReplacements = [
             '\\' => '\\\\', '"' => '\\"', "\t" => "\\t",
-            "\n" => '\\n', "\r" => "\\r", chr(8) => "\\b", "\f"=> "\\f"
+            "\n" => '\\n', "\r" => "\\r", chr(8) => "\\b", "\f" => "\\f"
         ];
 
+        $this->setReadCallback($readCallback);
+        $this->initWriter ();
         /* Initialize writer, depending on the format*/
         $this->subject = null;
         if (!isset($options["format"]) || !(preg_match("/triple|quad/i", $options["format"]))) {
@@ -43,14 +99,22 @@ class TriGWriter
             if (isset($options["prefixes"])) {
                 $this->addPrefixes($options["prefixes"]);
             }
+        } else {
+            $this->writeTriple = $this->writeTripleLine;
         }
-        $this->characterReplacer = function ($character) {
+
+        /**
+         * @todo make that a separate function
+         *
+         * @param mixed $character
+         */
+        $this->characterReplacer = function ($character): string {
             // Replace a single character by its escaped version
             $character = $character[0];
-            if (strlen($character) > 0 && isset($this->ESCAPEREPLACEMENTS[$character[0]])) {
-                return $this->ESCAPEREPLACEMENTS[$character[0]];
+            if (strlen($character) > 0 && isset($this->escapeReplacements[$character[0]])) {
+                return $this->escapeReplacements[$character[0]];
             } else {
-                return; //no escaping necessary, should not happen, or something is wrong in our regex
+                return $character; //no escaping necessary, should not happen, or something is wrong in our regex
             }
         };
     }
@@ -60,85 +124,64 @@ class TriGWriter
         $this->readCallback = $readCallback;
     }
 
-    /**
-     * writes the triple to the output stream
-     */
-    protected function writeTriple($subject, $predicate, $object, $graph, $done = null)
+    private function initWriter()
     {
-        try {
-            if (isset($graph) && $graph === "") {
+        // ### `_writeTriple` writes the triple to the output stream
+        $this->writeTriple = function($subject, $predicate, $object, $graph, $done = null) {
+            if (empty($graph)) {
                 $graph = null;
             }
+
             // Write the graph's label if it has changed
             if ($this->graph !== $graph) {
                 // Close the previous graph and start the new one
-                $this->write(($this->subject === null ? '' : ($this->graph ? "\n}\n" : ".\n")) . (isset($graph) ? $this->encodeIriOrBlankNode($graph) . " {\n" : ''));
+                $lineToWrite = $this->subject === null ? '' : ($this->graph ? "\n}\n" : '.'.PHP_EOL);
+                $lineToWrite .= isset($graph) ? $this->encodeIriOrBlankNode($graph).' {'.PHP_EOL : '';
+                $this->write($lineToWrite);
+
                 $this->subject = null;
+
                 // Don't treat identical blank nodes as repeating graphs
-                $this->graph = $graph[0] !== '[' ? $graph : ']';
+                if (null === $graph) {
+                    $this->graph = $graph;
+                } else {
+                    $this->graph = $graph[0] !== '[' ? $graph : ']';
+                }
             }
+
             // Don't repeat the subject if it's the same
             if ($this->subject === $subject) {
                 // Don't repeat the predicate if it's the same
                 if ($this->predicate === $predicate)
-                    $this->write(', ' . $this->encodeObject($object));
+                    $this->write(', ' . $this->encodeObject($object), $done);
                 // Same subject, different predicate
                 else {
                     $this->predicate = $predicate;
-
-                    $stringToWrite = ";\n    ";
-                    $stringToWrite .= $this->encodePredicate($predicate);
-                    $stringToWrite .= ' '.$this->encodeObject($object);
-
-                    $this->write($stringToWrite);
+                    $this->write(";\n    " . $this->encodePredicate($predicate) . ' ' . $this->encodeObject($object), $done);
                 }
             }
             // Different subject; write the whole triple
             else {
-                $stringToWrite = $this->subject === null ? '' : ".\n";
-
-                $this->subject = $subject;
-                $this->predicate = $predicate;
-
-                $stringToWrite .= $this->encodeSubject($subject);
-                $stringToWrite .= ' ' . $this->encodePredicate($predicate);
-                $stringToWrite .= ' ' . $this->encodeObject($object);
-
-                $this->write($stringToWrite);
+                $this->write(($this->subject === null ? '' : ".\n") . $this->encodeSubject($this->subject = $subject) . ' ' . $this->encodePredicate($this->predicate = $predicate) . ' ' . $this->encodeObject($object), $done);
             }
-        } catch (\Exception $error) {
-            if (isset($done)) {
-                $done($error);
+        };
+
+        // ### `_writeTripleLine` writes the triple or quad to the output stream as a single line
+        $this->writeTripleLine = function ($subject, $predicate, $object, $graph, $done = null) {
+            if (isset($graph) && $graph === "") {
+                $graph = null;
             }
-        }
+            // Don't use prefixes
+            unset($this->prefixMatch);
+            // Write the triple
+            $this->write($this->encodeIriOrBlankNode($subject) . ' ' . $this->encodeIriOrBlankNode($predicate) . ' ' . $this->encodeObject($object) . (isset($graph) ? ' ' . $this->encodeIriOrBlankNode($graph) . ".\n" : ".\n"), $done);
+        };
+
     }
 
-    protected function writeTripleLine($subject, $predicate, $object, $graph, $done = null)
-    {
-        if (isset($graph) && $graph === "") {
-            $graph = null;
-        }
-        // Don't use prefixes
-        unset($this->prefixMatch);
-        // Write the triple
-        try {
-            $quad = $this->encodeIriOrBlankNode($subject);
-            $quad .= ' ' .$this->encodeIriOrBlankNode($predicate);
-            $quad .= ' ' .$this->encodeObject($object);
-            $quad .= (isset($graph) ? ' ' . $this->encodeIriOrBlankNode($graph) . ".\n" : ".\n");
 
-            $this->write($quad);
-        } catch (\Exception $error) {
-            if (isset($done)) {
-                $done($error);
-            }
-        }
-    }
-
-    /**
-     * writes the argument to the output stream
-     */
-    private function write($string) {
+    // ### `_write` writes the argument to the output stream
+    private function write ($string) {
         if ($this->blocked) {
             throw new \Exception('Cannot write because the writer has been closed.');
         } else {
@@ -152,7 +195,7 @@ class TriGWriter
     }
 
     // ### Reads a bit of the string
-    public function read ()
+    public function read(): string
     {
         $string = $this->string;
         $this->string = "";
@@ -166,20 +209,14 @@ class TriGWriter
         if ($firstChar === '[' || $firstChar === '(' || $firstChar === '_' && substr($entity, 1, 1) === ':') {
             return $entity;
         }
-        
         // Escape special characters
-        if (1 == preg_match(self::ESCAPE, $entity)) {
+        if (preg_match(self::ESCAPE, $entity))
             $entity = preg_replace_callback(self::ESCAPE, $this->characterReplacer,$entity);
-        }
 
         // Try to represent the IRI as prefixed name
         preg_match($this->prefixRegex, $entity, $prefixMatch);
         if (!isset($prefixMatch[1]) && !isset($prefixMatch[2])) {
-            if (
-                preg_match("/(.*?:)/",$entity,$match)
-                && isset($this->prefixIRIs)
-                && in_array($match[1], $this->prefixIRIs)
-            ) {
+            if (preg_match("/(.*?:)/",$entity,$match) && isset($this->prefixIRIs) && in_array($match[1], $this->prefixIRIs)) {
                 return $entity;
             } else {
                 return '<' . $entity . '>';
@@ -190,11 +227,10 @@ class TriGWriter
     }
 
     // ### `_encodeLiteral` represents a literal
-    private function encodeLiteral ($value, $type = null, $language = null)
-    {
+    private function encodeLiteral ($value, $type = null, $language = null) {
         // Escape special characters
         if (preg_match(self::ESCAPE, $value))
-            $value = preg_replace_callback(self::ESCAPE, $this->characterReplacer, $value);
+            $value = preg_replace_callback(self::ESCAPE, $this->characterReplacer,$value);
         $value =  $value ;
         // Write the literal, possibly with type or language
         if (isset($language))
@@ -206,65 +242,84 @@ class TriGWriter
     }
 
     // ### `_encodeSubject` represents a subject
-    private function encodeSubject ($subject) {
-        if ($subject[0] === '"')
+    private function encodeSubject (string $subject) {
+        if ($subject[0] === '"') {
             throw new \Exception('A literal as subject is not allowed: ' . $subject);
+        }
+
         // Don't treat identical blank nodes as repeating subjects
-        if ($subject[0] === '[')
+        if ($subject[0] === '[') {
             $this->subject = ']';
+        }
+
         return $this->encodeIriOrBlankNode($subject);
     }
 
 
     // ### `_encodePredicate` represents a predicate
-    private function encodePredicate ($predicate) {
+    private function encodePredicate (string $predicate) {
         if ($predicate[0] === '"')
             throw new \Exception('A literal as predicate is not allowed: ' . $predicate);
         return $predicate === self::RDF_TYPE ? 'a' : $this->encodeIriOrBlankNode($predicate);
     }
 
-    // ### `_encodeObject` represents an object
+    /**
+     * represents an object
+     *
+     * @param array<int, string|int>|string $object
+     */
     private function encodeObject ($object) {
         // Represent an IRI or blank node
-        if ($object[0] !== '"') {
+        if ($object[0] !== '"')
             return $this->encodeIriOrBlankNode($object);
-        }
-
         // Represent a literal
         if (preg_match(self::LITERALMATCHER, $object, $matches)) {
-            $type = isset($matches[2]) ? $matches[2] : null;
-            $lang = isset($matches[3]) ? $matches[3] : null;
-
-            return $this->encodeLiteral($matches[1], $type, $lang);
+            return $this->encodeLiteral($matches[1], isset($matches[2])?$matches[2]:null, isset($matches[3])?$matches[3]:null);
         }
         else {
             throw new \Exception('Invalid literal: ' . $object);
         }
     }
 
-    // ### `addTriple` adds the triple to the output stream
-    public function addTriple ($subject, $predicate = null, $object = null, $graph = null, $done = null) {
-        // The triple was given as a triple object, so shift parameters
+    /**
+     * adds the triple to the output stream
+     *
+     * @param mixed $subject
+     * @param string $predicate
+     */
+    public function addTriple($subject, $predicate = null, $object = null, $graph = null, $done = null): void
+    {
+        /**
+         * The triple was given as a triple object, so shift parameters
+         *
+         * TODO deprecate that and remove this in next major version. That is bad style, instead adapt
+         *      callers to split S, P, O, G as different paramaters. This change also allows better
+         *      static code analysis
+         */
         if (is_array($subject)) {
             $g = isset($subject["graph"])?$subject["graph"]:null;
-            $this->writeTriple($subject["subject"], $subject["predicate"], $subject["object"], $g, $predicate);
+            call_user_func($this->writeTriple, $subject["subject"], $subject["predicate"], $subject["object"], $g, $predicate);
         }
+
         // The optional `graph` parameter was not provided
         else if (!is_string($graph))
-            $this->writeTriple($subject, $predicate, $object, '', $graph);
+            call_user_func($this->writeTriple, $subject, $predicate, $object, '', $graph);
         // The `graph` parameter was provided
         else
-            $this->writeTriple($subject, $predicate, $object, $graph, $done);
+            call_user_func($this->writeTriple, $subject, $predicate, $object, $graph, $done);
     }
 
     // ### `addTriples` adds the triples to the output stream
-    public function addTriples ($triples) {
+    public function addTriples($triples): void
+    {
         for ($i = 0; $i < sizeof($triples); $i++)
             $this->addTriple($triples[$i]);
     }
 
-    // ### `addPrefix` adds the prefix to the output stream
-    public function addPrefix($prefix, $iri, $done = null)
+    /**
+     * adds the prefix to the output stream
+     */
+    public function addPrefix(string $prefix, string $iri, callable $done = null): void
     {
         $prefixes = [];
         $prefixes[$prefix] = $iri;
@@ -272,13 +327,15 @@ class TriGWriter
     }
 
     // ### `addPrefixes` adds the prefixes to the output stream
-    public function addPrefixes ($prefixes, $done = null) {
+    public function addPrefixes($prefixes, $done = null): void
+    {
         // Add all useful prefixes
         $hasPrefixes = false;
         foreach ($prefixes as $prefix => $iri) {
 
             // Verify whether the prefix can be used and does not exist yet
-            if (preg_match('/[#\/]$/',$iri) && (!isset($this->prefixIRIs[$iri]) || $this->prefixIRIs[$iri] !== ($prefix . ':'))) {
+            $check = !isset($this->prefixIRIs[$iri]) || $this->prefixIRIs[$iri] !== ($prefix . ':');
+            if (preg_match('/[#\/]$/',$iri) && $check) {
                 $hasPrefixes = true;
                 $this->prefixIRIs[$iri] = $prefix . ":";
                 // Finish a possible pending triple
@@ -292,7 +349,7 @@ class TriGWriter
             }
         }
         // Recreate the prefix matcher
-        if ($hasPrefixes) {
+        if (isset($hasPrefixes)) {
             $IRIlist = '';
             $prefixList = '';
             foreach ($this->prefixIRIs as $prefixIRI => $iri) {
@@ -304,11 +361,16 @@ class TriGWriter
 
         }
         // End a prefix block with a newline
-        $this->write($hasPrefixes ? "\n" : '');
+        $this->write($hasPrefixes ? "\n" : '', $done);
     }
 
-    // ### `blank` creates a blank node with the given content
-    public function blank ($predicate = null, $object = null) {
+    /**
+     * creates a blank node with the given content
+     *
+     * @param mixed $predicate
+     * @param mixed $object
+     */
+    public function blank($predicate = null, $object = null): string {
         $children = $predicate;
         $child = "";
         $length="";
@@ -321,18 +383,19 @@ class TriGWriter
         // Blank node passed as blank({ predicate: $predicate, object: $object })
         else if (is_array($predicate) && isset($predicate["predicate"]))
             $children = [$predicate];
+
         switch ($length = sizeof($children)) {
-            // Generate an empty blank node
             case 0:
+                // Generate an empty blank node
                 return '[]';
-                // Generate a non-nested one-triple blank node
             case 1:
+                // Generate a non-nested one-triple blank node
                 $child = $children[0];
                 if ($child["object"][0] !== '[')
                     return '[ ' . $this->encodePredicate($child["predicate"]) . ' ' .
                         $this->encodeObject($child["object"]) . ' ]';
-                // Generate a multi-triple or nested blank node
             default:
+                // Generate a multi-triple or nested blank node
                 $contents = '[';
                 // Write all triples in order
                 for ($i = 0; $i < $length; $i++) {
@@ -352,11 +415,15 @@ class TriGWriter
         }
     }
 
-    // ### `list` creates a list node with the given content
-    public function addList ($elements = null) {
+    /**
+     * creates a list node with the given content
+     *
+     * @param array<int, string> $elements
+     */
+    public function addList(array $elements = []): string {
         $length = 0;
         if (isset($elements)) {
-            $length = count($elements);
+            $length = sizeof($elements);
         }
         $contents = [];
         for ($i = 0; $i < $length; $i++) {
@@ -365,20 +432,26 @@ class TriGWriter
         return '(' . join(' ', $contents) . ')';
     }
 
-    // ### `end` signals the end of the output stream
-    public function end()
+    /**
+     * Signals the end of the output stream
+     */
+    public function end(): ?string
     {
         // Finish a possible pending triple
         if ($this->subject !== null) {
             $this->write($this->graph ? "\n}\n" : ".\n");
             $this->subject = null;
         }
-        if (isset($this->readCallbacks))
+        if (isset($this->readCallbacks)) {
             call_user_func($this->readCallback, $this->string);
+        }
 
         // Disallow further writing
         $this->blocked = true;
-        if (!isset($this->readCallback))
+        if (!isset($this->readCallback)) {
             return $this->string;
+        }
+
+        return null;
     }
 }

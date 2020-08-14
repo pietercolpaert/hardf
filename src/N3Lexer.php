@@ -10,15 +10,11 @@ class N3Lexer
     private $escapeSequence = '/\\\\u([a-fA-F0-9]{4})|\\\\U([a-fA-F0-9]{8})|\\\\[uU]|\\\\(.)/';
     private $escapeReplacements;
     private $illegalIriChars = '/[\x00-\x20<>\\"\{\}\|\^\`]/';
+
+    private $input;
     private $line = 1;
 
-    private $comments;
-    private $input;
-    private $n3Mode;
     private $prevTokenType;
-
-    private $_tokenize;
-    private $_oldTokenize;
 
     public function __construct($options = []) {
         $this->initTokenize();
@@ -100,8 +96,8 @@ class N3Lexer
         $outputComments = $this->comments;
         while (true) {
             // Count and skip whitespace lines
-            $whiteSpaceMatch = null;
-            $comment = null;
+            $whiteSpaceMatch;
+            $comment;
             while (preg_match($this->newline, $input, $whiteSpaceMatch)) {
                 // Try to find a comment
                 if ($outputComments && preg_match($this->comment, $whiteSpaceMatch[0], $comment))
@@ -388,11 +384,11 @@ class N3Lexer
     // ### `_unescape` replaces N3 escape codes by their corresponding characters
     private function unescape($item) {
         return preg_replace_callback($this->escapeSequence, function ($match) {
-            // $match[0] => sequence
+            $sequence = $match[0];
             $unicode4 = isset($match[1])?$match[1]:null;
             $unicode8 = isset($match[2])?$match[2]:null;
             $escapedChar = isset($match[3])?$match[3]:null;
-            $charCode = null;
+            $charCode;
             if ($unicode4) {
                 $charCode = intval($unicode4, 16);
                 return mb_convert_encoding('&#' . intval($charCode) . ';', 'UTF-8', 'HTML-ENTITIES');
@@ -457,7 +453,7 @@ class N3Lexer
     public function end()
     {
         // Parses the rest
-        return $this->tokenizeToEnd(true, null);
+        return $this->tokenizeToEnd(true);
     }
 }
 

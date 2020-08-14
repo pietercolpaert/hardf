@@ -10,7 +10,7 @@ use pietercolpaert\hardf\Util;
  */
 class UtilTest extends TestCase
 {
-    public function testIsIRI ()
+    public function testIsIRI(): void
     {
         $this->assertIsBool(Util::isIRI("http://test.be"));
         $this->assertEquals(
@@ -29,7 +29,7 @@ class UtilTest extends TestCase
         $this->assertEquals(false,Util::isIRI(null));
     }
 
-    public function testIsLiteral ()
+    public function testIsLiteral(): void
     {
         $this->assertEquals(true,Util::isLiteral('"http://example.org/"'));
         $this->assertEquals(true,Util::isLiteral('"English"@en'));
