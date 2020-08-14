@@ -12,10 +12,7 @@ class UtilTest extends TestCase
 {
     public function testIsIRI ()
     {
-        $this->assertInternalType(
-            "boolean",
-            Util::isIRI("http://test.be")
-        );
+        $this->assertIsBool(Util::isIRI("http://test.be"));
         $this->assertEquals(
             true,
             Util::isIRI("http://test.be")

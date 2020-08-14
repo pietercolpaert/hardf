@@ -163,9 +163,10 @@ class TriGWriter
     private function encodeIriOrBlankNode ($entity) {
         // A blank node or list is represented as-is
         $firstChar = substr($entity, 0, 1);
-        if (\in_array($firstChar, ['[', ']', '_']) && ':' === substr($entity, 1, 1)) {
+        if ($firstChar === '[' || $firstChar === '(' || $firstChar === '_' && substr($entity, 1, 1) === ':') {
             return $entity;
         }
+        
         // Escape special characters
         if (1 == preg_match(self::ESCAPE, $entity)) {
             $entity = preg_replace_callback(self::ESCAPE, $this->characterReplacer,$entity);
