@@ -5,9 +5,6 @@ namespace Tests\hardf;
 use PHPUnit\Framework\TestCase;
 use pietercolpaert\hardf\Util;
 
-/**
- * @covers \Util
- */
 class UtilTest extends TestCase
 {
     public function testIsIRI(): void
