@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**An alias for TriGParser, with the default format set to N3 */
 
 namespace pietercolpaert\hardf;

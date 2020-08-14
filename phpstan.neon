@@ -5,7 +5,7 @@ parameters:
     fileExtensions:
         - php
 
-    level: 2
+    level: 5
 
     paths:
         - bin

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace pietercolpaert\hardf;
 
 /**
@@ -93,8 +95,9 @@ class N3Lexer
     private $whitespace = '/^[ \\t]+/';
     private $endOfFile = '/^(?:#[^\\n\\r]*)?$/';
 
-    // ## Private methods
-    // ### `_tokenizeToEnd` tokenizes as for as possible, emitting tokens through the callback
+    /**
+     * tokenizes as for as possible, emitting tokens through the callback
+     */
     private function tokenizeToEnd($callback, $inputFinished)
     {
         // Continue parsing as far as possible; the loop will return eventually
@@ -114,7 +117,17 @@ class N3Lexer
             while (preg_match($this->newline, $input, $whiteSpaceMatch)) {
                 // Try to find a comment
                 if ($outputComments && preg_match($this->comment, $whiteSpaceMatch[0], $comment)) {
-                    callback(null, ['line' => $this->line, 'type' => 'comment', 'value' => $comment[1], 'prefix' => '']);
+                    /*
+                     * originally the following line was here:
+                     *
+                     *      callback(null, ['line' => $this->line, 'type' => 'comment', 'value' => $comment[1], 'prefix' => '']);
+                     *
+                     * but it makes no sense, because callback is a function from PHPUnit, which can't be relied on
+                     * in this context. therefore this line must be at least commented out. the question is, if the
+                     * whole "case" can be removed as well.
+                     *
+                     * FYI: #29
+                     */
                 }
                 // Advance the input
                 $input = substr($input, \strlen($whiteSpaceMatch[0]), \strlen($input));

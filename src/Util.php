@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace pietercolpaert\hardf;
 
 /** a clone of the N3Util class from the N3js code by Ruben Verborgh **/

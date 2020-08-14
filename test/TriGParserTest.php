@@ -7,7 +7,10 @@ use pietercolpaert\hardf\TriGParser;
 
 class TriGParserTest extends TestCase
 {
-    private function shouldParse($createParser, $input = '')
+    /**
+     * @param string|array<int,string> $input
+     */
+    private function shouldParse($createParser, $input = ''): void
     {
         $expected = \array_slice(\func_get_args(), 1);
         // Shift parameters as necessary
@@ -35,7 +38,11 @@ class TriGParserTest extends TestCase
         });
     }
 
-    public function shouldNotParse($createParser, $input, $expectedError = null)
+    /**
+     * @param string      $input
+     * @param string|null $expectedError
+     */
+    public function shouldNotParse($createParser, $input, $expectedError = null): void
     {
         $expected = \array_slice(\func_get_args(), 1);
         // Shift parameters as necessary
@@ -62,7 +69,12 @@ class TriGParserTest extends TestCase
         });
     }
 
-    public function itShouldResolve($baseIri, $relativeIri, $expected)
+    /**
+     * @param string $baseIri
+     * @param string $relativeIri
+     * @param string $expected
+     */
+    public function itShouldResolve($baseIri, $relativeIri, $expected): void
     {
         $done = false;
         try {
@@ -82,7 +94,10 @@ class TriGParserTest extends TestCase
         }
     }
 
-    private static function toSortedJSON($items)
+    /**
+     * @param array<int, mixed> $items
+     */
+    private static function toSortedJSON(array $items): string
     {
         $triples = array_map('json_encode', $items);
         sort($triples);
@@ -1099,7 +1114,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         ['http://ex.org/e/k', 'http://ex.org/e/l', 'http://ex.org/e/m']);
     }
 
-    public function testDifferentSettings()
+    public function testDifferentSettings(): void
     {
         $parser = function () { return new TriGParser(['blankNodePrefix' => '_:blank']); };
 
@@ -1124,7 +1139,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         $this->shouldParse($parser, '{<a> <b> <c>}', ['a', 'b', 'c']);
     }
 
-    public function testTurtle()
+    public function testTurtle(): void
     {
         $parser = function () { return new TriGParser(['format' => 'Turtle']); };
 
@@ -1159,7 +1174,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         $this->shouldNotParse($parser, '<a> <b> {}.', 'Unexpected graph on line 1.');
     }
 
-    public function testTriGFormat()
+    public function testTriGFormat(): void
     {
         $parser = function () { return new TriGParser(['format' => 'TriG']); };
 
@@ -1194,7 +1209,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         $this->shouldNotParse($parser, '<a> <b> {}.', 'Unexpected graph on line 1.');
     }
 
-    public function testNTriplesFormat()
+    public function testNTriplesFormat(): void
     {
         $parser = function () { return new TriGParser(['format' => 'N-Triples']); };
 
@@ -1228,7 +1243,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         $this->shouldNotParse($parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.');
     }
 
-    public function testNQuadsFormat()
+    public function testNQuadsFormat(): void
     {
         $parser = function () { return new TriGParser(['format' => 'N-Quads']); };
 
@@ -1262,7 +1277,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         $this->shouldNotParse($parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.');
     }
 
-    public function testN3Format()
+    public function testN3Format(): void
     {
         $parser = function () { return new TriGParser(['format' => 'N3']); };
 
@@ -1565,7 +1580,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         $this->shouldNotParse($parser, '<a>^"invalid" ', 'Expected entity but got literal on line 1.');
     }
 
-    public function testN3ExplicitQuantifiers()
+    public function testN3ExplicitQuantifiers(): void
     {
         $parser = function () { return new TriGParser(['format' => 'N3', 'explicitQuantifiers' => true]); };
 
@@ -1630,7 +1645,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         ['x', 'x', 'x']);
     }
 
-    public function testResolve()
+    public function testResolve(): void
     {
         // IRI resolution
         // RFC3986 normal examples

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace pietercolpaert\hardf;
 
 /**
@@ -104,7 +106,8 @@ class TriGParser
         if (!isset($options['format'])) {
             $options['format'] = '';
         }
-        $format = strtolower($options['format']);
+        $format = (string) $options['format'];
+        $format = strtolower($format);
         $isTurtle = 'turtle' === $format;
         $isTriG = 'trig' === $format;
 
@@ -123,8 +126,9 @@ class TriGParser
             $this->resolveIRI = function ($token) {
                 \call_user_func($this->error, 'Disallowed relative IRI', $token);
 
-                return $this->callback = function () {};
                 $this->subject = null;
+
+                return $this->callback = function () {};
             };
         }
         $this->blankNodePrefix = null;
@@ -265,14 +269,22 @@ class TriGParser
             }
         };
 
-        // ### `_readEntity` reads an IRI, prefixed name, blank node, or variable
+        /*
+         * reads an IRI, prefixed name, blank node, or variable
+         *
+         * @return null|string|object
+         */
         $this->readEntity = function ($token, $quantifier = null) {
             $value = null;
             switch ($token['type']) {
                 // Read a relative or absolute IRI
                 case 'IRI':
                 case 'typeIRI':
-                    $value = (null === $this->base || preg_match($this->absoluteIRI, $token['value'])) ? $token['value'] : \call_user_func($this->resolveIRI, $token);
+                    if (null === $this->base || preg_match($this->absoluteIRI, $token['value'])) {
+                        $value = $token['value'];
+                    } else {
+                        $value = \call_user_func($this->resolveIRI, $token);
+                    }
                     break;
                     // Read a blank node or prefixed name
                 case 'type':
@@ -836,19 +848,15 @@ class TriGParser
                 case 'IRI':
                 case 'prefixed':
                     $entity = \call_user_func($this->readEntity, $token, true);
-                    if (isset($entity)) {
-                        break;
-                    }
-                        // no break
+                    break;
                 default:
                     return \call_user_func($this->error, 'Unexpected '.$token['type'], $token);
             }
             // Without explicit quantifiers, map entities to a quantified entity
             if (!$this->explicitQuantifiers) {
                 $this->quantified[$entity] = $this->quantifiedPrefix.$this->blankNodeCount++;
-            }
-            // With explicit quantifiers, output the reified quantifier
-            else {
+            } else {
+                // With explicit quantifiers, output the reified quantifier
                 // If this is the first item, start a new quantifier list
                 if (null === $this->subject) {
                     $this->subject = '_:b'.$this->blankNodeCount++;

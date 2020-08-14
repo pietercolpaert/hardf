@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace pietercolpaert\hardf;
 
 /** a clone of the N3Writer class from the N3js code by Ruben Verborgh **/
@@ -45,7 +47,7 @@ class TriGWriter
     private $prefixRegex = '/$0^/';
 
     /**
-     * @var string
+     * @var string|null
      */
     private $subject;
 
@@ -83,7 +85,14 @@ class TriGWriter
      */
     private $characterReplacer;
 
+    /**
+     * @var callable
+     */
     private $writeTriple;
+
+    /**
+     * @var callable
+     */
     private $writeTripleLine;
 
     public function __construct($options = [], $readCallback = null)
@@ -132,7 +141,7 @@ class TriGWriter
     private function initWriter()
     {
         // ### `_writeTriple` writes the triple to the output stream
-        $this->writeTriple = function ($subject, $predicate, $object, $graph, $done = null) {
+        $this->writeTriple = function ($subject, $predicate, $object, $graph) {
             if (empty($graph)) {
                 $graph = null;
             }
@@ -182,7 +191,7 @@ class TriGWriter
         };
 
         // ### `_writeTripleLine` writes the triple or quad to the output stream as a single line
-        $this->writeTripleLine = function ($subject, $predicate, $object, $graph, $done = null) {
+        $this->writeTripleLine = function ($subject, $predicate, $object, $graph) {
             if (isset($graph) && '' === $graph) {
                 $graph = null;
             }
@@ -199,8 +208,10 @@ class TriGWriter
         };
     }
 
-    // ### `_write` writes the argument to the output stream
-    private function write($string)
+    /**
+     * writes the argument to the output stream
+     */
+    private function write(string $string)
     {
         if ($this->blocked) {
             throw new \Exception('Cannot write because the writer has been closed.');
@@ -314,9 +325,12 @@ class TriGWriter
     /**
      * adds the triple to the output stream
      *
-     * @param string $predicate
+     * @param string|array<string, string|null> $subject
+     * @param string                            $predicate
+     * @param string|array<string, string|null> $object
+     * @param string|null                       $graph
      */
-    public function addTriple($subject, $predicate = null, $object = null, $graph = null, $done = null): void
+    public function addTriple($subject, $predicate = null, $object = null, $graph = null): void
     {
         /*
          * The triple was given as a triple object, so shift parameters
@@ -336,12 +350,16 @@ class TriGWriter
         }
         // The `graph` parameter was provided
         else {
-            \call_user_func($this->writeTriple, $subject, $predicate, $object, $graph, $done);
+            \call_user_func($this->writeTriple, $subject, $predicate, $object, $graph);
         }
     }
 
-    // ### `addTriples` adds the triples to the output stream
-    public function addTriples($triples): void
+    /**
+     * adds the triples to the output stream
+     *
+     * @param array<int, array<string, string>> $triples
+     */
+    public function addTriples(array $triples): void
     {
         for ($i = 0; $i < \count($triples); ++$i) {
             $this->addTriple($triples[$i]);
@@ -351,15 +369,19 @@ class TriGWriter
     /**
      * adds the prefix to the output stream
      */
-    public function addPrefix(string $prefix, string $iri, callable $done = null): void
+    public function addPrefix(string $prefix, string $iri): void
     {
         $prefixes = [];
         $prefixes[$prefix] = $iri;
-        $this->addPrefixes($prefixes, $done);
+        $this->addPrefixes($prefixes);
     }
 
-    // ### `addPrefixes` adds the prefixes to the output stream
-    public function addPrefixes($prefixes, $done = null): void
+    /**
+     * adds the prefixes to the output stream
+     *
+     * @param array<string, string> $prefixes
+     */
+    public function addPrefixes(array $prefixes): void
     {
         // Add all useful prefixes
         $hasPrefixes = false;
@@ -396,6 +418,8 @@ class TriGWriter
 
     /**
      * creates a blank node with the given content
+     *
+     * @param string|array<string, string>|null $object
      */
     public function blank($predicate = null, $object = null): string
     {
