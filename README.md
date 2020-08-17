@@ -1,7 +1,7 @@
 # The hardf turtle, n-triples, n-quads, TriG and N3 parser for PHP
 [![Build Status](https://travis-ci.org/pietercolpaert/hardf.svg?branch=master)](https://travis-ci.org/pietercolpaert/hardf)
 
-**hardf** is a PHP5.6+ library that lets you handle Linked Data (RDF). It offers:
+**hardf** is a PHP 7.1+ library that lets you handle Linked Data (RDF). It offers:
  - [**Parsing**](#parsing) triples/quads from [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), [N-Quads](http://www.w3.org/TR/n-quads/), and [Notation3 (N3)](https://www.w3.org/TeamSubmission/n3/)
  - [**Writing**](#writing) triples/quads to [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/)
 
