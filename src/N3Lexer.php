@@ -467,7 +467,7 @@ class N3Lexer
             $this->input .= $input;
             $tokens = [];
             $error = '';
-            $this->input = $this->tokenizeToEnd(function ($e, $t) use (&$tokens,&$error) {
+            $this->input = $this->tokenizeToEnd(function ($e, $t) use (&$tokens, &$error) {
                 if (isset($e)) {
                     $error = $e;
                 }

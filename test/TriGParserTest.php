@@ -60,11 +60,11 @@ class TriGParserTest extends TestCase
         $parser->parse($input, function ($error, $triple = null) use ($expectedError, &$errorReceived) {
             //expect($error).not.to.exist;
             if (isset($error) && !$errorReceived) {
+                $errorReceived = true;
                 $this->assertEquals($expectedError, $error->getMessage());
-                $errorReceived = true;
             } elseif (!isset($triple) && !$errorReceived) {
-                $this->fail("Expected this error to be thrown (but it wasn't): ".$expectedError);
                 $errorReceived = true;
+                $this->fail("Expected this error to be thrown (but it wasn't): ".$expectedError);
             }
         });
     }
