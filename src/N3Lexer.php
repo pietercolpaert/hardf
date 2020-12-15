@@ -471,7 +471,7 @@ class N3Lexer
                 if (isset($e)) {
                     $error = $e;
                 }
-                array_push($tokens, $t);
+                $tokens[] = $t;
             }, $finalize);
             if ($error) {
                 throw $error;

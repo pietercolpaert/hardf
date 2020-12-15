@@ -181,7 +181,7 @@ class TriGParser
     // when entering a new scope (list, blank node, formula)
     private function saveContext($type, $graph, $subject, $predicate, $object)
     {
-        $n3Mode = $this->n3Mode ? $this->n3Mode : null;
+        $n3Mode = $this->n3Mode ?: null;
         array_push($this->contextStack, [
             'subject' => $subject, 'predicate' => $predicate, 'object' => $object,
             'graph' => $graph, 'type' => $type,
@@ -1158,7 +1158,7 @@ class TriGParser
             $error = null;
             $this->callback = function ($e, $t = null) use (&$triples, &$error) {
                 if (!$e && $t) {
-                    array_push($triples, $t);
+                    $triples[] = $t;
                 } elseif (!$e) {
                     //DONE
                 } else {
