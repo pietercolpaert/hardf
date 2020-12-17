@@ -31,7 +31,7 @@ class TriGParserTest extends TestCase
         $parser->parse($input, function ($error, $triple = null) use (&$results, &$items) {
             //expect($error).not.to.exist;
             if ($triple) {
-                array_push($results, $triple);
+                $results[] = $triple;
             } else {
                 $this->assertEquals(self::toSortedJSON($items), self::toSortedJSON($results));
             }
