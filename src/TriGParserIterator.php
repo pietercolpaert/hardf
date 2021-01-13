@@ -98,7 +98,7 @@ class TriGParserIterator implements \Iterator
         return $this;
     }
 
-    public function current(): mixed
+    public function current()
     {
         return current($this->triplesBuffer);
     }
