@@ -2057,4 +2057,17 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         $this->itShouldResolve('http://abc/def/ghi?q=xx/yyy/z', 'jjj', 'http://abc/def/jjj');
         $this->itShouldResolve('http://abc/def/ghi?q=xx/y?y/z', 'jjj', 'http://abc/def/jjj');
     }
+
+    /**
+     * Parser fails to return any triples for manifest.ttl.
+     *
+     * Source of manifest.ttl is:
+     * https://www.w3.org/2009/sparql/docs/tests/data-sparql11/syntax-update-1/manifest#
+     */
+    public function testTurtleParserFailsForUnknownReason()
+    {
+        $parser = new TriGParser(['format' => 'turtle']);
+        $result = $parser->parse(file_get_contents(__DIR__.'/files/manifest.ttl'));
+        $this->assertTrue(0 < count($result));
+    }
 }
