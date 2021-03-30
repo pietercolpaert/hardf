@@ -61,7 +61,7 @@ class Util
      */
     public static function getLiteralValue(string $literal)
     {
-        preg_match('/^"(.*)"/', $literal, $match); //TODO: somehow the copied regex did not work. To be checked. Contained [^]
+        preg_match('/^"(.*)"/s', $literal, $match); //TODO: somehow the copied regex did not work. To be checked. Contained [^]
         if (empty($match)) {
             throw new \Exception($literal.' is not a literal');
         }

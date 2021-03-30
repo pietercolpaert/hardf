@@ -99,6 +99,8 @@ class UtilTest extends TestCase
         // it gets the value of a literal with a cariage return
         $this->assertEquals('Mickey\rMouse', Util::getLiteralValue('"Mickey\rMouse"'));
 
+        $this->assertEquals("foo\nbar", Util::getLiteralValue('"' . "foo\nbar" . '"'));
+
         // it does not work with non-literals
         //TODO: Util::getLiteralValue.bind(null, 'http://ex.org/').should.throw('http://ex.org/ is not a literal');
 
