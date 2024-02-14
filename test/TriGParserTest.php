@@ -32,6 +32,8 @@ class TriGParserTest extends TestCase
             //expect($error).not.to.exist;
             if ($triple) {
                 $results[] = $triple;
+            } elseif ($error) {
+                throw $error;
             } else {
                 $this->assertEquals(self::toSortedJSON($items), self::toSortedJSON($results));
             }
@@ -1241,6 +1243,10 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
         // should not parse a formula as object
         $this->shouldNotParse($parser, '<urn:a:a> <urn:b:b> {}.', 'Unexpected "{" on line 1.');
+
+        // https://github.com/pietercolpaert/hardf/issues/32
+        $this->shouldParse($parser, '<http://a.example/s> <http://a.example/p> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .',
+        ['http://a.example/s', 'http://a.example/p', '"1"^^http://www.w3.org/2001/XMLSchema#integer']);
     }
 
     public function testNQuadsFormat(): void
