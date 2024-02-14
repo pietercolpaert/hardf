@@ -1213,7 +1213,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
     public function testNTriplesFormat(): void
     {
-        $parser = function () { return new TriGParser(['format' => 'N-Triples']); };
+        $parser = function () { return new TriGParser(['format' => 'N-Triples', 'blankNodePrefix' => '']); };
 
         // should parse a single triple
         $this->shouldParse($parser, '<http://ex.org/a> <http://ex.org/b> "c".',
@@ -1247,6 +1247,10 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         // https://github.com/pietercolpaert/hardf/issues/32
         $this->shouldParse($parser, '<http://a.example/s> <http://a.example/p> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .',
         ['http://a.example/s', 'http://a.example/p', '"1"^^http://www.w3.org/2001/XMLSchema#integer']);
+
+        // https://github.com/pietercolpaert/hardf/issues/34
+        $this->shouldParse($parser, '_:r1 <https://foo.bar> "baz".',
+        ['_:r1', 'https://foo.bar', '"baz"']);
     }
 
     public function testNQuadsFormat(): void
