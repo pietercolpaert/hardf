@@ -166,6 +166,24 @@ $parser->parseChunk($chunk);
 $parser->end(); //Needs to be called
 ```
 
+#### Parser options
+
+* `format` input format (case-insensitive)
+  * if not provided or not matching any options below, then any [Turtle](https://www.w3.org/TR/turtle/), [TriG](https://www.w3.org/TR/trig/), [N-Triples](https://www.w3.org/TR/n-triples/) or [N-Quads](https://www.w3.org/TR/n-quads/) input can be parsed (but NOT the [N3](https://www.w3.org/TeamSubmission/n3/))
+  * `turtle` [Turtle](https://www.w3.org/TR/turtle/)
+  * `trig` [TriG](https://www.w3.org/TR/trig/)
+  * contains `triple` (e.g. `triple`, `ntriples`, `N-Triples`) [N-Triples](https://www.w3.org/TR/n-triples/)
+  * contains `quad` (e.g. `quad`, `nquads`, `N-Quads`) [N-Quads](https://www.w3.org/TR/n-quads/)
+  * contains `n3` (e.g. `n3`) [N3](https://www.w3.org/TeamSubmission/n3/)
+* `blankNodePrefix` prefix forced on blank nodes, e.g. `TriGWriter(["blankNodePrefix" => 'foo'])` will parse `_:bar` as `_:foobar`
+* `documentIRI` sets the base URI used to resolve relative URIs
+   (not applicable if `format` indicates n-triples or n-quads)
+* `lexer` allows usage of own lexer class. A lexer must provide following public methods:
+  * `tokenize(string $input, bool $finalize = true): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
+  * `tokenizeChunk(string $input): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
+  * `end(): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
+* `explicitQuantifiers` ??? but specific to the n3 format
+
 ### Utility
 ```php
 use pietercolpaert\hardf\Util;
