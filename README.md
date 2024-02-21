@@ -182,7 +182,7 @@ $parser->end(); //Needs to be called
   * `tokenize(string $input, bool $finalize = true): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
   * `tokenizeChunk(string $input): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
   * `end(): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
-* `explicitQuantifiers` ??? but specific to the n3 format
+* `explicitQuantifiers` - [...]
 
 ### Utility
 ```php
