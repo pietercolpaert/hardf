@@ -176,8 +176,7 @@ $parser->end(); //Needs to be called
   * contains `quad`, e.g. `quad`, `nquads`, `N-Quads` - [N-Quads](https://www.w3.org/TR/n-quads/)
   * contains `n3`, e.g. `n3` - [N3](https://www.w3.org/TeamSubmission/n3/)
 * `blankNodePrefix` (defaults to `b0_`) prefix forced on blank node names, e.g. `TriGWriter(["blankNodePrefix" => 'foo'])` will parse `_:bar` as `_:foobar`.
-* `documentIRI` sets the base URI used to resolve relative URIs
-   (not applicable if `format` indicates n-triples or n-quads)
+* `documentIRI` sets the base URI used to resolve relative URIs (not applicable if `format` indicates n-triples or n-quads)
 * `lexer` allows usage of own lexer class. A lexer must provide following public methods:
   * `tokenize(string $input, bool $finalize = true): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
   * `tokenizeChunk(string $input): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
