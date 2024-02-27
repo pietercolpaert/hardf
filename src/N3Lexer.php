@@ -52,7 +52,7 @@ class N3Lexer
             $this->_tokenize = function ($input, $finalize = true) use ($self) {
                 $tokens = \call_user_func($this->_oldTokenize, $input, $finalize);
                 foreach ($tokens as $token) {
-                    if (!preg_match('/^(?:IRI|prefixed|literal|langcode|type|\.|eof)$/', $token['type'])) {
+                    if (!preg_match('/^(?:blank|IRI|prefixed|literal|langcode|type|typeIRI|\.|eof)$/', $token['type'])) {
                         throw $self->syntaxError($token['type'], $token['line']);
                     }
                 }
