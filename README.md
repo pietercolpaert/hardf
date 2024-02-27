@@ -183,6 +183,33 @@ $parser->end(); //Needs to be called
   * `end(): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
 * `explicitQuantifiers` - [...]
 
+#### Empty document base IRI
+
+Some Turtle and N3 documents may use relative-to-the-base-IRI IRI syntax (see [here](https://www.w3.org/TR/turtle/#sec-iri) and [here](https://www.w3.org/TR/turtle/#sec-iri-references)), e.g.
+
+```
+<> <someProperty> "some value" .
+```
+
+To properly parse such documents the document base IRI must be known.
+Otherwise we might end up with empty IRIs (e.g. for the subject in the example above).
+
+Sometimes the base IRI is encoded in the document, e.g.
+
+```
+@base <http://some.base/iri/> .
+<> <someProperty> "some value" .
+```
+
+but sometimes it is missing.
+In such a case the [Turtle specification](https://www.w3.org/TR/turtle/#in-html-parsing) requires us to follow section 5.1.1 of the [RFC3986](http://www.ietf.org/rfc/rfc3986.txt) which says that if the base IRI is not encapsulated in the document, it should be assumed to be the document retrieval URI (e.g. the URL you downloaded the document from or a file path converted to an URL). Unfortunatelly this can not be guessed by the hardf parser and has to be provided by you using the `documentIRI` parser creation option, e.g.
+
+```php
+parser = new TriGParser(["documentIRI" => "http://some.base/iri/"]);
+```
+
+Long story short if you run into the `subject/predicate/object on line X can not be parsed without knowing the the document base IRI.(...)` error, please initialize the parser with the `documentIRI` option.
+
 ### Utility
 ```php
 use pietercolpaert\hardf\Util;

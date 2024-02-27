@@ -69,6 +69,9 @@ class TriGParserTest extends TestCase
                 $this->fail("Expected this error to be thrown (but it wasn't): ".$expectedError);
             }
         });
+        if (!$errorReceived) {
+            $this->fail("Expected this error to be thrown (but it wasn't): ".$expectedError);
+        }
     }
 
     /**
@@ -2066,5 +2069,35 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         // base path with slashes in query string
         $this->itShouldResolve('http://abc/def/ghi?q=xx/yyy/z', 'jjj', 'http://abc/def/jjj');
         $this->itShouldResolve('http://abc/def/ghi?q=xx/y?y/z', 'jjj', 'http://abc/def/jjj');
+    }
+
+    // https://github.com/pietercolpaert/hardf/issues/37
+    public function testIssue37(): void {
+        // should throw an error on empty subject/predicate/object
+        $errSuffix = " on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            "See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .";
+        $this->shouldNotParse('<> <b> <c> .', 'subject' . $errSuffix);
+        $this->shouldNotParse('<a> <> <c> .', 'predicate' . $errSuffix);
+        $this->shouldNotParse('<a> <b> <> .', 'object' . $errSuffix);
+        
+        // but should manage with documentIRI being set or @base in the turle
+        $this->shouldParse(
+        "@base <http://base/> .\n".
+        "<> <b> <c> .\n".
+        "<a> <> <c> .\n".
+        "<a> <b> <> .",
+        ['http://base/', 'http://base/b', 'http://base/c'],
+        ['http://base/a', 'http://base/', 'http://base/c'],
+        ['http://base/a', 'http://base/b', 'http://base/']);
+
+        $parser = function () { return new TriGParser(['documentIRI' => 'http://base/']); };
+        $this->shouldParse($parser, 
+        "<> <b> <c> .\n".
+        "<a> <> <c> .\n".
+        "<a> <b> <> .",
+        ['http://base/', 'http://base/b', 'http://base/c'],
+        ['http://base/a', 'http://base/', 'http://base/c'],
+        ['http://base/a', 'http://base/b', 'http://base/']);
     }
 }

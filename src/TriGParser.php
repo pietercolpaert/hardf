@@ -354,7 +354,7 @@ class TriGParser
                     // Read the subject entity
                     $this->subject = \call_user_func($this->readEntity, $token);
                     if (null == $this->subject) {
-                        return;
+                        throw $this->getNoBaseUriException('subject', $token['line']);
                     }
                     // In N3 mode, the subject might be a path
                     if ($this->n3Mode) {
@@ -398,7 +398,7 @@ class TriGParser
                 default:
                     $this->predicate = \call_user_func($this->readEntity, $token);
                     if (null == $this->predicate) {
-                        return;
+                        throw $this->getNoBaseUriException('predicate', $token['line']);
                     }
             }
             // The next token must be an object
@@ -437,7 +437,7 @@ class TriGParser
                 // Read the object entity
                 $this->object = \call_user_func($this->readEntity, $token);
                 if (null == $this->object) {
-                    return;
+                    throw $this->getNoBaseUriException('object', $token['line']);
                 }
                 // In N3 mode, the object might be a path
                 if ($this->n3Mode) {
@@ -575,7 +575,7 @@ class TriGParser
                 default:
                     $item = \call_user_func($this->readEntity, $token);
                     if (null == $item) {
-                        return;
+                        throw $this->getNoBaseUriException('list item', $token['line']);
                     }
             }
 
@@ -1217,5 +1217,14 @@ class TriGParser
     public function end()
     {
         return $this->parseChunk('', true);
+    }
+
+    private function getNoBaseUriException($location, $line)
+    {
+        return new \Exception(
+            "$location on line $line can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            "See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI ."
+        );
     }
 }
