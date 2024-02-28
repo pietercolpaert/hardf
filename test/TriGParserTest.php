@@ -69,7 +69,7 @@ class TriGParserTest extends TestCase
                 $this->fail("Expected this error to be thrown (but it wasn't): ".$expectedError);
             }
         });
-        if (!$errorReceived) {
+        if (false === $errorReceived) {
             $this->fail("Expected this error to be thrown (but it wasn't): ".$expectedError);
         }
     }
