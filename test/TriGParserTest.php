@@ -273,13 +273,18 @@ class TriGParserTest extends TestCase
 
     public function testBlankNodes(): void
     {
-        // should parse diamonds
-        $this->shouldParse("<> <> <> <>.\n(<>) <> (<>) <>.",
-        ['', '', '', ''],
-        ['_:b0', '', '_:b1', ''],
-        ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', ''],
+        // should throw an error on empty list item with lacking document base IRI
+        $this->shouldNotParse("(<>) <> (<>) <>.",
+        "list item on line 1 can not be parsed without knowing the the document base IRI.\n".
+        "Please set the document base IRI using the documentIRI parser configuration option.\n".
+        "See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .");
+        // but should manage if the parser has documentIRI set
+        $this->shouldParse(function () { return new TriGParser(['documentIRI' => 'http://base/']); },
+        "(<>) <> (<>) <>.",
+        ['_:b0', 'http://base/', '_:b1', 'http://base/'],
+        ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'http://base/'],
         ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil'],
-        ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', ''],
+        ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'http://base/'],
         ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil']);
 
         // should parse statements with named blank nodes
