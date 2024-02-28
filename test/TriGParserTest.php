@@ -278,6 +278,7 @@ class TriGParserTest extends TestCase
         "list item on line 1 can not be parsed without knowing the the document base IRI.\n".
         "Please set the document base IRI using the documentIRI parser configuration option.\n".
         "See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .");
+
         // but should manage if the parser has documentIRI set
         $this->shouldParse(function () { return new TriGParser(['documentIRI' => 'http://base/']); },
         "(<>) <> (<>) <>.",
