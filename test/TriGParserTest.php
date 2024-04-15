@@ -2106,4 +2106,9 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         ['http://base/a', 'http://base/', 'http://base/c'],
         ['http://base/a', 'http://base/b', 'http://base/']);
     }
+
+    public function testHandlingControlOrUnicodeCharacters(): void {
+        $parser = new TriGParser(['documentIRI' => 'http://base/']);
+        $parser->parse(file_get_contents(__DIR__.'/files/identity_2014-04-03.n3'));
+    }
 }
