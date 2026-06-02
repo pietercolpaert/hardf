@@ -321,9 +321,9 @@ npm run rdf12:trig
 npm run rdf12
 ```
 
-The RDF 1.2 N-Triples and N-Quads syntax leaf manifests pass with this bridge. The grouped N-Triples and N-Quads commands still report some RDF 1.1 legacy parser failures. The RDF 1.2 root manifests also include C14N tests, but `rdf-test-suite.js` does not currently provide handlers for the RDF 1.2 C14N test types.
+All RDF 1.2 compliance commands pass. The RDF 1.2 root manifests also include C14N tests, but `rdf-test-suite.js` does not currently provide handlers for the RDF 1.2 C14N test types.
 
-RDF/XML and RDF semantics manifests are not wired because hardf does not implement RDF/XML parsing or entailment. The Turtle and TriG RDF 1.2 syntax/eval manifests are useful as compliance reports, but currently still expose remaining hardf gaps around some annotation, blank-node, and `VERSION` negative cases.
+RDF/XML and RDF semantics manifests are not wired because hardf does not implement RDF/XML parsing or entailment. The compliance scripts in this repository therefore focus on the RDF parser manifests for Turtle, TriG, N-Triples, and N-Quads.
 
 ## Performance
 

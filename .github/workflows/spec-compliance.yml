@@ -1,4 +1,4 @@
-name: Spec Compliance Tests
+name: W3C RDF1.2 Spec Compliance Tests
 
 on:
   push:
@@ -33,6 +33,9 @@ jobs:
 
     - name: Install dependencies
       run: npm ci
+
+    - name: Clean spec cache
+      run: npm run clean:spec-cache
 
     - name: Run RDF 1.2 spec compliance tests
       run: npm run rdf12

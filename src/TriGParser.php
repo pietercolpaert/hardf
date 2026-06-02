@@ -116,9 +116,12 @@ class TriGParser
     private $annotationPendingReifier;
     private $annotationTripleTerm;
     private $annotationGraph;
+    private $annotationStack;
 
     private $readInTopContext;
     private $readCallback;
+    private $blankNodeEndReader;
+    private $blankNodeMustBeEmpty;
 
     // Constructor
     public function __construct($options = [], $tripleCallback = null, $prefixCallback = null)
@@ -182,6 +185,7 @@ class TriGParser
         $this->inversePredicate = false;
         $this->quantified = [];
         $this->tripleTermStack = [];
+        $this->annotationStack = [];
     }
 
     // ## Private class methods
@@ -555,9 +559,15 @@ class TriGParser
         $this->readBlankNodeHead = function ($token) {
             if (']' === $token['type']) {
                 $this->subject = null;
+                $this->blankNodeMustBeEmpty = null;
 
                 return \call_user_func($this->readBlankNodeTail, $token);
             } else {
+                if ($this->blankNodeMustBeEmpty) {
+                    $this->blankNodeMustBeEmpty = null;
+
+                    return \call_user_func($this->error, 'Disallowed compound blank node expression', $token);
+                }
                 $this->predicate = null;
 
                 return \call_user_func($this->readPredicate, $token);
@@ -576,8 +586,15 @@ class TriGParser
             }
 
             // Restore the parent context containing this blank node
+            $this->blankNodeMustBeEmpty = null;
             $empty = null === $this->predicate;
             $this->restoreContext();
+            if (isset($this->blankNodeEndReader)) {
+                $next = $this->blankNodeEndReader;
+                $this->blankNodeEndReader = null;
+
+                return \call_user_func($next);
+            }
             // If the blank node was the subject, continue reading the predicate
             if (null === $this->object) {
                 // If the blank node was empty, it could be a named graph label
@@ -803,15 +820,29 @@ class TriGParser
                     ('reified' === substr($this->tripleTermMode, 0, 7) ? $this->readReifiedTripleReifierOrEnd : $this->readTripleTermEnd);
             }
 
+            $mode = $this->tripleTermMode;
             $this->restoreContext();
             $this->object = $term;
 
-            return \call_user_func($this->getContextEndReader);
+            return ('annotationExplicitObject' === $mode || 'annotationReifiedObject' === $mode) ?
+                $this->readAnnotationPunctuation : \call_user_func($this->getContextEndReader);
         };
 
         $this->readTripleTermSubject = function ($token) {
             if ('tripletermstart' === $token['type']) {
                 return \call_user_func($this->error, 'Disallowed triple term as subject', $token);
+            }
+            if ('[' === $token['type']) {
+                $id = '_:b'.$this->blankNodeCount++;
+                $this->blankNodeMustBeEmpty = true;
+                $this->blankNodeEndReader = function () use ($id) {
+                    $this->tripleTerm['subject'] = $id;
+
+                    return $this->readTripleTermPredicate;
+                };
+                $this->saveContext('blank', $this->graph, $this->subject, $this->predicate, $this->subject = $id);
+
+                return $this->readBlankNodeHead;
             }
             $this->tripleTerm['subject'] = \call_user_func($this->readEntity, $token);
             if (null == $this->tripleTerm['subject']) {
@@ -855,6 +886,17 @@ class TriGParser
                     $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
 
                     return $this->readReifiedTripleSubject;
+                case '[':
+                    $id = '_:b'.$this->blankNodeCount++;
+                    $this->blankNodeMustBeEmpty = true;
+                    $this->blankNodeEndReader = function () use ($id) {
+                        $this->tripleTerm['object'] = $id;
+
+                        return $this->readTripleTermEnd;
+                    };
+                    $this->saveContext('blank', $this->graph, $this->subject, $this->predicate, $this->object = $id);
+
+                    return $this->readBlankNodeHead;
                 default:
                     $this->tripleTerm['object'] = \call_user_func($this->readEntity, $token);
                     if (null == $this->tripleTerm['object']) {
@@ -927,6 +969,11 @@ class TriGParser
 
                 return $this->readListItem;
             }
+            if ('annotationReifiedObject' === $mode) {
+                $this->object = $reifier;
+
+                return $this->readAnnotationPunctuation;
+            }
 
             $this->object = $reifier;
 
@@ -943,6 +990,18 @@ class TriGParser
                 $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
 
                 return $this->readReifiedTripleSubject;
+            }
+            if ('[' === $token['type']) {
+                $id = '_:b'.$this->blankNodeCount++;
+                $this->blankNodeMustBeEmpty = true;
+                $this->blankNodeEndReader = function () use ($id) {
+                    $this->tripleTerm['subject'] = $id;
+
+                    return $this->readReifiedTriplePredicate;
+                };
+                $this->saveContext('blank', $this->graph, $this->subject, $this->predicate, $this->subject = $id);
+
+                return $this->readBlankNodeHead;
             }
 
             $this->tripleTerm['subject'] = \call_user_func($this->readEntity, $token);
@@ -993,6 +1052,17 @@ class TriGParser
                     $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
 
                     return $this->readReifiedTripleSubject;
+                case '[':
+                    $id = '_:b'.$this->blankNodeCount++;
+                    $this->blankNodeMustBeEmpty = true;
+                    $this->blankNodeEndReader = function () use ($id) {
+                        $this->tripleTerm['object'] = $id;
+
+                        return $this->readReifiedTripleReifierOrEnd;
+                    };
+                    $this->saveContext('blank', $this->graph, $this->subject, $this->predicate, $this->object = $id);
+
+                    return $this->readBlankNodeHead;
                 default:
                     $this->tripleTerm['object'] = \call_user_func($this->readEntity, $token);
                     if (null == $this->tripleTerm['object']) {
@@ -1036,6 +1106,12 @@ class TriGParser
         };
 
         $this->readReifiedTripleReifier = function ($token) {
+            if ('reifiedtripleend' === $token['type']) {
+                $this->object = null;
+
+                return \call_user_func($this->readReifiedTripleEnd, $token);
+            }
+
             $this->object = \call_user_func($this->readEntity, $token);
             if (null == $this->object) {
                 throw $this->getNoBaseUriException('reified triple reifier', $token['line']);
@@ -1072,6 +1148,51 @@ class TriGParser
             return $this->readAnnotationPredicate;
         };
 
+        $resumeParentAnnotation = function ($token) {
+            $frame = array_pop($this->annotationStack);
+            $this->annotationHadStatement = $frame['hadStatement'];
+            $this->annotationReifier = $frame['reifier'];
+            $this->annotationPendingReifier = $frame['pendingReifier'];
+            $this->annotationTripleTerm = $frame['tripleTerm'];
+            $this->annotationGraph = $frame['graph'];
+
+            if (';' === $token['type']) {
+                return $this->readAnnotationPredicate;
+            }
+            if ('annotationend' === $token['type']) {
+                return $this->readAfterAnnotation;
+            }
+
+            return \call_user_func($this->error, 'Expected annotation punctuation', $token);
+        };
+
+        $readCompletedAnnotationStatement = function ($token, $statementTripleTerm) use ($startAnnotation) {
+            if (';' === $token['type']) {
+                return $this->readAnnotationPredicate;
+            }
+            if ('annotationend' === $token['type']) {
+                return $this->readAfterAnnotation;
+            }
+            if ('~' === $token['type'] || 'annotationstart' === $token['type']) {
+                $this->annotationStack[] = [
+                    'hadStatement' => $this->annotationHadStatement,
+                    'reifier' => $this->annotationReifier,
+                    'pendingReifier' => $this->annotationPendingReifier,
+                    'tripleTerm' => $this->annotationTripleTerm,
+                    'graph' => $this->annotationGraph,
+                ];
+                $this->annotationTripleTerm = $statementTripleTerm;
+                $this->annotationPendingReifier = false;
+                if ('~' === $token['type']) {
+                    return $this->readAnnotationReifier;
+                }
+
+                return \call_user_func($startAnnotation, $token);
+            }
+
+            return \call_user_func($this->error, 'Expected annotation punctuation to follow "'.$this->object.'"', $token);
+        };
+
         $this->readAnnotationPredicate = function ($token) {
             switch ($token['type']) {
                 case 'annotationend':
@@ -1102,6 +1223,29 @@ class TriGParser
                     $this->object = $token['value'];
 
                     return $this->readAnnotationObjectDataTypeOrLang;
+                case 'tripletermstart':
+                    $this->saveContext('annotationObject', $this->graph, $this->subject, $this->predicate, null);
+                    $this->tripleTermMode = 'annotationExplicitObject';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                    return $this->readTripleTermSubject;
+                case 'reifiedtriplestart':
+                    if (!$this->supportsReifiedTriples) {
+                        return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                    }
+                    $this->saveContext('annotationObject', $this->graph, $this->subject, $this->predicate, null);
+                    $this->tripleTermMode = 'annotationReifiedObject';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                    return $this->readReifiedTripleSubject;
+                case '[':
+                    $id = '_:b'.$this->blankNodeCount++;
+                    $this->blankNodeEndReader = function () {
+                        return $this->readAnnotationPunctuation;
+                    };
+                    $this->saveContext('blank', $this->graph, $this->subject, $this->predicate, $this->subject = $id);
+
+                    return $this->readBlankNodeHead;
                 default:
                     $this->object = \call_user_func($this->readEntity, $token);
                     if (null == $this->object) {
@@ -1138,26 +1282,37 @@ class TriGParser
             }
         };
 
-        $this->readAnnotationPunctuation = function ($token) {
+        $this->readAnnotationPunctuation = function ($token) use ($makeTripleTerm, $readCompletedAnnotationStatement) {
             \call_user_func($this->triple, $this->annotationReifier, $this->predicate, $this->object, $this->annotationGraph);
             $this->annotationHadStatement = true;
-            if (';' === $token['type']) {
-                return $this->readAnnotationPredicate;
-            }
-            if ('annotationend' === $token['type']) {
-                return $this->readAfterAnnotation;
-            }
+            $statementTripleTerm = \call_user_func($makeTripleTerm, [
+                'subject' => $this->annotationReifier,
+                'predicate' => $this->predicate,
+                'object' => $this->object,
+            ]);
 
-            return \call_user_func($this->error, 'Expected annotation punctuation to follow "'.$this->object.'"', $token);
+            return \call_user_func($readCompletedAnnotationStatement, $token, $statementTripleTerm);
         };
 
-        $this->readAnnotationReifier = function ($token) {
+        $this->readAnnotationReifier = function ($token) use ($startAnnotation) {
+            if ('reifiedtripleend' === $token['type']) {
+                $this->object = null;
+
+                return $this->readReifiedTripleEnd($token);
+            }
             if ('.' === $token['type']) {
                 $this->annotationReifier = '_:b'.$this->blankNodeCount++;
                 \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, $this->annotationGraph);
                 $this->subject = null;
 
                 return $this->readInTopContext;
+            }
+            if ('annotationstart' === $token['type']) {
+                $this->annotationReifier = '_:b'.$this->blankNodeCount++;
+                \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, $this->annotationGraph);
+                $this->annotationPendingReifier = false;
+
+                return \call_user_func($startAnnotation, $token, $this->annotationReifier);
             }
 
             $reifier = \call_user_func($this->readEntity, $token);
@@ -1171,12 +1326,25 @@ class TriGParser
             return $this->readAfterAnnotation;
         };
 
-        $this->readAfterAnnotation = function ($token) use ($startAnnotation) {
+        $this->readAfterAnnotation = function ($token) use ($startAnnotation, $resumeParentAnnotation) {
+            if (\count($this->annotationStack) && (';' === $token['type'] || 'annotationend' === $token['type'])) {
+                return \call_user_func($resumeParentAnnotation, $token);
+            }
+
             switch ($token['type']) {
                 case 'annotationstart':
                     return \call_user_func($startAnnotation, $token, $this->annotationPendingReifier ? $this->annotationReifier : null);
                 case '~':
                     return $this->readAnnotationReifier;
+                case ';':
+                    $this->subject = $this->annotationTripleTerm['subject'];
+
+                    return $this->readPredicate;
+                case ',':
+                    $this->subject = $this->annotationTripleTerm['subject'];
+                    $this->predicate = $this->annotationTripleTerm['predicate'];
+
+                    return $this->readObject;
                 case '.':
                     $this->subject = null;
 
@@ -1355,6 +1523,12 @@ class TriGParser
         $this->readVersion = function ($token) {
             if ('literal' !== $token['type']) {
                 return \call_user_func($this->error, 'Expected literal to follow version declaration', $token);
+            }
+            if (isset($token['quoted']) && 'long' === $token['quoted']) {
+                return \call_user_func($this->error, 'Expected simple literal to follow version declaration', $token);
+            }
+            if (false !== strpos($token['value'], '^^')) {
+                return \call_user_func($this->error, 'Expected simple literal to follow version declaration', $token);
             }
 
             return $this->readDeclarationPunctuation;
@@ -1554,6 +1728,8 @@ class TriGParser
             switch ($contextStack[\count($contextStack) - 1]['type']) {
                 case 'blank':
                     return $this->readBlankNodeTail;
+                case 'annotationObject':
+                    return $this->readAnnotationPunctuation;
                 case 'list':
                     return $this->readListItem;
                 case 'formula':

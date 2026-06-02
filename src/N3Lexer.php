@@ -158,6 +158,7 @@ class N3Lexer
             $type = '';
             $value = '';
             $prefix = '';
+            $quoted = '';
             $firstChar = $input[0];
             $match = null;
             $matchLength = 0;
@@ -263,6 +264,7 @@ class N3Lexer
                             return $reportSyntaxError($this);
                         }
                         $type = 'literal';
+                        $quoted = 'long';
                         $value = preg_replace("/^'|'$/", '"', $unescaped);
                     }
                 break;
@@ -459,7 +461,7 @@ class N3Lexer
                 }
             }
             // Emit the parsed token
-            $callback(null, ['line' => $line, 'type' => $type, 'value' => $value, 'prefix' => $prefix]);
+            $callback(null, ['line' => $line, 'type' => $type, 'value' => $value, 'prefix' => $prefix, 'quoted' => $quoted]);
             $this->prevTokenType = $type;
 
             // Advance to next part to tokenize

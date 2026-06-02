@@ -364,6 +364,72 @@ class N3JsCompatibilityTest extends TestCase
         ], '<a> <b> <c> {| <b1> <c1>; <b2> <c2> |}.');
     }
 
+    public function testParserAcceptsEmptyReifierInSubject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0', 'predicate' => 'http://example/q', 'object' => 'http://example/z', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('http://example/s', 'http://example/p', 'http://example/o'), 'graph' => ''],
+        ], 'PREFIX : <http://example/> << :s :p :o ~ >> :q :z .');
+    }
+
+    public function testParserAcceptsEmptyReifierInObject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'http://example/a', 'predicate' => 'http://example/q', 'object' => '_:b0', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('http://example/s', 'http://example/p', 'http://example/o'), 'graph' => ''],
+        ], 'PREFIX : <http://example/> :a :q << :s :p :o ~ >> .');
+    }
+
+    public function testParserAcceptsAnnotationSyntaxWithBlankNodeObjects(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'http://example/s', 'predicate' => 'http://example/p', 'object' => 'http://example/o', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('http://example/s', 'http://example/p', 'http://example/o'), 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'http://example/source', 'object' => '_:b1', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'http://example/source', 'object' => '_:b2', 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => 'http://example/graph', 'object' => 'http://host1/', 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => 'http://example/date', 'object' => '"2020-01-20"^^http://www.w3.org/2001/XMLSchema#date', 'graph' => ''],
+            ['subject' => '_:b2', 'predicate' => 'http://example/graph', 'object' => 'http://host2/', 'graph' => ''],
+            ['subject' => '_:b2', 'predicate' => 'http://example/date', 'object' => '"2020-12-31"^^http://www.w3.org/2001/XMLSchema#date', 'graph' => ''],
+        ], 'PREFIX : <http://example/> PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> :s :p :o {| :source [ :graph <http://host1/> ; :date "2020-01-20"^^xsd:date ] ; :source [ :graph <http://host2/> ; :date "2020-12-31"^^xsd:date ] |} .');
+    }
+
+    public function testParserAcceptsNestedAnnotations(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'http://example/s', 'predicate' => 'http://example/p', 'object' => 'http://example/o', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('http://example/s', 'http://example/p', 'http://example/o'), 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'http://example/a', 'object' => 'http://example/b', 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('_:b0', 'http://example/a', 'http://example/b'), 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => 'http://example/a2', 'object' => 'http://example/b2', 'graph' => ''],
+        ], 'PREFIX : <http://example/> :s :p :o {| :a :b {| :a2 :b2 |} |}.');
+    }
+
+    public function testParserAcceptsAnnotationsWithReifiedTripleObjects(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'http://example/s', 'predicate' => 'http://example/p', 'object' => 'http://example/o', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('http://example/s', 'http://example/p', 'http://example/o'), 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'http://example/r', 'object' => '_:b1', 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('http://example/s1', 'http://example/p1', 'http://example/o1'), 'graph' => ''],
+        ], 'PREFIX : <http://example/> :s :p :o {| :r <<:s1 :p1 :o1>> |} .');
+    }
+
+    public function testParserAcceptsAnnotationsAfterPredicateAndObjectListContinuations(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'http://example/s', 'predicate' => 'http://example/p', 'object' => 'http://example/o', 'graph' => ''],
+            ['subject' => 'http://example/s', 'predicate' => 'http://example/p2', 'object' => 'http://example/o2', 'graph' => ''],
+            ['subject' => 'http://example/s', 'predicate' => 'http://example/p2', 'object' => 'http://example/o3', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('http://example/s', 'http://example/p', 'http://example/o'), 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'http://example/a', 'object' => 'http://example/b', 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('http://example/s', 'http://example/p2', 'http://example/o2'), 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => 'http://example/a2', 'object' => 'http://example/b2', 'graph' => ''],
+            ['subject' => '_:b2', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('http://example/s', 'http://example/p2', 'http://example/o3'), 'graph' => ''],
+            ['subject' => '_:b2', 'predicate' => 'http://example/a3', 'object' => 'http://example/b3', 'graph' => ''],
+        ], 'PREFIX : <http://example/> :s :p :o {| :a :b |}; :p2 :o2 {| :a2 :b2 |}, :o3 {| :a3 :b3 |}.');
+    }
+
     public function testParserAcceptsMultipleAnnotationBlocks(): void
     {
         $this->assertParsesTriples([
