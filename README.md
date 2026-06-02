@@ -1,12 +1,14 @@
-# The hardf turtle, n-triples, n-quads, TriG and N3 parser for PHP
+# The hardf Turtle, N-Triples, N-Quads, TriG and N3 parser for PHP
 
 **hardf** is a PHP 7.1+ library that lets you handle Linked Data (RDF). It offers:
  - [**Parsing**](#parsing) triples/quads from [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), [N-Quads](http://www.w3.org/TR/n-quads/), and [Notation3 (N3)](https://www.w3.org/TeamSubmission/n3/)
  - [**Writing**](#writing) triples/quads to [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/)
 
-Both the parser as the serializer have _streaming_ support.
+Both the parser and the serializer have _streaming_ support.
 
 _This library is a port of [N3.js](https://github.com/rdfjs/N3.js/tree/v0.10.0) to PHP_
+
+hardf also supports RDF 1.2 features that are relevant to this representation, including triple terms, reified triples, annotation syntax, directional language literals, and `VERSION` declarations.
 
 ## Triple Representation
 
@@ -25,12 +27,34 @@ $triple = [
     ];
 ```
 
-Encode literals as follows (similar to N3.js)
+Encode literals as follows (similar to N3.js):
 
 ```php
 '"Tom"@en-gb' // lowercase language
+'"שלום"@he--rtl' // directional language
 '"1"^^http://www.w3.org/2001/XMLSchema#integer' // no angular brackets <>
 ```
+
+RDF 1.2 triple terms are represented as structured arrays, not as serialized strings:
+
+```php
+$tripleTerm = [
+    'type' => 'TripleTerm',
+    'subject' => 'http://example.org/s',
+    'predicate' => 'http://example.org/p',
+    'object' => 'http://example.org/o',
+    'graph' => 'http://example.org/g', // optional, for quad terms
+];
+
+$triple = [
+    'subject' => 'http://example.org/assertion',
+    'predicate' => 'http://example.org/about',
+    'object' => $tripleTerm,
+    'graph' => '',
+];
+```
+
+Parser callbacks and `parse()` return values can therefore contain either strings or triple-term arrays in the `object` position. `TriGWriter` accepts triple-term arrays in subject and object positions.
 
 ## Library functions
 
@@ -67,14 +91,20 @@ $writer->addTriple("ex:1","dct:title","\"Person1\"@en","http://example.org/#test
 $writer->addTriple("ex:1","http://www.w3.org/1999/02/22-rdf-syntax-ns#type","schema:Person","http://example.org/#test");
 $writer->addTriple("ex:2","dct:title","\"Person2\"@en","http://example.org/#test");
 $writer->addTriple("schema:Person","dct:title","\"Person\"@en","http://example.org/#test2");
+$writer->addTriple("ex:claim","ex:source", [
+    "type" => "TripleTerm",
+    "subject" => "ex:1",
+    "predicate" => "dct:title",
+    "object" => "\"Person1\"@en"
+], "http://example.org/#test");
 echo $writer->end();
 ```
 
 #### All methods
 ```php
 //The method names should speak for themselves:
-$writer = new TriGWriter(["prefixes": [ /* ... */]]);
-$writer->addTriple($subject, $predicate, $object, $graphl);
+$writer = new TriGWriter(["prefixes" => [ /* ... */]]);
+$writer->addTriple($subject, $predicate, $object, $graph);
 $writer->addTriples($triples);
 $writer->addPrefix($prefix, $iri);
 $writer->addPrefixes($prefixes);
@@ -98,6 +128,8 @@ $writer->end();
 
 Next to [TriG](https://www.w3.org/TR/trig/), the TriGParser class also parses [Turtle](https://www.w3.org/TR/turtle/), [N-Triples](https://www.w3.org/TR/n-triples/), [N-Quads](https://www.w3.org/TR/n-quads/) and the [W3C Team Submission N3](https://www.w3.org/TeamSubmission/n3/)
 
+RDF 1.2 triple terms are emitted as arrays with `type => TripleTerm`. Reified triple syntax emits an `rdf:reifies` triple whose object is such a triple term.
+
 #### All methods
 
 ```php
@@ -115,7 +147,7 @@ Using return values and passing these to a writer:
 ```php
 use pietercolpaert\hardf\TriGParser;
 use pietercolpaert\hardf\TriGWriter;
-$parser = new TriGParser(["format" => "n-quads"]); //also parser n-triples, n3, turtle and trig. Format is optional
+$parser = new TriGParser(["format" => "n-quads"]); //also parses n-triples, n3, turtle and trig. Format is optional
 $writer = new TriGWriter();
 $triples = $parser->parse("<A> <B> <C> <G> .");
 $writer->addTriples($triples);
@@ -127,14 +159,30 @@ Using callbacks and passing these to a writer:
 $parser = new TriGParser();
 $writer = new TriGWriter(["format"=>"trig"]);
 $parser->parse("<http://A> <https://B> <http://C> <http://G> . <A2> <https://B2> <http://C2> <http://G3> .", function ($e, $triple) use ($writer) {
-    if (!isset($e) && isset($triple)) {
+    if (isset($e)) {
+        echo "Error occurred: ".$e->getMessage();
+    } elseif (isset($triple)) {
         $writer->addTriple($triple);
         echo $writer->read(); //write out what we have so far
-    } else if (!isset($triple))      // flags the end of the file
+    } else {                         // flags the end of the file
         echo $writer->end();  //write the end
-    else
-        echo "Error occured: " . $e;
+    }
 });
+```
+
+Parsing RDF 1.2 triple terms:
+
+```php
+$parser = new TriGParser();
+$triples = $parser->parse('<s> <p> <<(<a> <b> <c>)>>.');
+
+// $triples[0]['object'] is:
+// [
+//     'type' => 'TripleTerm',
+//     'subject' => 'a',
+//     'predicate' => 'b',
+//     'object' => 'c',
+// ]
 ```
 
 #### Example using chunks and keeping prefixes
@@ -144,13 +192,11 @@ When you need to parse a large file, you will need to parse only chunks and alre
 ```php
 $writer = new TriGWriter(["format"=>"n-quads"]);
 $tripleCallback = function ($error, $triple) use ($writer) {
-    if (isset($error))
+    if (isset($error)) {
         throw $error;
-    else if (isset($triple)) {
-        $writer->write();
+    } elseif (isset($triple)) {
+        $writer->addTriple($triple);
         echo $writer->read();
-    else if (isset($error)) {
-        throw $error;
     } else {
         echo $writer->end();
     }
@@ -225,6 +271,7 @@ $bool = inDefaultGraph($triple);
 $value = getLiteralValue($literal);
 $literalType = getLiteralType($literal);
 $lang = getLiteralLanguage($literal);
+$direction = getLiteralDirection($literal);
 $bool = isPrefixedName($term);
 $expanded = expandPrefixedName($prefixedName, $prefixes);
 $iri = createIRI($iri);
