@@ -52,7 +52,7 @@ class N3Lexer
             $this->_tokenize = function ($input, $finalize = true) use ($self) {
                 $tokens = \call_user_func($this->_oldTokenize, $input, $finalize);
                 foreach ($tokens as $token) {
-                    if (!preg_match('/^(?:blank|IRI|prefixed|literal|langcode|type|typeIRI|tripletermstart|tripletermend|reifiedtriplestart|reifiedtripleend|~|\.|eof)$/', $token['type'])) {
+                    if (!preg_match('/^(?:blank|IRI|prefixed|literal|langcode|type|typeIRI|tripletermstart|tripletermend|reifiedtriplestart|reifiedtripleend|VERSION|MESSAGE|~|\.|eof)$/', $token['type'])) {
                         throw $self->syntaxError($token['type'], $token['line']);
                     }
                 }
@@ -87,8 +87,8 @@ class N3Lexer
     private $blank = '/^_:((?:[0-9A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)(?:[ \\t]+|(?=\\.?[,;:\\s#()\\[\\]\\{\\}"\'<>]))/';
     private $number = "/^[\\-+]?(?:\\d+\\.?\\d*([eE](?:[\\-\\+])?\\d+)|\\d*\\.?\\d+)(?=[.,;:\\s#()\\[\\]\\{\\}\"'<>])/";
     private $boolean = '/^(?:true|false)(?=[.,;\\s#()\\[\\]\\{\\}"\'<>])/';
-    private $keyword = '/^@(?:prefix|base|forSome|forAll|version)(?=[\\s#<"])/i';
-    private $sparqlKeyword = '/^(?:PREFIX|BASE|GRAPH|VERSION)(?=[\\s#<"])/i';
+    private $keyword = '/^@(?:prefix|base|forSome|forAll|version|message)(?=[\\s#<"]|\.)/i';
+    private $sparqlKeyword = '/^(?:PREFIX|BASE|GRAPH|VERSION|MESSAGE)(?=[\\s#<"]|$)/i';
     private $shortPredicates = '/^a(?=\\s+|<)/';
     private $newline = '/^[ \\t]*(?:#[^\\n\\r]*)?(?:\\r\\n|\\n|\\r)[ \\t]*/';
     private $comment = '/#([^\\n\\r]*)/';
@@ -326,6 +326,8 @@ class N3Lexer
                 case 'g':
                 case 'V':
                 case 'v':
+                case 'M':
+                case 'm':
                     // Try to find a SPARQL-style keyword
                     if (preg_match($this->sparqlKeyword, $input, $match)) {
                         $type = strtoupper($match[0]);
