@@ -127,7 +127,7 @@ class TriGWriterTest extends TestCase
 
         //should serialize a literal containing a backspace character',
         $this->shouldSerialize(['a', 'b', '"c'.\chr(8).'de"'],
-          '<a> <b> "'."c\bde".'".'."\n"); //→ TODO: Doesn’t work properly
+          '<a> <b> "c\\bde".'."\n");
 
         //should serialize a literal containing a form feed character',
         $this->shouldSerialize(['a', 'b', '"c'."\f".'de"'],
@@ -135,6 +135,65 @@ class TriGWriterTest extends TestCase
 
         //should serialize a literal containing a line separator
         $this->shouldSerialize(['a', 'b', "\"c\u{2028}de\""], '<a> <b> "c'."\u{2028}".'de".'."\n");
+    }
+
+    public function testLiteralsEscapeAllAsciiControlCharacters(): void
+    {
+        $literal = '';
+        $expected = '';
+        $escapes = [
+            8 => '\\b',
+            9 => '\\t',
+            10 => '\\n',
+            12 => '\\f',
+            13 => '\\r',
+        ];
+        for ($i = 0; $i <= 31; ++$i) {
+            $literal .= \chr($i);
+            $expected .= isset($escapes[$i]) ? $escapes[$i] : sprintf('\\u%04x', $i);
+        }
+
+        $writer = new TriGWriter(['format' => 'N-Triples']);
+        $writer->addTriple('http://hardf.org/subject', 'http://hardf.org/predicate', '"'.$literal.'"');
+
+        $this->assertEquals('<http://hardf.org/subject> <http://hardf.org/predicate> "'.$expected.'".'."\n", $writer->end());
+    }
+
+    public function testLiteralsEscapeInvalidRawBytesFromIssue39(): void
+    {
+        $literal = '';
+        for ($i = 0; $i < 255; ++$i) {
+            $literal .= \chr($i);
+        }
+
+        $writer = new TriGWriter(['format' => 'N-Triples']);
+        $writer->addTriple('http://hardf.org/subject', 'http://hardf.org/predicate', '"'.$literal.'"');
+        $output = $writer->end();
+
+        $this->assertTrue(mb_check_encoding($output, 'UTF-8'));
+        $this->assertStringContainsString('\\u0000', $output);
+        $this->assertStringContainsString('\\u001f', $output);
+        $this->assertStringContainsString('\\u007f', $output);
+        $this->assertStringContainsString('\\u0080', $output);
+        $this->assertStringContainsString('\\u00fe', $output);
+        $this->assertStringNotContainsString(\chr(128), $output);
+        $this->assertStringNotContainsString(\chr(254), $output);
+    }
+
+    public function testLiteralsPreserveValidUtf8Unicode(): void
+    {
+        $writer = new TriGWriter(['format' => 'N-Triples']);
+        $writer->addTriple('http://hardf.org/subject', 'http://hardf.org/predicate', "\"café 😀\"");
+
+        $this->assertEquals("<http://hardf.org/subject> <http://hardf.org/predicate> \"café 😀\".\n", $writer->end());
+    }
+
+    public function testLiteralsEscapeC1ControlCharacters(): void
+    {
+        $writer = new TriGWriter(['format' => 'N-Triples']);
+        $writer->addTriple('http://hardf.org/subject', 'http://hardf.org/predicate', "\"\u{0085}\"");
+
+        $this->assertEquals("<http://hardf.org/subject> <http://hardf.org/predicate> \"\\u0085\".\n", $writer->end());
     }
 
     public function testBlankNodes(): void
