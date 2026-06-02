@@ -1,21 +1,19 @@
-# The hardf Turtle, N-Triples, N-Quads, TriG and N3 parser for PHP
+# The Hardf RDF1.2 Turtle, N-Triples, N-Quads, and TriG parser for PHP
 
-**hardf** is a PHP 7.1+ library that lets you handle Linked Data (RDF). It offers:
- - [**Parsing**](#parsing) triples/quads from [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), [N-Quads](http://www.w3.org/TR/n-quads/), and [Notation3 (N3)](https://www.w3.org/TeamSubmission/n3/)
- - [**Writing**](#writing) triples/quads to [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/)
+**Hardf** is a PHP 7.1+ library that lets you handle Linked Data (RDF1.2). It offers:
+ - [**Parsing**](#parsing) triples/quads from [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/)
+ - [**Writing**](#writing) triples/quads to [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), and [N-Triples](http://www.w3.org/TR/n-triples/)
 
 Both the parser and the serializer have _streaming_ support.
 
-_This library is a port of [N3.js](https://github.com/rdfjs/N3.js/tree/v0.10.0) to PHP_
+Hardf also supports RDF 1.2 features that are relevant to this representation, including triple terms, reified triples, annotation syntax, directional language literals, and `VERSION` declarations. It is tested against the spec.
 
-hardf also supports RDF 1.2 features that are relevant to this representation, including triple terms, reified triples, annotation syntax, directional language literals, and `VERSION` declarations.
+This library started as a port of [N3.js](https://github.com/rdfjs/N3.js/tree/v0.10.0) to PHP.
 
 ## Triple Representation
 
-We use the triple representation in  PHP ported from NodeJS N3.js library. Check https://github.com/rdfjs/N3.js/tree/v0.10.0#triple-representation for more information
-
 On purpose, we focused on performance, and not on developer friendliness.
-We have thus implemented this triple representation using associative arrays rather than PHP object. Thus, the same that holds for N3.js, is now an array. E.g.:
+We have thus implemented this triple representation using associative arrays rather than PHP object. E.g.:
 
 ```php
 <?php
@@ -126,7 +124,7 @@ $writer->end();
 
 ### Parsing
 
-Next to [TriG](https://www.w3.org/TR/trig/), the TriGParser class also parses [Turtle](https://www.w3.org/TR/turtle/), [N-Triples](https://www.w3.org/TR/n-triples/), [N-Quads](https://www.w3.org/TR/n-quads/) and the [W3C Team Submission N3](https://www.w3.org/TeamSubmission/n3/)
+Next to [TriG](https://www.w3.org/TR/trig/), the TriGParser class also parses [Turtle](https://www.w3.org/TR/turtle/), [N-Triples](https://www.w3.org/TR/n-triples/), and [N-Quads](https://www.w3.org/TR/n-quads/).
 
 RDF 1.2 triple terms are emitted as arrays with `type => TripleTerm`. Reified triple syntax emits an `rdf:reifies` triple whose object is such a triple term.
 
@@ -327,23 +325,59 @@ RDF/XML and RDF semantics manifests are not wired because hardf does not impleme
 
 ## Performance
 
-We compared the performance on two turtle files, and parsed it with the EasyRDF library in PHP, the N3.js library for NodeJS and with Hardf. These were the results:
+In the PHP ecosystem, Hardf is the only library here that supports RDF 1.1 and RDF 1.2 features such as named graphs and triple terms. EasyRDF and ARC2 are still useful comparison points, but they do not cover that full feature set.
 
-| #triples | framework               | time (ms) | memory (MB) |
-|----------:|-------------------------|------:|--------:|
-|1,866    | __Hardf__ without opcache |  27.6   |   0.722     |
-|1,866    | __Hardf__ with opcache    |   24.5   |    0.380    |
-|1,866    | [EasyRDF](https://github.com/njh/easyrdf) without opcache |   5,166.5   |    2.772   |
-|1,866    | [EasyRDF](https://github.com/njh/easyrdf) with opcache    |  5,176.2    |  2.421     |
-|1,866    | [ARC2](https://github.com/semsol/arc2) with opcache | 71.9 | 1.966 |
-| 1,866  |   [N3.js](https://github.com/RubenVerborgh/N3.js) |  24.0    |  28.xxx  |
-| 3,896,560  |   __Hardf__ without opcache |  40,017.7    |  0.722   |
-| 3,896,560  |   __Hardf__ with opcache |    33,155.3  |    0.380   |
-| 3,896,560  |   [N3.js](https://github.com/RubenVerborgh/N3.js) |  7,004.0    |  59.xxx    |
-| 3,896,560  |  [ARC2](https://github.com/semsol/arc2) with opcache | 203,152.6 | 3,570.808  |
+Because of that, the benchmark below uses a generated **N-Triples** dataset, not TriG. The input is generated through Hardf's own `TriGWriter` in `N-Triples` mode and contains only plain triples, with a mix of IRI objects, literal objects, and occasional blank nodes. This gives all compared parsers the same RDF 1.0-compatible input while still reflecting realistic parser work.
+
+The measurements below were taken with PHP 8.3.6 and Node.js 25.9.0 using `php perf/compare-hardf-n3js.php`. EasyRDF and ARC2 were measured with CLI opcache enabled. Hardf was measured both with and without CLI opcache enabled. N3.js is included as a reference implementation on a very fast runtime, so it is expected to win on absolute throughput.
+
+That expectation does show up in the results, but the interesting part is the size of the gap: Hardf remains within a single-digit factor of N3.js across the whole range and scales roughly linearly from $10^5$ to $10^7$ triples. CLI opcache helps Hardf modestly on runtime and significantly on reported PHP memory. EasyRDF and ARC2 fall further behind as the data grows.
+
+### Findings
+
+We report on the findings for increasing number of triples.
+
+Note that the memory figures are runtime-specific and therefore not perfectly comparable across languages: PHP reports `memory_get_usage()`, while Node.js reports V8 `heapUsed`. The timing results are the more meaningful cross-runtime comparison.
+
+
+#### 100,000 triples
+
+| framework | time (ms) | memory (MB) | slower than N3.js |
+|-----------|----------:|------------:|------------------:|
+| __Hardf__ without opcache | 382 | 1.849 | 3.41x |
+| __Hardf__ with opcache | 372 | 0.540 | 3.32x |
+| [EasyRDF](https://github.com/easyrdf/easyrdf) with opcache | 303 | 181.346 | 2.71x |
+| [ARC2](https://github.com/semsol/arc2) with opcache | 1,133 | 83.435 | 10.12x |
+| [N3.js](https://github.com/rdfjs/N3.js) | 112 | 6.328 | 1.00x |
+
+#### 1,000,000 triples
+
+| framework | time (ms) | memory (MB) | slower than N3.js |
+|-----------|----------:|------------:|------------------:|
+| __Hardf__ without opcache | 3,961 | 1.849 | 4.62x |
+| __Hardf__ with opcache | 3,880 | 0.540 | 4.52x |
+| [EasyRDF](https://github.com/easyrdf/easyrdf) with opcache | 4,247 | 1,788.624 | 4.95x |
+| [ARC2](https://github.com/semsol/arc2) with opcache | 12,463 | 826.056 | 14.53x |
+| [N3.js](https://github.com/rdfjs/N3.js) | 858 | 9.263 | 1.00x |
+
+#### 10,000,000 triples
+
+| framework | time (ms) | memory (MB) | slower than N3.js |
+|-----------|----------:|------------:|------------------:|
+| __Hardf__ without opcache | 41,607 | 1.849 | 5.19x |
+| __Hardf__ with opcache | 39,098 | 0.540 | 4.88x |
+| [EasyRDF](https://github.com/easyrdf/easyrdf) with opcache | 125,834 | 18,041.405 | 15.70x |
+| [ARC2](https://github.com/semsol/arc2) with opcache | 147,273 | 8,352.265 | 18.37x |
+| [N3.js](https://github.com/rdfjs/N3.js) | 8,017 | 30.336 | 1.00x |
+
+### Conclusions
+
+1. N3.js on Node.js 25 is faster, which is expected, but Hardf stays surprisingly close for a native PHP parser: about `3.32x` to `4.88x` slower with opcache enabled, and about `3.41x` to `5.19x` slower without it.
+2. Hardf remains effectively linear over the tested range and is substantially faster than ARC2 at every size, while also overtaking EasyRDF on the larger datasets.
 
 ## License, status and contributions
-The hardf library is copyrighted by Ghent University - IMEC and contributors, and released under the [MIT License](https://github.com/pietercolpaert/hardf/blob/master/LICENSE).
+
+The Hardf library is copyrighted by Ghent University - IMEC and contributors, and released under the [MIT License](https://github.com/pietercolpaert/hardf/blob/master/LICENSE).
 
 Contributions are welcome, and bug reports or pull requests are always helpful.
 If you plan to implement a larger feature, it's best to discuss this first by filing an issue.

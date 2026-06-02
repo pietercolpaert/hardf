@@ -63,14 +63,6 @@ class N3Lexer
         // Enable N3 functionality by default
         $this->n3Mode = false !== $options['n3'];
 
-        if (!$options['lineMode']) {
-            $this->keyword = '/^@(?:prefix(?=[\s#:<"])|(?:base|forSome|forAll|version)(?=[\s#<"]))/i';
-            $this->prefix = '/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6\xf8-\x{02ff}\x{0370}-\x{037d}\x{037f}-\x{1fff}\x{200c}\x{200d}\x{2070}-\x{218f}\x{2c00}-\x{2fef}\x{3001}-\x{d7ff}\x{f900}-\x{fdcf}\x{fdf0}-\x{fffd}\x{10000}-\x{effff}])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\x{02ff}\x{0300}-\x{036f}\x{0370}-\x{037d}\x{037f}-\x{1fff}\x{200c}\x{200d}\x{203f}\x{2040}\x{2070}-\x{218f}\x{2c00}-\x{2fef}\x{3001}-\x{d7ff}\x{f900}-\x{fdcf}\x{fdf0}-\x{fffd}\x{10000}-\x{effff}])*)?:(?=[#\s<])/u';
-            $this->prefixed = str_replace('\x{fdf0}-\x{fffd}', '\x{fdf0}-\x{fffd}\x{10000}-\x{effff}', $this->prefixed);
-            $this->blank = '/^_:((?:[0-9A-Z_a-z\xc0-\xd6\xd8-\xf6\xf8-\x{02ff}\x{0370}-\x{037d}\x{037f}-\x{1fff}\x{200c}\x{200d}\x{2070}-\x{218f}\x{2c00}-\x{2fef}\x{3001}-\x{d7ff}\x{f900}-\x{fdcf}\x{fdf0}-\x{fffd}\x{10000}-\x{effff}])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\x{02ff}\x{0300}-\x{036f}\x{0370}-\x{037d}\x{037f}-\x{1fff}\x{200c}\x{200d}\x{203f}\x{2040}\x{2070}-\x{218f}\x{2c00}-\x{2fef}\x{3001}-\x{d7ff}\x{f900}-\x{fdcf}\x{fdf0}-\x{fffd}\x{10000}-\x{effff}])*)(?:[ \t]+|(?=\.?[,;:\s#()\[\]\{\}"\'<>]))/u';
-            $this->number = '/^[\-+]?(?:\d+\.\d*(?:[eE](?:[\-\+])?\d+)|\.\d+(?:[eE](?:[\-\+])?\d+)?|\d+\.\d+|\d+(?:[eE](?:[\-\+])?\d+)?)(?=[.,;:\s#()\[\]\{\}"\'<>])/';
-        }
-
         // Disable comment tokens by default
         $this->comments = isset($options['comments']) ? $options['comments'] : null;
     }
@@ -264,7 +256,7 @@ class N3Lexer
                     }
                     // Try to find a literal wrapped in three pairs of single or double quotes
                     elseif (preg_match($this->tripleQuotedString, $input, $match)) {
-                        $unescaped = 0 === strpos($input, "'''") ? $match[2] : $match[1];
+                        $unescaped = isset($match[1]) ? $match[1] : $match[2];
                         // Count the newlines and advance line counter
                         $this->line += \count(preg_split('/\r\n|\r|\n/', $unescaped)) - 1;
                         $unescaped = $this->unescape($unescaped);
@@ -323,7 +315,7 @@ class N3Lexer
                     // Try to find a number
                     if (preg_match($this->number, $input, $match)) {
                         $type = 'literal';
-                        $value = '"'.$match[0].'"^^http://www.w3.org/2001/XMLSchema#'.(preg_match('/[eE]/', $match[0]) ? 'double' : (preg_match("/^[+\-]?\d+$/", $match[0]) ? 'integer' : 'decimal'));
+                        $value = '"'.$match[0].'"^^http://www.w3.org/2001/XMLSchema#'.(isset($match[1]) ? 'double' : (preg_match("/^[+\-]?\d+$/", $match[0]) ? 'integer' : 'decimal'));
                     }
                     break;
                 case 'B':
