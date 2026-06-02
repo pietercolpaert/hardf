@@ -1,6 +1,6 @@
-# The Hardf RDF1.2 Turtle, N-Triples, N-Quads, and TriG parser for PHP
+# The Hardf RDF 1.2 Turtle, N-Triples, N-Quads, and TriG parser for PHP
 
-**Hardf** is a PHP 7.1+ library that lets you handle Linked Data (RDF1.2). It offers:
+**Hardf** is a PHP 7.1+ library that lets you handle Linked Data (RDF 1.2). It offers:
  - [**Parsing**](#parsing) triples/quads from [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/)
  - [**Writing**](#writing) triples/quads to [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), and [N-Triples](http://www.w3.org/TR/n-triples/)
 
@@ -13,7 +13,7 @@ This library started as a port of [N3.js](https://github.com/rdfjs/N3.js/tree/v0
 ## Triple Representation
 
 On purpose, we focused on performance, and not on developer friendliness.
-We have thus implemented this triple representation using associative arrays rather than PHP object. E.g.:
+We have thus implemented this triple representation using associative arrays rather than PHP objects. For example:
 
 ```php
 <?php
@@ -21,8 +21,8 @@ $triple = [
     'subject' =>   'http://example.org/cartoons#Tom',
     'predicate' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
     'object' =>    'http://example.org/cartoons#Cat',
-    'graph' =>     'http://example.org/mycartoon', #optional
-    ];
+    'graph' =>     'http://example.org/mycartoon', // optional
+];
 ```
 
 Encode literals as follows (similar to N3.js):
@@ -67,7 +67,7 @@ composer require pietercolpaert/hardf
 use pietercolpaert\hardf\TriGWriter;
 ```
 
-A class that should be instantiated and can write TriG or Turtle
+A class that can be instantiated to write TriG or Turtle.
 
 Example use:
 ```php
@@ -79,17 +79,17 @@ $writer = new TriGWriter([
         "rdf" => "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
         "rdfs"=> "http://www.w3.org/2000/01/rdf-schema#"
         ],
-    "format" => "n-quads" //Other possible values: n-quads, trig or turtle
+    "format" => "n-quads" // Other possible values: n-quads, trig, or turtle
 ]);
 
-$writer->addPrefix("ex","http://example.org/");
-$writer->addTriple("schema:Person","dct:title","\"Person\"@en","http://example.org/#test");
-$writer->addTriple("schema:Person","schema:label","\"Person\"@en","http://example.org/#test");
-$writer->addTriple("ex:1","dct:title","\"Person1\"@en","http://example.org/#test");
-$writer->addTriple("ex:1","http://www.w3.org/1999/02/22-rdf-syntax-ns#type","schema:Person","http://example.org/#test");
-$writer->addTriple("ex:2","dct:title","\"Person2\"@en","http://example.org/#test");
-$writer->addTriple("schema:Person","dct:title","\"Person\"@en","http://example.org/#test2");
-$writer->addTriple("ex:claim","ex:source", [
+$writer->addPrefix("ex", "http://example.org/");
+$writer->addTriple("schema:Person", "dct:title", "\"Person\"@en", "http://example.org/#test");
+$writer->addTriple("schema:Person", "schema:label", "\"Person\"@en", "http://example.org/#test");
+$writer->addTriple("ex:1", "dct:title", "\"Person1\"@en", "http://example.org/#test");
+$writer->addTriple("ex:1", "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", "schema:Person", "http://example.org/#test");
+$writer->addTriple("ex:2", "dct:title", "\"Person2\"@en", "http://example.org/#test");
+$writer->addTriple("schema:Person", "dct:title", "\"Person\"@en", "http://example.org/#test2");
+$writer->addTriple("ex:claim", "ex:source", [
     "type" => "TripleTerm",
     "subject" => "ex:1",
     "predicate" => "dct:title",
@@ -100,26 +100,26 @@ echo $writer->end();
 
 #### All methods
 ```php
-//The method names should speak for themselves:
+// The method names should speak for themselves:
 $writer = new TriGWriter(["prefixes" => [ /* ... */]]);
 $writer->addTriple($subject, $predicate, $object, $graph);
 $writer->addTriples($triples);
 $writer->addMessage($quads); // requires ["messages" => true]
 $writer->addPrefix($prefix, $iri);
 $writer->addPrefixes($prefixes);
-//Creates blank node($predicate and/or $object are optional)
+// Creates a blank node ($predicate and/or $object are optional)
 $writer->blank($predicate, $object);
-//Creates rdf:list with $elements
+// Creates an rdf:list with $elements
 $list = $writer->addList($elements);
 
-//Returns the current output it is already able to create and clear the internal memory use (useful for streaming)
+// Returns the output generated so far and clears the internal buffer (useful for streaming)
 $out .= $writer->read();
-//Alternatively, you can listen for new chunks through a callback:
+// Alternatively, you can listen for new chunks through a callback:
 $writer->setReadCallback(function ($output) { echo $output });
 
-//Call this at the end. The return value will be the full triple output, or the rest of the output such as closing dots and brackets, unless a callback was set.
+// Call this at the end. The return value will be the full output, or the remaining output such as closing dots and brackets, unless a callback was set.
 $out .= $writer->end();
-//OR
+// OR
 $writer->end();
 ```
 
@@ -194,7 +194,7 @@ When `messages => true` is set and no callback is passed, the return type become
 array<int, array<int, array<string, mixed>>>
 ```
 
-That is: an array of messages, each containing an array of quads.
+That is, an array of messages, each containing an array of quads.
 
 #### Basic examples for small files
 
@@ -202,7 +202,7 @@ Using return values and passing these to a writer:
 ```php
 use pietercolpaert\hardf\TriGParser;
 use pietercolpaert\hardf\TriGWriter;
-$parser = new TriGParser(["format" => "n-quads"]); //also parses n-triples, n3, turtle and trig. Format is optional
+$parser = new TriGParser(["format" => "n-quads"]); // Also parses N-Triples, N3, Turtle, and TriG. The format is optional.
 $writer = new TriGWriter();
 $triples = $parser->parse("<A> <B> <C> <G> .");
 $writer->addTriples($triples);
@@ -212,15 +212,15 @@ echo $writer->end();
 Using callbacks and passing these to a writer:
 ```php
 $parser = new TriGParser();
-$writer = new TriGWriter(["format"=>"trig"]);
+$writer = new TriGWriter(["format" => "trig"]);
 $parser->parse("<http://A> <https://B> <http://C> <http://G> . <A2> <https://B2> <http://C2> <http://G3> .", function ($e, $triple) use ($writer) {
     if (isset($e)) {
         echo "Error occurred: ".$e->getMessage();
     } elseif (isset($triple)) {
         $writer->addTriple($triple);
         echo $writer->read(); //write out what we have so far
-    } else {                         // flags the end of the file
-        echo $writer->end();  //write the end
+    } else { // signals the end of the file
+        echo $writer->end();
     }
 });
 ```
@@ -242,10 +242,10 @@ $triples = $parser->parse('<s> <p> <<(<a> <b> <c>)>>.');
 
 #### Example using chunks and keeping prefixes
 
-When you need to parse a large file, you will need to parse only chunks and already process them. You can do that as follows:
+When you need to parse a large file, you will want to parse chunks and process them incrementally. You can do that as follows:
 
 ```php
-$writer = new TriGWriter(["format"=>"n-quads"]);
+$writer = new TriGWriter(["format" => "n-quads"]);
 $tripleCallback = function ($error, $triple) use ($writer) {
     if (isset($error)) {
         throw $error;
@@ -263,7 +263,7 @@ $parser = new TriGParser(["format" => "trig"], $tripleCallback, $prefixCallback)
 $parser->parseChunk($chunk);
 $parser->parseChunk($chunk);
 $parser->parseChunk($chunk);
-$parser->end(); //Needs to be called
+$parser->end(); // Needs to be called
 ```
 
 #### Parsing RDF Messages
@@ -317,9 +317,9 @@ $messages = $parser->parse(
   * contains `triple`, e.g. `triple`, `ntriples`, `N-Triples` - [N-Triples](https://www.w3.org/TR/n-triples/)
   * contains `quad`, e.g. `quad`, `nquads`, `N-Quads` - [N-Quads](https://www.w3.org/TR/n-quads/)
   * contains `n3`, e.g. `n3` - [N3](https://www.w3.org/TeamSubmission/n3/)
-* `blankNodePrefix` (defaults to `b0_`) prefix forced on blank node names, e.g. `TriGWriter(["blankNodePrefix" => 'foo'])` will parse `_:bar` as `_:foobar`.
+* `blankNodePrefix` (defaults to `b0_`) prefix forced on blank node names, e.g. `TriGParser(["blankNodePrefix" => 'foo'])` will parse `_:bar` as `_:foobar`.
 * `documentIRI` sets the base URI used to resolve relative URIs (not applicable if `format` indicates n-triples or n-quads)
-* `lexer` allows usage of own lexer class. A lexer must provide following public methods:
+* `lexer` allows usage of your own lexer class. A lexer must provide the following public methods:
   * `tokenize(string $input, bool $finalize = true): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
   * `tokenizeChunk(string $input): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
   * `end(): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
@@ -344,20 +344,20 @@ Sometimes the base IRI is encoded in the document, e.g.
 ```
 
 but sometimes it is missing.
-In such a case the [Turtle specification](https://www.w3.org/TR/turtle/#in-html-parsing) requires us to follow section 5.1.1 of the [RFC3986](http://www.ietf.org/rfc/rfc3986.txt) which says that if the base IRI is not encapsulated in the document, it should be assumed to be the document retrieval URI (e.g. the URL you downloaded the document from or a file path converted to an URL). Unfortunatelly this can not be guessed by the hardf parser and has to be provided by you using the `documentIRI` parser creation option, e.g.
+In such a case, the [Turtle specification](https://www.w3.org/TR/turtle/#in-html-parsing) requires us to follow section 5.1.1 of [RFC 3986](http://www.ietf.org/rfc/rfc3986.txt), which says that if the base IRI is not specified in the document, it should be assumed to be the document retrieval URI (e.g. the URL you downloaded the document from or a file path converted to a URL). Unfortunately, this cannot be guessed by the Hardf parser and has to be provided using the `documentIRI` parser option, e.g.
 
 ```php
-parser = new TriGParser(["documentIRI" => "http://some.base/iri/"]);
+$parser = new TriGParser(["documentIRI" => "http://some.base/iri/"]);
 ```
 
-Long story short if you run into the `subject/predicate/object on line X can not be parsed without knowing the the document base IRI.(...)` error, please initialize the parser with the `documentIRI` option.
+Long story short: if you run into the `subject/predicate/object on line X can not be parsed without knowing the the document base IRI.(...)` error, please initialize the parser with the `documentIRI` option.
 
 ### Utility
 ```php
 use pietercolpaert\hardf\Util;
 ```
 
-A static class with a couple of helpful functions for handling our specific triple representation. It will help you to create and evaluate literals, IRIs, and expand prefixes.
+A static class with a couple of helpful functions for handling our specific triple representation. It helps you create and evaluate literals and IRIs, and expand prefixes.
 
 ```php
 $bool = isIRI($term);
