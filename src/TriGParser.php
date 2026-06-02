@@ -422,12 +422,18 @@ class TriGParser
                     // No subject; the graph in which we are reading is closed instead
                     return \call_user_func($this->readPunctuation, $token);
                 case '@forSome':
+                    if (!$this->n3Mode) {
+                        return \call_user_func($this->error, 'Unexpected "@forSome"', $token);
+                    }
                     $this->subject = null;
                     $this->predicate = 'http://www.w3.org/2000/10/swap/reify#forSome';
                     $this->quantifiedPrefix = '_:b';
 
                     return $this->readQuantifierList;
                 case '@forAll':
+                    if (!$this->n3Mode) {
+                        return \call_user_func($this->error, 'Unexpected "@forAll"', $token);
+                    }
                     $this->subject = null;
                     $this->predicate = 'http://www.w3.org/2000/10/swap/reify#forAll';
                     $this->quantifiedPrefix = '?b-';
@@ -630,6 +636,13 @@ class TriGParser
             // If a dot follows a blank node in top context, there is no predicate
             if ('.' === $token['type'] && 0 === \count($this->contextStack)) {
                 $this->subject = null; // cancel the current triple
+
+                return \call_user_func($this->readPunctuation, $token);
+            }
+
+            // Inside a named graph, a sole blank node property list can end right before the closing brace.
+            if ('}' === $token['type'] && null !== $this->graph) {
+                $this->subject = null;
 
                 return \call_user_func($this->readPunctuation, $token);
             }
