@@ -6,7 +6,7 @@
 
 Both the parser and the serializer have _streaming_ support.
 
-Hardf also supports RDF 1.2 features that are relevant to this representation, including triple terms, reified triples, annotation syntax, directional language literals, and `VERSION` declarations. It is tested against the spec.
+Hardf also supports RDF 1.2 features that are relevant to this representation, including triple terms, reified triples, annotation syntax, directional language literals, `VERSION` declarations, and RDF Messages. It is tested against the spec.
 
 This library started as a port of [N3.js](https://github.com/rdfjs/N3.js/tree/v0.10.0) to PHP.
 
@@ -104,6 +104,7 @@ echo $writer->end();
 $writer = new TriGWriter(["prefixes" => [ /* ... */]]);
 $writer->addTriple($subject, $predicate, $object, $graph);
 $writer->addTriples($triples);
+$writer->addMessage($quads); // requires ["messages" => true]
 $writer->addPrefix($prefix, $iri);
 $writer->addPrefixes($prefixes);
 //Creates blank node($predicate and/or $object are optional)
@@ -122,11 +123,49 @@ $out .= $writer->end();
 $writer->end();
 ```
 
+#### RDF Messages
+
+To write an RDF Message Log, create the writer with `messages => true` and call `addMessage()` for each message. If you also pass a `version`, Hardf will emit a `VERSION` declaration with the `-messages` suffix automatically.
+
+```php
+$writer = new TriGWriter([
+    "format" => "n-triples",
+    "messages" => true,
+    "version" => "1.2",
+]);
+
+$writer->addMessage([
+    [
+        "subject" => "http://example.org/message-1",
+        "predicate" => "http://example.org/text",
+        "object" => '"Hello"',
+        "graph" => "",
+    ],
+]);
+
+$writer->addMessage([]); // empty message
+
+echo $writer->end();
+```
+
+This writes:
+
+```turtle
+VERSION "1.2-messages"
+<http://example.org/message-1> <http://example.org/text> "Hello".
+MESSAGE
+MESSAGE
+```
+
 ### Parsing
 
 Next to [TriG](https://www.w3.org/TR/trig/), the TriGParser class also parses [Turtle](https://www.w3.org/TR/turtle/), [N-Triples](https://www.w3.org/TR/n-triples/), and [N-Quads](https://www.w3.org/TR/n-quads/).
 
 RDF 1.2 triple terms are emitted as arrays with `type => TripleTerm`. Reified triple syntax emits an `rdf:reifies` triple whose object is such a triple term.
+
+RDF Message Logs are enabled by a `VERSION` label with the `-messages` suffix, such as `VERSION "1.2-messages"`. When parsing in streaming mode, the triple callback receives the current message counter as its fourth argument. Blank node labels are scoped per message, so the same blank node labels may legally reappear in later messages.
+
+If you construct the parser with `messages => true` and use `parse()` without a callback, Hardf returns the parsed data as an array of messages, where each message is an array of quads.
 
 #### All methods
 
@@ -138,6 +177,24 @@ $parser->parse($input, $tripleCallback, $prefixCallback);
 $parser->parseChunk($input);
 $parser->end();
 ```
+
+The triple callback signature is:
+
+```php
+function ($error, $triple = null, $prefixes = null, $messageCounter = null) {
+    // ...
+}
+```
+
+For normal RDF parsing, `$messageCounter` stays `null`. In RDF Message mode, it starts at `1` for the first message and increments at each `MESSAGE` or `@message` delimiter.
+
+When `messages => true` is set and no callback is passed, the return type becomes effectively:
+
+```php
+array<int, array<int, array<string, mixed>>>
+```
+
+That is: an array of messages, each containing an array of quads.
 
 #### Basic examples for small files
 
@@ -207,6 +264,48 @@ $parser->parseChunk($chunk);
 $parser->parseChunk($chunk);
 $parser->parseChunk($chunk);
 $parser->end(); //Needs to be called
+```
+
+#### Parsing RDF Messages
+
+```php
+$parser = new TriGParser(["format" => "n-triples"]);
+$parser->parse("VERSION \"1.2-messages\"\n<a> <b> <c> .\nMESSAGE\n<d> <e> <f> .\n", function ($error, $triple = null, $prefixes = null, $messageCounter = null) {
+    if ($error) {
+        throw $error;
+    }
+
+    if ($triple) {
+        echo "message #".$messageCounter."\n";
+        var_dump($triple);
+    }
+});
+```
+
+If you want the whole RDF Message Log at once instead of streaming callbacks:
+
+```php
+$parser = new TriGParser([
+    "format" => "n-triples",
+    "messages" => true,
+]);
+
+$messages = $parser->parse(
+    "VERSION \"1.2-messages\"\n".
+    "<http://example.org/a> <http://example.org/b> <http://example.org/c> .\n".
+    "MESSAGE\n".
+    "<http://example.org/d> <http://example.org/e> <http://example.org/f> .\n"
+);
+
+// $messages is:
+// [
+//   [
+//     ['subject' => 'http://example.org/a', 'predicate' => 'http://example.org/b', 'object' => 'http://example.org/c', 'graph' => ''],
+//   ],
+//   [
+//     ['subject' => 'http://example.org/d', 'predicate' => 'http://example.org/e', 'object' => 'http://example.org/f', 'graph' => ''],
+//   ],
+// ]
 ```
 
 #### Parser options

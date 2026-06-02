@@ -198,7 +198,7 @@ class TriGWriterTest extends TestCase
 
     public function testMessageWriterEmitsVersionAndMessageDelimiters(): void
     {
-        $writer = new TriGWriter(['format' => 'N-Triples', 'message' => true, 'version' => '1.2']);
+        $writer = new TriGWriter(['format' => 'N-Triples', 'messages' => true, 'version' => '1.2']);
         $writer->addMessage([
             ['subject' => 'http://example.org/message-1', 'predicate' => 'http://example.org/p', 'object' => '"first"'],
         ]);
@@ -221,7 +221,7 @@ class TriGWriterTest extends TestCase
     public function testAddMessageRequiresMessageMode(): void
     {
         $this->expectException(Exception::class);
-        $this->expectExceptionMessage('addMessage requires the writer to be created with the message option enabled.');
+        $this->expectExceptionMessage('addMessage requires the writer to be created with the messages option enabled.');
 
         (new TriGWriter())->addMessage([]);
     }

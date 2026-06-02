@@ -100,7 +100,7 @@ class TriGWriter
     {
         $this->setReadCallback($readCallback);
         $this->initWriter();
-        $this->messageMode = !empty($options['message']);
+        $this->messageMode = !empty($options['messages']);
 
         /* Initialize writer, depending on the format*/
         $this->subject = null;
@@ -518,7 +518,7 @@ class TriGWriter
     public function addMessage(array $quads): void
     {
         if (!$this->messageMode) {
-            throw new \Exception('addMessage requires the writer to be created with the message option enabled.');
+            throw new \Exception('addMessage requires the writer to be created with the messages option enabled.');
         }
 
         $this->addTriples($quads);

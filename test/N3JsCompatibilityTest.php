@@ -165,6 +165,36 @@ class N3JsCompatibilityTest extends TestCase
         $this->assertNotSame($messages[0][1]['object'], $messages[1][1]['object']);
     }
 
+    public function testParserCanReturnMessagesSynchronously(): void
+    {
+        $parser = new TriGParser(['format' => 'N-Triples', 'messages' => true]);
+        $messages = $parser->parse("VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n<http://example.org/d> <http://example.org/e> <http://example.org/f> .\nMESSAGE\n");
+
+        $this->assertSame([
+            [
+                ['subject' => 'http://example.org/a', 'predicate' => 'http://example.org/b', 'object' => 'http://example.org/c', 'graph' => ''],
+            ],
+            [
+                ['subject' => 'http://example.org/d', 'predicate' => 'http://example.org/e', 'object' => 'http://example.org/f', 'graph' => ''],
+            ],
+        ], $messages);
+    }
+
+    public function testParserCanReturnMessagesSynchronouslyWithoutMessagesFlagWhenVersionEnablesIt(): void
+    {
+        $parser = new TriGParser(['format' => 'N-Triples']);
+        $messages = $parser->parse("VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n<http://example.org/d> <http://example.org/e> <http://example.org/f> .\nMESSAGE\n");
+
+        $this->assertSame([
+            [
+                ['subject' => 'http://example.org/a', 'predicate' => 'http://example.org/b', 'object' => 'http://example.org/c', 'graph' => ''],
+            ],
+            [
+                ['subject' => 'http://example.org/d', 'predicate' => 'http://example.org/e', 'object' => 'http://example.org/f', 'graph' => ''],
+            ],
+        ], $messages);
+    }
+
     public function testParserAcceptsTripleSingleQuotedLongLiterals(): void
     {
         $triples = $this->parse("<a> <b> '''line 1\nline 2'''.");

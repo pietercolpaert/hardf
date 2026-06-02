@@ -124,6 +124,7 @@ class TriGParser
     private $readCallback;
     private $blankNodeEndReader;
     private $blankNodeMustBeEmpty;
+    private $collectMessages;
 
     // Constructor
     public function __construct($options = [], $tripleCallback = null, $prefixCallback = null)
@@ -160,6 +161,7 @@ class TriGParser
         $this->supportsReifiedTriples = !$isLineMode;
         $this->supportsMessages = false;
         $this->messageCounter = null;
+        $this->collectMessages = !empty($options['messages']);
         // Disable relative IRIs in N-Triples or N-Quads mode
         if ($isLineMode) {
             $this->base = '';
@@ -1920,10 +1922,23 @@ class TriGParser
     {
         if (!isset($this->tripleCallback)) {
             $triples = [];
+            $messages = [];
+            $collectMessages = $this->collectMessages;
             $error = null;
-            $this->callback = function ($e, $t = null, $prefixes = null, $messageCounter = null) use (&$triples, &$error) {
+            $this->callback = function ($e, $t = null, $prefixes = null, $messageCounter = null) use (&$triples, &$messages, &$collectMessages, &$error) {
                 if (!$e && $t) {
-                    $triples[] = $t;
+                    if (null !== $messageCounter) {
+                        $collectMessages = true;
+                    }
+
+                    if ($collectMessages && null !== $messageCounter) {
+                        if (!isset($messages[$messageCounter])) {
+                            $messages[$messageCounter] = [];
+                        }
+                        $messages[$messageCounter][] = $t;
+                    } else {
+                        $triples[] = $t;
+                    }
                 } elseif (!$e) {
                     //DONE
                 } else {
@@ -1938,6 +1953,16 @@ class TriGParser
             }
             if ($error) {
                 throw $error;
+            }
+
+            if ($collectMessages) {
+                if (empty($messages)) {
+                    return [];
+                }
+
+                ksort($messages);
+
+                return array_values($messages);
             }
 
             return $triples;
