@@ -101,7 +101,7 @@ class Util
 
     public static function getLiteralDirection(string $literal): string
     {
-        preg_match('/^".*"(?:@[^@"]+(?:--(ltr|rtl))?|\^\^[^"]+)?$/is', $literal, $match);
+        preg_match('/^".*"(?:@[^@"]+?(?:--(ltr|rtl))?|\^\^[^"]+)?$/is', $literal, $match);
         if (empty($match)) {
             throw new \Exception($literal.' is not a literal');
         }
