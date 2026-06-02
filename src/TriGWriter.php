@@ -91,22 +91,34 @@ class TriGWriter
      */
     private $lineMode = false;
 
+    /**
+     * @var bool
+     */
+    private $messageMode = false;
+
     public function __construct($options = [], $readCallback = null)
     {
         $this->setReadCallback($readCallback);
         $this->initWriter();
+        $this->messageMode = !empty($options['messages']);
 
         /* Initialize writer, depending on the format*/
         $this->subject = null;
         if (!isset($options['format']) || !(preg_match('/triple|quad/i', $options['format']))) {
             $this->graph = '';
             $this->prefixIRIs = [];
+            if ($this->messageMode && isset($options['version'])) {
+                $this->writeVersionDirective((string) $options['version']);
+            }
             if (isset($options['prefixes'])) {
                 $this->addPrefixes($options['prefixes']);
             }
         } else {
             $this->lineMode = true;
             $this->writeTriple = $this->writeTripleLine;
+            if ($this->messageMode && isset($options['version'])) {
+                $this->writeVersionDirective((string) $options['version']);
+            }
         }
 
     }
@@ -311,6 +323,29 @@ class TriGWriter
         }
     }
 
+    private function normalizeMessageVersion(string $version): string
+    {
+        return preg_match('/-messages$/', $version) ? $version : $version.'-messages';
+    }
+
+    private function writeVersionDirective(string $version): void
+    {
+        $this->write('VERSION "'.$this->normalizeMessageVersion($version).'"'.PHP_EOL);
+    }
+
+    private function writeMessageDelimiter(): void
+    {
+        if (null !== $this->subject) {
+            $this->write($this->graph ? "\n}\n" : ".\n");
+            $this->subject = null;
+        }
+        if (!$this->lineMode) {
+            $this->graph = '';
+        }
+
+        $this->write('MESSAGE'.PHP_EOL);
+    }
+
     // ### Reads a bit of the string
     public function read(): string
     {
@@ -473,6 +508,21 @@ class TriGWriter
         for ($i = 0; $i < \count($triples); ++$i) {
             $this->addTriple($triples[$i]);
         }
+    }
+
+    /**
+     * adds one RDF Message to the output stream
+     *
+     * @param array<int, array<string, string|null>> $quads
+     */
+    public function addMessage(array $quads): void
+    {
+        if (!$this->messageMode) {
+            throw new \Exception('addMessage requires the writer to be created with the messages option enabled.');
+        }
+
+        $this->addTriples($quads);
+        $this->writeMessageDelimiter();
     }
 
     /**

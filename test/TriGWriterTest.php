@@ -196,6 +196,36 @@ class TriGWriterTest extends TestCase
         $this->assertEquals("<http://example.org/subject> <http://example.org/predicate> \"\\u0085\".\n", $writer->end());
     }
 
+    public function testMessageWriterEmitsVersionAndMessageDelimiters(): void
+    {
+        $writer = new TriGWriter(['format' => 'N-Triples', 'messages' => true, 'version' => '1.2']);
+        $writer->addMessage([
+            ['subject' => 'http://example.org/message-1', 'predicate' => 'http://example.org/p', 'object' => '"first"'],
+        ]);
+        $writer->addMessage([]);
+        $writer->addMessage([
+            ['subject' => '_:a', 'predicate' => 'http://example.org/p', 'object' => '_:b'],
+        ]);
+
+        $this->assertEquals(
+            "VERSION \"1.2-messages\"\n".
+            "<http://example.org/message-1> <http://example.org/p> \"first\".\n".
+            "MESSAGE\n".
+            "MESSAGE\n".
+            "_:a <http://example.org/p> _:b.\n".
+            "MESSAGE\n",
+            $writer->end()
+        );
+    }
+
+    public function testAddMessageRequiresMessageMode(): void
+    {
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('addMessage requires the writer to be created with the messages option enabled.');
+
+        (new TriGWriter())->addMessage([]);
+    }
+
     public function testBlankNodes(): void
     {
         //should serialize blank nodes',

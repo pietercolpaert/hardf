@@ -114,6 +114,87 @@ class N3JsCompatibilityTest extends TestCase
         ], $this->parse("VERSION \"1.2\"\nversion \"1.2\"\n@version \"1.2\" .\n<ex:a> <ex:b> <ex:c> ."));
     }
 
+    public function testParserAcceptsMessageDirectivesAfterMessageVersionDeclaration(): void
+    {
+        $messages = [];
+        $parser = new TriGParser(['format' => 'TriG']);
+        $parser->_resetBlankNodeIds();
+
+        $parser->parse("VERSION \"1.2-messages\"\n<a> <b> <c> .\nMESSAGE\n<d> <e> <f> .\n@message .\n", function ($error, $triple = null, $prefixes = null, $messageCounter = null) use (&$messages): void {
+            if ($error) {
+                throw $error;
+            }
+            if ($triple) {
+                $messages[] = [$messageCounter, $triple];
+            }
+        });
+
+        $this->assertSame([
+            [1, ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => '']],
+            [2, ['subject' => 'd', 'predicate' => 'e', 'object' => 'f', 'graph' => '']],
+        ], $messages);
+    }
+
+    public function testParserRejectsMessageDirectiveWithoutMessageVersionDeclaration(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Unexpected "MESSAGE" on line 2.');
+
+        $this->parse("VERSION \"1.2\"\nMESSAGE\n<a> <b> <c> .", new TriGParser(['format' => 'N-Triples']));
+    }
+
+    public function testParserScopesBlankNodeLabelsPerMessage(): void
+    {
+        $messages = [];
+        $parser = new TriGParser(['format' => 'N-Triples']);
+        $parser->_resetBlankNodeIds();
+
+        $parser->parse("VERSION \"1.2-messages\"\nMESSAGE\n_:a <http://example.org/p> _:b .\nMESSAGE\n_:a <http://example.org/p> _:b .\n", function ($error, $triple = null, $prefixes = null, $messageCounter = null) use (&$messages): void {
+            if ($error) {
+                throw $error;
+            }
+            if ($triple) {
+                $messages[] = [$messageCounter, $triple];
+            }
+        });
+
+        $this->assertCount(2, $messages);
+        $this->assertSame(2, $messages[0][0]);
+        $this->assertSame(3, $messages[1][0]);
+        $this->assertNotSame($messages[0][1]['subject'], $messages[1][1]['subject']);
+        $this->assertNotSame($messages[0][1]['object'], $messages[1][1]['object']);
+    }
+
+    public function testParserCanReturnMessagesSynchronously(): void
+    {
+        $parser = new TriGParser(['format' => 'N-Triples', 'messages' => true]);
+        $messages = $parser->parse("VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n<http://example.org/d> <http://example.org/e> <http://example.org/f> .\nMESSAGE\n");
+
+        $this->assertSame([
+            [
+                ['subject' => 'http://example.org/a', 'predicate' => 'http://example.org/b', 'object' => 'http://example.org/c', 'graph' => ''],
+            ],
+            [
+                ['subject' => 'http://example.org/d', 'predicate' => 'http://example.org/e', 'object' => 'http://example.org/f', 'graph' => ''],
+            ],
+        ], $messages);
+    }
+
+    public function testParserCanReturnMessagesSynchronouslyWithoutMessagesFlagWhenVersionEnablesIt(): void
+    {
+        $parser = new TriGParser(['format' => 'N-Triples']);
+        $messages = $parser->parse("VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n<http://example.org/d> <http://example.org/e> <http://example.org/f> .\nMESSAGE\n");
+
+        $this->assertSame([
+            [
+                ['subject' => 'http://example.org/a', 'predicate' => 'http://example.org/b', 'object' => 'http://example.org/c', 'graph' => ''],
+            ],
+            [
+                ['subject' => 'http://example.org/d', 'predicate' => 'http://example.org/e', 'object' => 'http://example.org/f', 'graph' => ''],
+            ],
+        ], $messages);
+    }
+
     public function testParserAcceptsTripleSingleQuotedLongLiterals(): void
     {
         $triples = $this->parse("<a> <b> '''line 1\nline 2'''.");

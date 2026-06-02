@@ -104,6 +104,7 @@ class TriGParser
     private $sparqlStyle;
     private $subject;
     private $supportsNamedGraphs;
+    private $supportsMessages;
     private $supportsQuads;
     private $supportsReifiedTriples;
     private $triple;
@@ -117,11 +118,13 @@ class TriGParser
     private $annotationTripleTerm;
     private $annotationGraph;
     private $annotationStack;
+    private $messageCounter;
 
     private $readInTopContext;
     private $readCallback;
     private $blankNodeEndReader;
     private $blankNodeMustBeEmpty;
+    private $collectMessages;
 
     // Constructor
     public function __construct($options = [], $tripleCallback = null, $prefixCallback = null)
@@ -156,6 +159,9 @@ class TriGParser
         }
         $this->supportsQuads = !($isTurtle || $isTriG || $isNTriples || $isN3);
         $this->supportsReifiedTriples = !$isLineMode;
+        $this->supportsMessages = false;
+        $this->messageCounter = null;
+        $this->collectMessages = !empty($options['messages']);
         // Disable relative IRIs in N-Triples or N-Quads mode
         if ($isLineMode) {
             $this->base = '';
@@ -293,7 +299,7 @@ class TriGParser
                 }
                 unset($this->prefixes['_']);
                 if ($this->callback) {
-                    return \call_user_func($this->callback, null, null, $this->prefixes);
+                    return \call_user_func($this->callback, null, null, $this->prefixes, $this->messageCounter);
                 }
                 // It could be a prefix declaration
                 // no break
@@ -313,6 +319,25 @@ class TriGParser
                 // no break
                 case '@version':
                 return $this->readVersion;
+                case 'MESSAGE':
+                case '@message':
+                if (!$this->supportsMessages) {
+                    return \call_user_func($this->error, 'Unexpected "'.$token['type'].'"', $token);
+                }
+                if (null !== $this->graph || 0 !== \count($this->contextStack)) {
+                    return \call_user_func($this->error, 'Unexpected "'.$token['type'].'"', $token);
+                }
+
+                if (null === $this->messageCounter) {
+                    $this->messageCounter = 1;
+                }
+                if ($this->callback) {
+                    \call_user_func($this->callback, null, null, null, $this->messageCounter);
+                }
+                ++$this->messageCounter;
+                $this->prefixes['_'] = isset($this->blankNodePrefix) ? $this->blankNodePrefix : '_:b'.$this->blankNodeCount++.'_';
+
+                return 'MESSAGE' === $token['type'] ? $this->readInTopContext : $this->readDeclarationPunctuation;
                 // It could be a graph
                 case '{':
                 if ($this->supportsNamedGraphs) {
@@ -1544,6 +1569,17 @@ class TriGParser
                 return \call_user_func($this->error, 'Expected simple literal to follow version declaration', $token);
             }
 
+            $versionLabel = substr($token['value'], 1, -1);
+            if (preg_match('/-messages$/', $versionLabel)) {
+                $this->supportsMessages = true;
+                if (null === $this->messageCounter) {
+                    $this->messageCounter = 1;
+                    $this->prefixes['_'] = isset($this->blankNodePrefix) ? $this->blankNodePrefix : '_:b'.$this->blankNodeCount++.'_';
+                }
+            } else {
+                $this->supportsMessages = false;
+            }
+
             return $this->readDeclarationPunctuation;
         };
 
@@ -1752,7 +1788,7 @@ class TriGParser
 
         // ### `_triple` emits a triple through the callback
         $this->triple = function ($subject, $predicate, $object, $graph) {
-            \call_user_func($this->callback, null, ['subject' => $subject, 'predicate' => $predicate, 'object' => $object, 'graph' => isset($graph) ? $graph : '']);
+            \call_user_func($this->callback, null, ['subject' => $subject, 'predicate' => $predicate, 'object' => $object, 'graph' => isset($graph) ? $graph : ''], null, $this->messageCounter);
         };
 
         // ### `_error` emits an error message through the callback
@@ -1905,12 +1941,37 @@ class TriGParser
     {
         if (!isset($this->tripleCallback)) {
             $triples = [];
+            $messages = [];
+            $collectMessages = $this->collectMessages;
             $error = null;
-            $this->callback = function ($e, $t = null) use (&$triples, &$error) {
+            $this->callback = function ($e, $t = null, $prefixes = null, $messageCounter = null) use (&$triples, &$messages, &$collectMessages, &$error) {
                 if (!$e && $t) {
-                    $triples[] = $t;
+                    if (null !== $messageCounter) {
+                        $collectMessages = true;
+                    }
+
+                    if ($collectMessages && null !== $messageCounter) {
+                        if (!isset($messages[$messageCounter])) {
+                            $messages[$messageCounter] = [];
+                        }
+                        $messages[$messageCounter][] = $t;
+                    } else {
+                        $triples[] = $t;
+                    }
                 } elseif (!$e) {
-                    //DONE
+                    if (null !== $messageCounter) {
+                        $collectMessages = true;
+                    }
+
+                    if ($collectMessages && null !== $messageCounter) {
+                        if (null === $prefixes) {
+                            if (!isset($messages[$messageCounter])) {
+                                $messages[$messageCounter] = [];
+                            }
+                        } elseif (empty($messages)) {
+                            $messages[$messageCounter] = [];
+                        }
+                    }
                 } else {
                     $error = $e;
                 }
@@ -1923,6 +1984,16 @@ class TriGParser
             }
             if ($error) {
                 throw $error;
+            }
+
+            if ($collectMessages) {
+                if (empty($messages)) {
+                    return [];
+                }
+
+                ksort($messages);
+
+                return array_values($messages);
             }
 
             return $triples;
