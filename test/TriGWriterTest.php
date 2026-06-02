@@ -154,9 +154,9 @@ class TriGWriterTest extends TestCase
         }
 
         $writer = new TriGWriter(['format' => 'N-Triples']);
-        $writer->addTriple('http://hardf.org/subject', 'http://hardf.org/predicate', '"'.$literal.'"');
+        $writer->addTriple('http://example.org/subject', 'http://example.org/predicate', '"'.$literal.'"');
 
-        $this->assertEquals('<http://hardf.org/subject> <http://hardf.org/predicate> "'.$expected.'".'."\n", $writer->end());
+        $this->assertEquals('<http://example.org/subject> <http://example.org/predicate> "'.$expected.'".'."\n", $writer->end());
     }
 
     public function testLiteralsEscapeInvalidRawBytesFromIssue39(): void
@@ -167,7 +167,7 @@ class TriGWriterTest extends TestCase
         }
 
         $writer = new TriGWriter(['format' => 'N-Triples']);
-        $writer->addTriple('http://hardf.org/subject', 'http://hardf.org/predicate', '"'.$literal.'"');
+        $writer->addTriple('http://example.org/subject', 'http://example.org/predicate', '"'.$literal.'"');
         $output = $writer->end();
 
         $this->assertTrue(mb_check_encoding($output, 'UTF-8'));
@@ -183,17 +183,17 @@ class TriGWriterTest extends TestCase
     public function testLiteralsPreserveValidUtf8Unicode(): void
     {
         $writer = new TriGWriter(['format' => 'N-Triples']);
-        $writer->addTriple('http://hardf.org/subject', 'http://hardf.org/predicate', "\"café 😀\"");
+        $writer->addTriple('http://example.org/subject', 'http://example.org/predicate', "\"café 😀\"");
 
-        $this->assertEquals("<http://hardf.org/subject> <http://hardf.org/predicate> \"café 😀\".\n", $writer->end());
+        $this->assertEquals("<http://example.org/subject> <http://example.org/predicate> \"café 😀\".\n", $writer->end());
     }
 
     public function testLiteralsEscapeC1ControlCharacters(): void
     {
         $writer = new TriGWriter(['format' => 'N-Triples']);
-        $writer->addTriple('http://hardf.org/subject', 'http://hardf.org/predicate', "\"\u{0085}\"");
+        $writer->addTriple('http://example.org/subject', 'http://example.org/predicate', "\"\u{0085}\"");
 
-        $this->assertEquals("<http://hardf.org/subject> <http://hardf.org/predicate> \"\\u0085\".\n", $writer->end());
+        $this->assertEquals("<http://example.org/subject> <http://example.org/predicate> \"\\u0085\".\n", $writer->end());
     }
 
     public function testBlankNodes(): void

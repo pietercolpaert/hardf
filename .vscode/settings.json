@@ -1,8 +1,0 @@
-{
-    "chat.tools.terminal.autoApprove": {
-        "/^cd /home/pieter/Projects/hardf && node -e \"\nconst https = require\\('https'\\);\n\nhttps\\.get\\('https://w3c\\.github\\.io/rdf-tests/rdf/rdf11/rdf-n-triples/manifest\\.ttl', \\(res\\) => \\{\n  let data = '';\n  res\\.on\\('data', chunk => data \\+= chunk\\);\n  res\\.on\\('end', \\(\\) => \\{\n    const tests = \\['nt-syntax-string-02', 'nt-syntax-string-03', 'lantag_with_subtag'\\];\n    tests\\.forEach\\(test => \\{\n      const regex = new RegExp\\(\\\\`<#\\\\\\$\\{test\\}>\\\\\\\\\\\\\\\\s\\*a\\\\\\\\\\\\\\\\s\\*mf:\\(\\.\\*\\?\\)\\\\\\\\\\\\\\\\s\\*;\\\\`, 's'\\);\n      const match = data\\.match\\(regex\\);\n      if \\(match\\) \\{\n        console\\.log\\(\\\\`\\\\\\$\\{test\\}: \\\\\\$\\{match\\[1\\]\\}\\\\`\\);\n      \\}\n    \\}\\);\n  \\}\\);\n\\}\\);\n\" 2>&1$/": {
-            "approve": true,
-            "matchCommandLine": true
-        }
-    }
-}
