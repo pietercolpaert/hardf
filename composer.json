@@ -38,6 +38,13 @@
         "semsol/arc2": "^3.1"
     },
     "scripts": {
+        "install-githooks": "@php install-githooks.php",
+        "post-install-cmd": [
+            "@install-githooks"
+        ],
+        "post-update-cmd": [
+            "@install-githooks"
+        ],
         "cs": "vendor/bin/php-cs-fixer fix",
         "cs-dry-run": "vendor/bin/php-cs-fixer fix --dry-run",
         "phpstan": "vendor/bin/phpstan analyse -c phpstan.neon -vvv",

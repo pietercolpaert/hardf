@@ -333,14 +333,12 @@ The measurements below were taken with PHP 8.3.6 and Node.js 25.9.0 using `php p
 
 That expectation does show up in the results, but the interesting part is the size of the gap: Hardf remains within a single-digit factor of N3.js across the whole range and scales roughly linearly from $10^5$ to $10^7$ triples. CLI opcache helps Hardf modestly on runtime and significantly on reported PHP memory. EasyRDF and ARC2 fall further behind as the data grows.
 
-### Findings
-
 We report on the findings for increasing number of triples.
 
 Note that the memory figures are runtime-specific and therefore not perfectly comparable across languages: PHP reports `memory_get_usage()`, while Node.js reports V8 `heapUsed`. The timing results are the more meaningful cross-runtime comparison.
 
 
-#### 100,000 triples
+For __100,000 triples__:
 
 | framework | time (ms) | memory (MB) | slower than N3.js |
 |-----------|----------:|------------:|------------------:|
@@ -350,7 +348,7 @@ Note that the memory figures are runtime-specific and therefore not perfectly co
 | [ARC2](https://github.com/semsol/arc2) with opcache | 1,133 | 83.435 | 10.12x |
 | [N3.js](https://github.com/rdfjs/N3.js) | 112 | 6.328 | 1.00x |
 
-#### 1,000,000 triples
+For __1,000,000 triples__:
 
 | framework | time (ms) | memory (MB) | slower than N3.js |
 |-----------|----------:|------------:|------------------:|
@@ -360,7 +358,7 @@ Note that the memory figures are runtime-specific and therefore not perfectly co
 | [ARC2](https://github.com/semsol/arc2) with opcache | 12,463 | 826.056 | 14.53x |
 | [N3.js](https://github.com/rdfjs/N3.js) | 858 | 9.263 | 1.00x |
 
-#### 10,000,000 triples
+For __10,000,000 triples__:
 
 | framework | time (ms) | memory (MB) | slower than N3.js |
 |-----------|----------:|------------:|------------------:|
@@ -370,10 +368,9 @@ Note that the memory figures are runtime-specific and therefore not perfectly co
 | [ARC2](https://github.com/semsol/arc2) with opcache | 147,273 | 8,352.265 | 18.37x |
 | [N3.js](https://github.com/rdfjs/N3.js) | 8,017 | 30.336 | 1.00x |
 
-### Conclusions
 
 1. N3.js on Node.js 25 is faster, which is expected, but Hardf stays surprisingly close for a native PHP parser: about `3.32x` to `4.88x` slower with opcache enabled, and about `3.41x` to `5.19x` slower without it.
-2. Hardf remains effectively linear over the tested range and is substantially faster than ARC2 at every size, while also overtaking EasyRDF on the larger datasets.
+2. Hardf remains effective over the tested range and is substantially faster than ARC2 at every size, while also overtaking EasyRDF on the larger datasets.
 
 ## License, status and contributions
 
