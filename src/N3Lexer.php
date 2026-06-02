@@ -64,7 +64,7 @@ class N3Lexer
         $this->n3Mode = false !== $options['n3'];
 
         if (!$options['lineMode']) {
-            $this->keyword = '/^@(?:prefix(?=[\s#:<"])|(?:base|forSome|forAll|version)(?=[\s#<"]))/i';
+            $this->keyword = '/^@(?:prefix(?=[\s#:<"])|(?:base|forSome|forAll|version)(?=[\s#<"])|message(?=[\s#<"]|\.))/i';
             $this->prefix = '/^((?:[A-Za-z\xc0-\xd6\xd8-\xf6\xf8-\x{02ff}\x{0370}-\x{037d}\x{037f}-\x{1fff}\x{200c}\x{200d}\x{2070}-\x{218f}\x{2c00}-\x{2fef}\x{3001}-\x{d7ff}\x{f900}-\x{fdcf}\x{fdf0}-\x{fffd}\x{10000}-\x{effff}])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\x{02ff}\x{0300}-\x{036f}\x{0370}-\x{037d}\x{037f}-\x{1fff}\x{200c}\x{200d}\x{203f}\x{2040}\x{2070}-\x{218f}\x{2c00}-\x{2fef}\x{3001}-\x{d7ff}\x{f900}-\x{fdcf}\x{fdf0}-\x{fffd}\x{10000}-\x{effff}])*)?:(?=[#\s<])/u';
             $this->prefixed = str_replace('\x{fdf0}-\x{fffd}', '\x{fdf0}-\x{fffd}\x{10000}-\x{effff}', $this->prefixed);
             $this->blank = '/^_:((?:[0-9A-Z_a-z\xc0-\xd6\xd8-\xf6\xf8-\x{02ff}\x{0370}-\x{037d}\x{037f}-\x{1fff}\x{200c}\x{200d}\x{2070}-\x{218f}\x{2c00}-\x{2fef}\x{3001}-\x{d7ff}\x{f900}-\x{fdcf}\x{fdf0}-\x{fffd}\x{10000}-\x{effff}])(?:\.?[\-0-9A-Z_a-z\xb7\xc0-\xd6\xd8-\xf6\xf8-\x{02ff}\x{0300}-\x{036f}\x{0370}-\x{037d}\x{037f}-\x{1fff}\x{200c}\x{200d}\x{203f}\x{2040}\x{2070}-\x{218f}\x{2c00}-\x{2fef}\x{3001}-\x{d7ff}\x{f900}-\x{fdcf}\x{fdf0}-\x{fffd}\x{10000}-\x{effff}])*)(?:[ \t]+|(?=\.?[,;:\s#()\[\]\{\}"\'<>]))/u';
