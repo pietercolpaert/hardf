@@ -324,9 +324,15 @@ class TriGParser
                 if (!$this->supportsMessages) {
                     return \call_user_func($this->error, 'Unexpected "'.$token['type'].'"', $token);
                 }
+                if (null !== $this->graph || 0 !== \count($this->contextStack)) {
+                    return \call_user_func($this->error, 'Unexpected "'.$token['type'].'"', $token);
+                }
 
                 if (null === $this->messageCounter) {
                     $this->messageCounter = 1;
+                }
+                if ($this->callback) {
+                    \call_user_func($this->callback, null, null, null, $this->messageCounter);
                 }
                 ++$this->messageCounter;
                 $this->prefixes['_'] = isset($this->blankNodePrefix) ? $this->blankNodePrefix : '_:b'.$this->blankNodeCount++.'_';
@@ -1953,7 +1959,19 @@ class TriGParser
                         $triples[] = $t;
                     }
                 } elseif (!$e) {
-                    //DONE
+                    if (null !== $messageCounter) {
+                        $collectMessages = true;
+                    }
+
+                    if ($collectMessages && null !== $messageCounter) {
+                        if (null === $prefixes) {
+                            if (!isset($messages[$messageCounter])) {
+                                $messages[$messageCounter] = [];
+                            }
+                        } elseif (empty($messages)) {
+                            $messages[$messageCounter] = [];
+                        }
+                    }
                 } else {
                     $error = $e;
                 }
