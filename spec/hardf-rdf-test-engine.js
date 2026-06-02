@@ -77,4 +77,22 @@ module.exports = {
       toRdfjsTerm(item.graph),
     ));
   },
+
+  async parseNegative(data, baseIRI, options, testCase) {
+    const bridge = path.join(__dirname, 'hardf-rdf-test-parser.php');
+    const result = spawnSync('php', [ bridge ], {
+      cwd: path.join(__dirname, '..'),
+      encoding: 'utf8',
+      input: JSON.stringify({
+        baseIRI,
+        data,
+        format: formatFromTestCase(baseIRI, options || {}, testCase),
+      }),
+      maxBuffer: 64 * 1024 * 1024,
+    });
+
+    if (result.status === 0) {
+      throw new Error('Expected parser to reject invalid input, but it succeeded');
+    }
+  },
 };
