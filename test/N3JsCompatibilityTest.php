@@ -114,6 +114,68 @@ class N3JsCompatibilityTest extends TestCase
         ], $this->parse("VERSION \"1.2\"\nversion \"1.2\"\n@version \"1.2\" .\n<ex:a> <ex:b> <ex:c> ."));
     }
 
+    public function testParserAcceptsTripleSingleQuotedLongLiterals(): void
+    {
+        $triples = $this->parse("<a> <b> '''line 1\nline 2'''.");
+
+        $this->assertCount(1, $triples);
+        $this->assertSame('a', $triples[0]['subject']);
+        $this->assertSame('b', $triples[0]['predicate']);
+        $this->assertSame("\"line 1\nline 2\"", $triples[0]['object']);
+        $this->assertSame('', $triples[0]['graph']);
+    }
+
+    public function testParserAcceptsNegativeExponentNumbersWithoutLeadingZero(): void
+    {
+        $this->assertEquals([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => '"-.2e3"^^http://www.w3.org/2001/XMLSchema#double', 'graph' => ''],
+        ], $this->parse('<a> <b> -.2e3.'));
+    }
+
+    public function testParserAcceptsEscapedPrefixedLocalNames(): void
+    {
+        $this->assertEquals([
+            ['subject' => 'http://www.w3.org/2013/TurtleTests/s', 'predicate' => 'http://www.w3.org/2013/TurtleTests/p', 'object' => 'http://www.w3.org/2013/TurtleTests/~.-!$&\'()*+,;=/?#@_%AA', 'graph' => ''],
+        ], $this->parse("@prefix : <http://www.w3.org/2013/TurtleTests/> .\n:s :p :\\~\\.\\-\\!\\$\\&\\'\\(\\)\\*\\+\\,\\;\\=\\/\\?\\#\\@\\_\\%AA .", new TriGParser(['format' => 'Turtle'])));
+    }
+
+    public function testParserTreatsStatementDotSeparatelyFromIntegerLiteral(): void
+    {
+        $this->assertEquals([
+            ['subject' => 's', 'predicate' => 'p', 'object' => '"123"^^http://www.w3.org/2001/XMLSchema#integer', 'graph' => ''],
+        ], $this->parse('<s> <p> 123.', new TriGParser(['format' => 'Turtle'])));
+    }
+
+    public function testParserRejectsTrailingDecimalDotInAnonymousNode(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Expected punctuation to follow ""27"^^http://www.w3.org/2001/XMLSchema#integer" on line 5.');
+
+        $this->parse("@prefix : <http://www.w3.org/2013/TurtleTests/> .\n\n:s\n  :p [\n    :p1 27.\n  ] .", new TriGParser(['format' => 'Turtle']));
+    }
+
+    public function testParserAcceptsPrefixDeclarationWithoutSpaceBeforeColon(): void
+    {
+        $this->assertEquals([
+            ['subject' => 'http://example/c/s', 'predicate' => 'http://example/c/p', 'object' => 'http://example/c/o', 'graph' => ''],
+        ], $this->parse("@prefix:<http://example/c/>.\n:s :p :o .", new TriGParser(['format' => 'TriG'])));
+    }
+
+    public function testParserAcceptsSoleBlankNodePropertyListInsideNamedGraphWithoutDot(): void
+    {
+        $this->assertEquals([
+            ['subject' => '_:b0', 'predicate' => 'http://a.example/p', 'object' => 'http://a.example/o', 'graph' => 'http://example/graph'],
+        ], $this->parse('<http://example/graph> { [ <http://a.example/p> <http://a.example/o> ] }', new TriGParser(['format' => 'TriG'])));
+    }
+
+    public function testParserRejectsN3QuantifiersInTurtleMode(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Unexpected "@forSome" on line 1.');
+
+        $this->parse('@forSome :x .', new TriGParser(['format' => 'Turtle']));
+    }
+
     public function testParserAcceptsTripleTermsAsObjects(): void
     {
         $this->assertEquals([
