@@ -13,7 +13,7 @@ class TriGWriter
      *
      * @var string
      */
-    const LITERALMATCHER = '/^"(.*)"(?:\\^\\^(.+)|@([\\-a-z]+))?$/is';
+    const LITERALMATCHER = '/^"(.*)"(?:\\^\\^(.+)|@([a-z]+(?:-[a-z0-9]+)*(?:--(?:ltr|rtl))?))?$/is';
 
     /**
      * rdf:type predicate (for 'a' abbreviation)
@@ -32,7 +32,7 @@ class TriGWriter
      *
      * @var string
      */
-    const ESCAPE = '/["\\\\\\t\\n\\r\\b\\f]/';
+    const ESCAPE = '/["\\\\\\x00-\\x1F]/';
 
     /**
      * @var array
@@ -95,6 +95,11 @@ class TriGWriter
      */
     private $writeTripleLine;
 
+    /**
+     * @var bool
+     */
+    private $lineMode = false;
+
     public function __construct($options = [], $readCallback = null)
     {
         $this->escapeReplacements = [
@@ -114,6 +119,7 @@ class TriGWriter
                 $this->addPrefixes($options['prefixes']);
             }
         } else {
+            $this->lineMode = true;
             $this->writeTriple = $this->writeTripleLine;
         }
 
@@ -127,6 +133,8 @@ class TriGWriter
             $character = $character[0];
             if (\strlen($character) > 0 && isset($this->escapeReplacements[$character[0]])) {
                 return $this->escapeReplacements[$character[0]];
+            } elseif (\ord($character) < 32) {
+                return sprintf('\\u%04x', \ord($character));
             } else {
                 return $character; //no escaping necessary, should not happen, or something is wrong in our regex
             }
@@ -235,11 +243,33 @@ class TriGWriter
     }
 
     // ### `_encodeIriOrBlankNode` represents an IRI or blank node
+    private function isTripleTerm($entity): bool
+    {
+        return \is_array($entity) && isset($entity['type']) && 'TripleTerm' === $entity['type'];
+    }
+
+    private function encodeTripleTerm(array $term): string
+    {
+        $value = '<<('.
+            $this->encodeIriOrBlankNode($term['subject']).' '.
+            $this->encodeIriOrBlankNode($term['predicate']).' '.
+            $this->encodeObject($term['object']);
+        if (isset($term['graph']) && '' !== $term['graph'] && null !== $term['graph']) {
+            $value .= ' '.$this->encodeIriOrBlankNode($term['graph']);
+        }
+
+        return $value.')>>';
+    }
+
     private function encodeIriOrBlankNode($entity)
     {
+        if ($this->isTripleTerm($entity)) {
+            return $this->encodeTripleTerm($entity);
+        }
+
         // A blank node or list is represented as-is
         $firstChar = substr($entity, 0, 1);
-        if ('[' === $firstChar || '(' === $firstChar || '_' === $firstChar && ':' === substr($entity, 1, 1)) {
+        if ('<<(' === substr($entity, 0, 3) || '[' === $firstChar || '(' === $firstChar || '_' === $firstChar && ':' === substr($entity, 1, 1)) {
             return $entity;
         }
         // Escape special characters
@@ -279,14 +309,14 @@ class TriGWriter
     }
 
     // ### `_encodeSubject` represents a subject
-    private function encodeSubject(string $subject)
+    private function encodeSubject($subject)
     {
-        if ('"' === $subject[0]) {
+        if (!$this->isTripleTerm($subject) && '"' === $subject[0]) {
             throw new \Exception('A literal as subject is not allowed: '.$subject);
         }
 
         // Don't treat identical blank nodes as repeating subjects
-        if ('[' === $subject[0]) {
+        if (!$this->isTripleTerm($subject) && '[' === $subject[0]) {
             $this->subject = ']';
         }
 
@@ -294,8 +324,12 @@ class TriGWriter
     }
 
     // ### `_encodePredicate` represents a predicate
-    private function encodePredicate(string $predicate)
+    private function encodePredicate($predicate)
     {
+        if ($this->isTripleTerm($predicate)) {
+            throw new \Exception('A triple term as predicate is not allowed.');
+        }
+
         if ('"' === $predicate[0]) {
             throw new \Exception('A literal as predicate is not allowed: '.$predicate);
         }
@@ -310,6 +344,10 @@ class TriGWriter
      */
     private function encodeObject($object)
     {
+        if ($this->isTripleTerm($object)) {
+            return $this->encodeTripleTerm($object);
+        }
+
         // Represent an IRI or blank node
         if ('"' !== $object[0]) {
             return $this->encodeIriOrBlankNode($object);
@@ -339,7 +377,7 @@ class TriGWriter
          *      callers to split S, P, O, G as different paramaters. This change also allows better
          *      static code analysis
          */
-        if (\is_array($subject)) {
+        if (\is_array($subject) && !$this->isTripleTerm($subject)) {
             $g = isset($subject['graph']) ? $subject['graph'] : null;
             \call_user_func($this->writeTriple, $subject['subject'], $subject['predicate'], $subject['object'], $g, $predicate);
         }
@@ -383,6 +421,10 @@ class TriGWriter
      */
     public function addPrefixes(array $prefixes): void
     {
+        if ($this->lineMode) {
+            return;
+        }
+
         // Add all useful prefixes
         $hasPrefixes = false;
         foreach ($prefixes as $prefix => $iri) {

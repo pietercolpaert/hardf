@@ -15,6 +15,7 @@ class Util
     const XSDDOUBLE = self::XSD.'double';
     const XSDBOOLEAN = self::XSD.'boolean';
     const RDFLANGSTRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#langString';
+    const RDFDIRLANGSTRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#dirLangString';
 
     /**
      * Tests whether the given entity (triple object) represents an IRI.
@@ -72,14 +73,14 @@ class Util
     // Gets the type of a literal in the N3 library
     public static function getLiteralType(string $literal): string
     {
-        preg_match('/^".*"(?:\^\^([^"]+)|(@)[^@"]+)?$/s', $literal, $match); //TODO: somehow the copied regex did not work. To be checked. Contained [^] instead of the .
+        preg_match('/^".*"(?:\^\^([^"]+)|@([^@"]+))?$/s', $literal, $match); //TODO: somehow the copied regex did not work. To be checked. Contained [^] instead of the .
         if (empty($match)) {
             throw new \Exception($literal.' is not a literal');
         }
         if (!empty($match[1])) {
             return $match[1];
         } else {
-            return !empty($match[2]) ? self::RDFLANGSTRING : self::XSDSTRING;
+            return !empty($match[2]) ? (preg_match('/--(?:ltr|rtl)$/i', $match[2]) ? self::RDFDIRLANGSTRING : self::RDFLANGSTRING) : self::XSDSTRING;
         }
     }
 
@@ -87,6 +88,20 @@ class Util
     public static function getLiteralLanguage(string $literal): string
     {
         preg_match('/^".*"(?:@([^@"]+)|\^\^[^"]+)?$/s', $literal, $match);
+        if (empty($match)) {
+            throw new \Exception($literal.' is not a literal');
+        }
+
+        if (!isset($match[1])) {
+            return '';
+        }
+
+        return preg_replace('/--(?:ltr|rtl)$/', '', strtolower($match[1]));
+    }
+
+    public static function getLiteralDirection(string $literal): string
+    {
+        preg_match('/^".*"(?:@[^@"]+--(ltr|rtl)|\^\^[^"]+)?$/is', $literal, $match);
         if (empty($match)) {
             throw new \Exception($literal.' is not a literal');
         }

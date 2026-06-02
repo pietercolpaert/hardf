@@ -1,0 +1,552 @@
+<?php
+
+namespace Tests\hardf;
+
+use PHPUnit\Framework\TestCase;
+use pietercolpaert\hardf\TriGParser;
+use pietercolpaert\hardf\TriGWriter;
+use pietercolpaert\hardf\Util;
+
+class N3JsCompatibilityTest extends TestCase
+{
+    const RDF_REIFIES = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies';
+
+    /**
+     * @param string|array<string, mixed> $object
+     *
+     * @return array<string, mixed>
+     */
+    private function tripleTerm($subject, $predicate, $object, $graph = null): array
+    {
+        $term = ['type' => 'TripleTerm', 'subject' => $subject, 'predicate' => $predicate, 'object' => $object];
+        if (null !== $graph) {
+            $term['graph'] = $graph;
+        }
+
+        return $term;
+    }
+
+    /**
+     * @return array<int, array<string, string>>
+     */
+    private function parse(string $input, ?TriGParser $parser = null): array
+    {
+        $parser = $parser ?: new TriGParser();
+        $parser->_resetBlankNodeIds();
+        $results = [];
+
+        $parser->parse($input, function ($error, $triple = null) use (&$results): void {
+            if ($error) {
+                throw $error;
+            }
+            if ($triple) {
+                $results[] = $triple;
+            }
+        });
+
+        return $results;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $expected
+     */
+    private function assertParsesTriples(array $expected, string $input): void
+    {
+        $expectedJson = array_map('json_encode', $expected);
+        $actualJson = array_map('json_encode', $this->parse($input));
+        sort($expectedJson);
+        sort($actualJson);
+
+        $this->assertEquals($expectedJson, $actualJson);
+    }
+
+    public function testParserIgnoresInlineComments(): void
+    {
+        $this->assertEquals([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => 'd', 'predicate' => 'e', 'object' => 'f', 'graph' => ''],
+            ['subject' => 'g', 'predicate' => 'h', 'object' => 'i', 'graph' => ''],
+        ], $this->parse("<a> <b> #comment2\n <c> . \n<d> <e> <f>.\n<g> <h> <i>."));
+    }
+
+    public function testParserAcceptsLanguageTagsWithDigitSubtags(): void
+    {
+        $this->assertEquals([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => '"Hello"@es-419', 'graph' => ''],
+        ], $this->parse('<a> <b> "Hello"@es-419.'));
+    }
+
+    public function testParserAcceptsDirectionalLanguageTags(): void
+    {
+        $this->assertEquals([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => '"Hello"@en--rtl', 'graph' => ''],
+        ], $this->parse('<a> <b> "Hello"@EN--RTL.'));
+    }
+
+    public function testParserRejectsLangStringDatatypeWithoutLanguageTag(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Detected illegal (directional) languaged-tagged string with explicit datatype on line 1.');
+
+        $this->parse('<a> <b> "Hello"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#langString>.');
+    }
+
+    public function testParserRejectsOversizedLanguageSubtag(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Detected language tag with subtag longer than 8 characters on line 1.');
+
+        $this->parse('<a> <b> "Hello"@cantbethislong.');
+    }
+
+    public function testParserAcceptsVersionDeclarations(): void
+    {
+        $this->assertEquals([
+            ['subject' => 'ex:a', 'predicate' => 'ex:b', 'object' => 'ex:c', 'graph' => ''],
+        ], $this->parse("VERSION \"1.2\"\nversion \"1.2\"\n@version \"1.2\" .\n<ex:a> <ex:b> <ex:c> ."));
+    }
+
+    public function testParserAcceptsTripleTermsAsObjects(): void
+    {
+        $this->assertEquals([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], $this->parse('<a> <b> <<(<a> <b> <c>)>>.'));
+    }
+
+    public function testParserAcceptsTripleTermsWithLiteralObjects(): void
+    {
+        $this->assertEquals([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => $this->tripleTerm('_:b0_a', 'b', '"c"^^d'), 'graph' => ''],
+        ], $this->parse('<a> <b> <<(_:a <b> "c"^^<d>)>>.'));
+    }
+
+    public function testParserRejectsTripleTermsAsSubjects(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Disallowed triple term as subject on line 1.');
+
+        $this->parse('<<(<a> <b> <c>)>> <b> <c>.');
+    }
+
+    public function testParserAcceptsStandaloneReifiedTriple(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<<<a> <b> <c>>>.');
+    }
+
+    public function testParserAcceptsTripleAndStandaloneReifiedTriple(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<a> <b> <c> . <<<a> <b> <c>>> .');
+    }
+
+    public function testParserAcceptsStandaloneReifiedTripleAndTriple(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+            ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+        ], '<<<a> <b> <c>>>. <a> <b> <c>.');
+    }
+
+    public function testParserAcceptsReifiedTripleAsSubject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<<<a> <b> <c>>> <b> <c>.');
+    }
+
+    public function testParserAcceptsReifiedTripleWithBlankNodes(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('_:b0_a', 'b', '_:b0_c'), 'graph' => ''],
+        ], '<<_:a <b> _:c>> <b> <c>.');
+    }
+
+    public function testParserAcceptsReifiedTripleWithLiteralObject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('_:b0_a', 'b', '"c"^^d'), 'graph' => ''],
+        ], '<<_:a <b> "c"^^<d>>> <b> <c>.');
+    }
+
+    public function testParserAcceptsExplicitIriReifierInSubject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'iri', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => 'iri', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<<<a> <b> <c> ~ <iri>>> <b> <c>.');
+    }
+
+    public function testParserAcceptsExplicitBlankNodeReifierInSubject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0_b1', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0_b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<<<a> <b> <c> ~ _:b1>> <b> <c>.');
+    }
+
+    public function testParserAcceptsReifiedTripleAsObject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => '_:b0', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<a> <b> <<<a> <b> <c>>>.');
+    }
+
+    public function testParserAcceptsExplicitIriReifierInObject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => 'iri', 'graph' => ''],
+            ['subject' => 'iri', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<a> <b> <<<a> <b> <c> ~ <iri>>>.');
+    }
+
+    public function testParserAcceptsExplicitBlankNodeReifierInObject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => '_:b0_b1', 'graph' => ''],
+            ['subject' => '_:b0_b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<a> <b> <<<a> <b> <c> ~ _:b1>>.');
+    }
+
+    public function testParserAcceptsNestedTripleTermsInObject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'd', 'predicate' => 'e', 'object' => $this->tripleTerm('f', 'g', $this->tripleTerm('a', 'b', 'c')), 'graph' => ''],
+        ], '<d> <e> <<(<f> <g> <<(<a> <b> <c>)>>)>>.');
+    }
+
+    public function testParserAcceptsNestedReifiedTriplesInObject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'd', 'predicate' => 'e', 'object' => '_:b1', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('f', 'g', '_:b0'), 'graph' => ''],
+        ], '<d> <e> <<<f> <g> <<<a> <b> <c>>>>>.');
+    }
+
+    public function testParserAcceptsNestedReifiedTriplesInSubject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b1', 'predicate' => 'd', 'object' => 'e', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('_:b0', 'f', 'g'), 'graph' => ''],
+        ], '<<<<<a> <b> <c>>> <f> <g>>> <d> <e>.');
+    }
+
+    public function testParserAcceptsNestedReifiedTriplesInSubjectAndObject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b1', 'predicate' => 'd', 'object' => 'e', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('f', 'g', '_:b0'), 'graph' => ''],
+        ], '<<<f> <g> <<<a> <b> <c>>>>> <d> <e>.');
+    }
+
+    public function testParserAcceptsNestedReifiedTriplesInObjectAndSubject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'd', 'predicate' => 'e', 'object' => '_:b1', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('_:b0', 'f', 'g'), 'graph' => ''],
+        ], '<d> <e> <<<<<a> <b> <c>>> <f> <g>>>.');
+    }
+
+    public function testParserAcceptsSharedReifiedTripleSubject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'd', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], "<<<a> <b> <c>>> <b> <c>;\n<d> <c>.");
+    }
+
+    public function testParserAcceptsSharedReifiedTripleSubjectAndObject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'd', 'object' => '_:b1', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], "<<<a> <b> <c>>> <b> <c>;\n<d> <<<a> <b> <c>>>.");
+    }
+
+    public function testParserPutsNestedReifiedTriplesInDefaultGraph(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => 'g'],
+            ['subject' => '_:b0', 'predicate' => 'd', 'object' => 'e', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], "<a> <b> <c> <g>.\n<<<a> <b> <c>>> <d> <e>.");
+    }
+
+    public function testParserAcceptsSubjectListContainingReifiedTriples(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0', 'predicate' => 'a', 'object' => 'b', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'object' => '_:b1', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'object' => '_:b2', 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a1', 'b1', 'c1'), 'graph' => ''],
+            ['subject' => '_:b2', 'predicate' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'object' => '_:b3', 'graph' => ''],
+            ['subject' => '_:b2', 'predicate' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'object' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil', 'graph' => ''],
+            ['subject' => '_:b3', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a2', 'b2', 'c2'), 'graph' => ''],
+        ], '(<< <a1> <b1> <c1> >> << <a2> <b2> <c2> >>) <a> <b>.');
+    }
+
+    public function testParserAcceptsObjectListContainingReifiedTriples(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => '_:b0', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'object' => '_:b1', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'object' => '_:b2', 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a1', 'b1', 'c1'), 'graph' => ''],
+            ['subject' => '_:b2', 'predicate' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'object' => '_:b3', 'graph' => ''],
+            ['subject' => '_:b2', 'predicate' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'object' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil', 'graph' => ''],
+            ['subject' => '_:b3', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a2', 'b2', 'c2'), 'graph' => ''],
+        ], '<a> <b> (<< <a1> <b1> <c1> >> << <a2> <b2> <c2> >>).');
+    }
+
+    public function testParserAcceptsAnnotationSyntaxWithOnePredicateObject(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<a> <b> <c> {| <b> <c> |}.');
+    }
+
+    public function testParserAcceptsAnnotationSyntaxWithoutReifier(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<a> <b> <c> ~ .');
+    }
+
+    public function testParserAcceptsAnnotationSyntaxWithExplicitReifier(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => 'iri', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => 'iri', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<a> <b> <c> ~ <iri> {| <b> <c> |}.');
+    }
+
+    public function testParserAcceptsAnnotationSyntaxWithTwoPredicateObjects(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'b1', 'object' => 'c1', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'b2', 'object' => 'c2', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<a> <b> <c> {| <b1> <c1>; <b2> <c2> |}.');
+    }
+
+    public function testParserAcceptsMultipleAnnotationBlocks(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => 'b1', 'object' => 'c1', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => 'b2', 'object' => 'c2', 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<a> <b> <c> {| <b1> <c1> |} {| <b2> <c2> |}.');
+    }
+
+    public function testParserAcceptsAnnotationSyntaxInGraph(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => 'G'],
+            ['subject' => '_:b0', 'predicate' => 'b', 'object' => 'c', 'graph' => 'G'],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+        ], '<G> { <a> <b> <c> {| <b> <c> |}. }');
+    }
+
+    /**
+     * @dataProvider invalidTripleTermSyntaxProvider
+     */
+    public function testParserRejectsInvalidTripleTermSyntax(string $input): void
+    {
+        $this->expectException(\Exception::class);
+
+        $this->parse($input);
+    }
+
+    /**
+     * @return array<int, array<int, string>>
+     */
+    public function invalidTripleTermSyntaxProvider(): array
+    {
+        return [
+            ['<a> <<<b> <c> <d>>> <e>'],
+            ['<<(_:a <b> _:c)>> <b> <c>.'],
+            ['<<(<<(<a> <b> <c>)>> <f> <g>)>> <d> <e>.'],
+            ['<d> <e> <<(<<(<a> <b> <c>)>> <f> <g>.'],
+            ['<d> <e> <<<<<a> <b> <c>>> <f> <g>.'],
+            ['<d> <e> <<(<<(<a> <b> <c> <f> <g>)>>.'],
+            ['<d> <e> <<<<<a> <b> <c> <f> <g>>>.'],
+            ['<d> <e> <<(<<(<a> <b> <c>)>>)>> <f> <g>)>>.'],
+            ['<d> <e> <<<<<a> <b> <c>>>>> <f> <g>>>.'],
+            ['<d> <e> <<(<<(<a> <b> <c>)>> <f> <g>)>>)>>.'],
+            ['<d> <e> <<<<<a> <b> <c>>> <f> <g>>>>>.'],
+            ['<a> <b> <c>)>>.'],
+            ['<a> <b> <c>>>.'],
+            ['<d> <e> <<(<a> <b>)>>.'],
+            ['<d> <e> <<<a> <b>>>.'],
+            ['<<(<a> <b>)>> <d> <e>.'],
+            ['<<<a> <b>>> <d> <e>.'],
+            [')>> <<('],
+            ['>> <<'],
+            ['<<(<a> <b> <c>)>>.'],
+            ['<<<a> <b> <c> <d> <e>>> <a> <b> .'],
+            ['<a> <b> <c> {| |}'],
+            ['<a> <b> <c> {| |} .'],
+            ['<a> <b> <c> {| <b> |}'],
+            ['<a> <b> <c> {| <b1> <c1>; |}'],
+            ['<a> <b> <c> {| <b1> <c1>; <b2> |}'],
+            ['<a> <b> <c> {| <b1> <c1>'],
+            ['<a> <b> <c> {| <b1> <c1>. <a2> <b2> <c2>'],
+            ['<a> <b> <c> |}'],
+        ];
+    }
+
+    public function testWriterSerializesLanguageTagsWithDigitSubtags(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addTriple('a', 'b', '"cde"@qqq-002');
+
+        $this->assertEquals("<a> <b> \"cde\"@qqq-002.\n", $writer->end());
+    }
+
+    public function testWriterSerializesDirectionalLanguageTags(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addTriple('a', 'b', '"cde"@en-us--ltr');
+
+        $this->assertEquals("<a> <b> \"cde\"@en-us--ltr.\n", $writer->end());
+    }
+
+    public function testWriterSerializesTripleTerms(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addTriple('a', 'b', $this->tripleTerm('a', 'b', 'c'));
+
+        $this->assertEquals("<a> <b> <<(<a> <b> <c>)>>.\n", $writer->end());
+    }
+
+    public function testWriterSerializesTripleTermSubjects(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addTriple($this->tripleTerm('a', 'b', 'c'), 'b', 'c');
+
+        $this->assertEquals("<<(<a> <b> <c>)>> <b> <c>.\n", $writer->end());
+    }
+
+    public function testWriterSerializesTripleTermSubjectsWithBlankNodes(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addTriple($this->tripleTerm('_:b1', '_:b2', '_:b3'), 'b', 'c');
+
+        $this->assertEquals("<<(_:b1 _:b2 _:b3)>> <b> <c>.\n", $writer->end());
+    }
+
+    public function testWriterSerializesTripleTermObjectsWithBlankNodes(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addTriple('a', 'b', $this->tripleTerm('_:b1', '_:b2', '_:b3'));
+
+        $this->assertEquals("<a> <b> <<(_:b1 _:b2 _:b3)>>.\n", $writer->end());
+    }
+
+    public function testWriterSerializesTripleTermWithMixedComponents(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addTriple($this->tripleTerm('_:b1', 'b', '"l"'), 'b', 'c');
+
+        $this->assertEquals("<<(_:b1 <b> \"l\")>> <b> <c>.\n", $writer->end());
+    }
+
+    public function testWriterSerializesQuadsWithTripleTermSubject(): void
+    {
+        $writer = new TriGWriter(['format' => 'N-Quads']);
+        $writer->addTriple($this->tripleTerm('a', 'b', 'c'), 'b', 'c', 'g');
+
+        $this->assertEquals("<<(<a> <b> <c>)>> <b> <c> <g>.\n", $writer->end());
+    }
+
+    public function testWriterSerializesQuadsWithTripleTermObject(): void
+    {
+        $writer = new TriGWriter(['format' => 'N-Quads']);
+        $writer->addTriple('a', 'b', $this->tripleTerm('a', 'b', 'c'), 'g');
+
+        $this->assertEquals("<a> <b> <<(<a> <b> <c>)>> <g>.\n", $writer->end());
+    }
+
+    public function testWriterSerializesTripleTermsWithGraphComponent(): void
+    {
+        $writer = new TriGWriter(['format' => 'N-Quads']);
+        $writer->addTriple($this->tripleTerm('a', 'b', 'c', 'g'), 'b', 'c', 'g');
+
+        $this->assertEquals("<<(<a> <b> <c> <g>)>> <b> <c> <g>.\n", $writer->end());
+    }
+
+    public function testWriterSerializesQuadTermObjects(): void
+    {
+        $writer = new TriGWriter(['format' => 'N-Quads']);
+        $writer->addTriple('a', 'b', $this->tripleTerm('a', 'b', 'c', 'g'), 'g');
+
+        $this->assertEquals("<a> <b> <<(<a> <b> <c> <g>)>> <g>.\n", $writer->end());
+    }
+
+    public function testWriterSerializesTripleWithQuadTermObject(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addTriple('a', 'b', $this->tripleTerm('a', 'b', 'c', 'g'));
+
+        $this->assertEquals("<a> <b> <<(<a> <b> <c> <g>)>>.\n", $writer->end());
+    }
+
+    public function testWriterEscapesLowAsciiControlCharacters(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addTriple('a', 'b', '"c'.\chr(0).\chr(1).'"');
+
+        $this->assertEquals("<a> <b> \"c\\u0000\\u0001\".\n", $writer->end());
+    }
+
+    public function testLineModeWriterIgnoresPrefixes(): void
+    {
+        $writer = new TriGWriter(['format' => 'N-Triples', 'prefixes' => ['a' => 'b#']]);
+        $writer->addPrefix('c', 'd#');
+        $writer->addTriple('a', 'b', '"c"');
+
+        $this->assertEquals("<a> <b> \"c\".\n", $writer->end());
+    }
+
+    public function testWriterRejectsWritesAfterEnd(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addTriple('a', 'b', 'c');
+        $writer->end();
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Cannot write because the writer has been closed.');
+
+        $writer->addTriple('d', 'e', 'f');
+    }
+
+    public function testUtilUnderstandsDirectionalLanguageLiterals(): void
+    {
+        $literal = '"Hello"@EN--RTL';
+
+        $this->assertEquals(Util::RDFDIRLANGSTRING, Util::getLiteralType($literal));
+        $this->assertEquals('en', Util::getLiteralLanguage($literal));
+        $this->assertEquals('rtl', Util::getLiteralDirection($literal));
+    }
+}

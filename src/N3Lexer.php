@@ -52,7 +52,7 @@ class N3Lexer
             $this->_tokenize = function ($input, $finalize = true) use ($self) {
                 $tokens = \call_user_func($this->_oldTokenize, $input, $finalize);
                 foreach ($tokens as $token) {
-                    if (!preg_match('/^(?:blank|IRI|prefixed|literal|langcode|type|typeIRI|\.|eof)$/', $token['type'])) {
+                    if (!preg_match('/^(?:blank|IRI|prefixed|literal|langcode|type|typeIRI|tripletermstart|tripletermend|reifiedtriplestart|reifiedtripleend|~|\.|eof)$/', $token['type'])) {
                         throw $self->syntaxError($token['type'], $token['line']);
                     }
                 }
@@ -78,17 +78,17 @@ class N3Lexer
     private $singleQuotedString = '/^"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"(?=[^"\\\\])|^\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\'(?=[^\'\\\\])/';
     //  _tripleQuotedString:       /^""("[^"\\]*(?:(?:\\.|"(?!""))[^"\\]*)*")""|^''('[^'\\]*(?:(?:\\.|'(?!''))[^'\\]*)*')''/,
     private $tripleQuotedString = '/^""("[^\\\\"]*(?:(?:\\\\.|"(?!""))[^\\\\"]*)*")""|^\'\'(\'[^\\\\\']*(?:(?:\\\\.|\'(?!\'\'))[^\\\\\']*)*\')\'\'/';
-    private $langcode = '/^@([a-z]+(?:-[a-z0-9]+)*)(?=[^a-z0-9\\-])/i';
+    private $langcode = '/^@([a-z]+(?:-[a-z0-9]+)*(?:--(?:ltr|rtl))?)(?=[^a-z0-9\\-])/i';
     private $prefix = '/^((?:[A-Za-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)?:(?=[#\\s<])/';
     private $prefixed = "/^((?:[A-Za-z\\xc0-\\xd6\\xd8-\\xf6\\xf8-\\x{02ff}\\x{0370}-\\x{037d}\\x{037f}-\\x{1fff}\\x{200c}\\x{200d}\\x{2070}-\\x{218f}\\x{2c00}-\\x{2fef}\\x{3001}-\\x{d7ff}\\x{f900}-\\x{fdcf}\\x{fdf0}-\\x{fffd}])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6\\xf8-\\x{037d}\\x{037f}-\\x{1fff}\\x{200c}\\x{200d}\\x{203f}\\x{2040}\\x{2070}-\\x{218f}\\x{2c00}-\\x{2fef}\\x{3001}-\\x{d7ff}\\x{f900}-\\x{fdcf}\\x{fdf0}-\\x{fffd}])*)?:((?:(?:[0-:A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6\\xf8-\\x{02ff}\\x{0370}-\\x{037d}\\x{037f}-\\x{1fff}\\x{200c}\\x{200d}\\x{2070}-\\x{218f}\\x{2c00}-\\x{2fef}\\x{3001}-\\x{d7ff}\\x{f900}-\\x{fdcf}\\x{fdf0}-\\x{fffd}]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~])(?:(?:[\\.\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6\\xf8-\\x{037d}\\x{037f}-\\x{1fff}\\x{200c}\\x{200d}\\x{203f}\\x{2040}\\x{2070}-\\x{218f}\\x{2c00}-\\x{2fef}\\x{3001}-\\x{d7ff}\\x{f900}-\\x{fdcf}\\x{fdf0}-\\x{fffd}]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~])*(?:[\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6\\xf8-\\x{037d}\\x{037f}-\\x{1fff}\\x{200c}\\x{200d}\\x{203f}\\x{2040}\\x{2070}-\\x{218f}\\x{2c00}-\\x{2fef}\\x{3001}-\\x{d7ff}\\x{f900}-\\x{fdcf}\\x{fdf0}-\\x{fffd}]|%[0-9a-fA-F]{2}|\\\\[!#-\\/;=?\\-@_~]))?)?)(?:[ \\t]+|(?=\\.?[,;!\\^\\s#()\\[\\]\\{\\}\"'<]))/u";
 
     private $variable = '/^\\?(?:(?:[A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6])(?:[\\-0-:A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)(?=[.,;!\\^\\s#()\\[\\]\\{\\}"\'<])/';
 
-    private $blank = '/^_:((?:[0-9A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)(?:[ \\t]+|(?=\\.?[,;:\\s#()\\[\\]\\{\\}"\'<]))/';
+    private $blank = '/^_:((?:[0-9A-Z_a-z\\xc0-\\xd6\\xd8-\\xf6])(?:\\.?[\\-0-9A-Z_a-z\\xb7\\xc0-\\xd6\\xd8-\\xf6])*)(?:[ \\t]+|(?=\\.?[,;:\\s#()\\[\\]\\{\\}"\'<>]))/';
     private $number = "/^[\\-+]?(?:\\d+\\.?\\d*([eE](?:[\\-\\+])?\\d+)|\\d*\\.?\\d+)(?=[.,;:\\s#()\\[\\]\\{\\}\"'<])/";
     private $boolean = '/^(?:true|false)(?=[.,;\\s#()\\[\\]\\{\\}"\'<])/';
-    private $keyword = '/^@[a-z]+(?=[\\s#<])/i';
-    private $sparqlKeyword = '/^(?:PREFIX|BASE|GRAPH)(?=[\\s#<])/i';
+    private $keyword = '/^@(?:prefix|base|forSome|forAll|version)(?=[\\s#<"])/i';
+    private $sparqlKeyword = '/^(?:PREFIX|BASE|GRAPH|VERSION)(?=[\\s#<"])/i';
     private $shortPredicates = '/^a(?=\\s+|<)/';
     private $newline = '/^[ \\t]*(?:#[^\\n\\r]*)?(?:\\r\\n|\\n|\\r)[ \\t]*/';
     private $comment = '/#([^\\n\\r]*)/';
@@ -191,6 +191,18 @@ class N3Lexer
                     // Fall through in case the type is an IRI
                     // no break
                 case '<':
+                    if (\strlen($input) >= 3 && '<<(' === substr($input, 0, 3)) {
+                        $type = 'tripletermstart';
+                        $matchLength = 3;
+                        break;
+                    }
+
+                    if (\strlen($input) >= 2 && '<<' === substr($input, 0, 2)) {
+                        $type = 'reifiedtriplestart';
+                        $matchLength = 2;
+                        break;
+                    }
+
                     // Try to find a full IRI without escape sequences
                     if (preg_match($this->unescapedIri, $input, $match)) {
                         $type = 'IRI';
@@ -264,15 +276,15 @@ class N3Lexer
                     break;
 
                 case '@':
-                    // Try to find a language code
-                    if ('literal' === $this->prevTokenType && preg_match($this->langcode, $input, $match)) {
-                        $type = 'langcode';
-                        $value = $match[1];
+                    // Try to find a keyword
+                    if (preg_match($this->keyword, $input, $match)) {
+                        $type = $match[0];
                     }
 
-                    // Try to find a keyword
-                    elseif (preg_match($this->keyword, $input, $match)) {
-                        $type = $match[0];
+                    // Try to find a language code
+                    elseif ('literal' === $this->prevTokenType && preg_match($this->langcode, $input, $match)) {
+                        $type = 'langcode';
+                        $value = $match[1];
                     }
                     break;
 
@@ -310,6 +322,8 @@ class N3Lexer
                 case 'P':
                 case 'G':
                 case 'g':
+                case 'V':
+                case 'v':
                     // Try to find a SPARQL-style keyword
                     if (preg_match($this->sparqlKeyword, $input, $match)) {
                         $type = strtoupper($match[0]);
@@ -362,12 +376,44 @@ class N3Lexer
                 case '[':
                 case ']':
                 case '(':
-                case ')':
-                case '{':
                 case '}':
+                    $matchLength = 1;
+                    $type = $firstChar;
+                    break;
+                case '|':
+                    if (\strlen($input) >= 2 && '|}' === substr($input, 0, 2)) {
+                        $type = 'annotationend';
+                        $matchLength = 2;
+                    }
+                    break;
+                case '~':
                     // The next token is punctuation
                     $matchLength = 1;
                     $type = $firstChar;
+                    break;
+                case '{':
+                    if (\strlen($input) >= 2 && '{|' === substr($input, 0, 2)) {
+                        $type = 'annotationstart';
+                        $matchLength = 2;
+                    } else {
+                        $matchLength = 1;
+                        $type = $firstChar;
+                    }
+                    break;
+                case ')':
+                    if (\strlen($input) >= 3 && ')>>' === substr($input, 0, 3)) {
+                        $type = 'tripletermend';
+                        $matchLength = 3;
+                    } else {
+                        $matchLength = 1;
+                        $type = $firstChar;
+                    }
+                    break;
+                case '>':
+                    if (\strlen($input) >= 2 && '>>' === substr($input, 0, 2)) {
+                        $type = 'reifiedtripleend';
+                        $matchLength = 2;
+                    }
                     break;
                 default:
                     $inconclusive = true;
