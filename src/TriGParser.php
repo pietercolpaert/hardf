@@ -105,6 +105,7 @@ class TriGParser
     private $subject;
     private $supportsNamedGraphs;
     private $supportsQuads;
+    private $supportsReifiedTriples;
     private $triple;
     private $tripleCallback;
     private $tripleTerm;
@@ -151,6 +152,7 @@ class TriGParser
             $this->readPredicateOrNamedGraph = $this->readPredicate;
         }
         $this->supportsQuads = !($isTurtle || $isTriG || $isNTriples || $isN3);
+        $this->supportsReifiedTriples = !$isLineMode;
         // Disable relative IRIs in N-Triples or N-Quads mode
         if ($isLineMode) {
             $this->base = '';
@@ -187,6 +189,27 @@ class TriGParser
     public function _resetBlankNodeIds()
     {
         $this->blankNodeCount = 0;
+    }
+
+    private function readLanguageTag($token): ?string
+    {
+        if (preg_match('/--/', $token['value']) && !preg_match('/--(?:ltr|rtl)$/', $token['value'])) {
+            \call_user_func($this->error, 'Detected illegal base direction in language tag', $token);
+
+            return null;
+        }
+
+        $language = strtolower($token['value']);
+        $languageOnly = preg_replace('/--(?:ltr|rtl)$/', '', $language);
+        foreach (explode('-', $languageOnly) as $subtag) {
+            if (\strlen($subtag) > 8) {
+                \call_user_func($this->error, 'Detected language tag with subtag longer than 8 characters', $token);
+
+                return null;
+            }
+        }
+
+        return $language;
     }
 
     // ### `_setBase` sets the base IRI to resolve relative IRIs
@@ -390,6 +413,9 @@ class TriGParser
                 case 'tripletermstart':
                     return \call_user_func($this->error, 'Disallowed triple term as subject', $token);
                 case 'reifiedtriplestart':
+                    if (!$this->supportsReifiedTriples) {
+                        return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                    }
                     $this->saveContext('reifiedTripleSubject', $this->graph, null, null, null);
                     $this->tripleTermMode = 'reifiedSubject';
                     $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
@@ -464,6 +490,9 @@ class TriGParser
 
                 return $this->readTripleTermSubject;
                 case 'reifiedtriplestart':
+                if (!$this->supportsReifiedTriples) {
+                    return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                }
                 $this->saveContext('reifiedTripleObject', $this->graph, $this->subject, $this->predicate, null);
                 $this->tripleTermMode = 'reifiedObject';
                 $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
@@ -630,6 +659,9 @@ class TriGParser
                     $next = $this->readListItemDataTypeOrLang;
                     break;
                 case 'reifiedtriplestart':
+                    if (!$this->supportsReifiedTriples) {
+                        return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                    }
                     if (null === $list) {
                         $list = '_:b'.$this->blankNodeCount++;
                         $this->subject = $list;
@@ -722,14 +754,11 @@ class TriGParser
                     break;
                     // Add an "@lang" suffix for language tags
                 case 'langcode':
-                    $suffix = true;
-                    $language = strtolower($token['value']);
-                    $languageOnly = preg_replace('/--(?:ltr|rtl)$/', '', $language);
-                    foreach (explode('-', $languageOnly) as $subtag) {
-                        if (\strlen($subtag) > 8) {
-                            return \call_user_func($this->error, 'Detected language tag with subtag longer than 8 characters', $token);
-                        }
+                    $language = $this->readLanguageTag($token);
+                    if (null === $language) {
+                        return null;
                     }
+                    $suffix = true;
                     $this->object .= '@'.$language;
                     break;
             }
@@ -818,6 +847,9 @@ class TriGParser
 
                     return $this->readTripleTermSubject;
                 case 'reifiedtriplestart':
+                    if (!$this->supportsReifiedTriples) {
+                        return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                    }
                     $this->tripleTermStack[] = ['term' => $this->tripleTerm, 'mode' => $this->tripleTermMode, 'position' => 'object'];
                     $this->tripleTermMode = 'reifiedNested';
                     $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
@@ -845,12 +877,9 @@ class TriGParser
 
                     return $this->readTripleTermEnd;
                 case 'langcode':
-                    $language = strtolower($token['value']);
-                    $languageOnly = preg_replace('/--(?:ltr|rtl)$/', '', $language);
-                    foreach (explode('-', $languageOnly) as $subtag) {
-                        if (\strlen($subtag) > 8) {
-                            return \call_user_func($this->error, 'Detected language tag with subtag longer than 8 characters', $token);
-                        }
+                    $language = $this->readLanguageTag($token);
+                    if (null === $language) {
+                        return null;
                     }
                     $this->tripleTerm['object'] .= '@'.$language;
 
@@ -873,7 +902,7 @@ class TriGParser
             }
 
             $term = \call_user_func($makeTripleTerm, $this->tripleTerm);
-            \call_user_func($this->triple, $reifier, self::RDF_REIFIES, $term, null);
+            \call_user_func($this->triple, $reifier, self::RDF_REIFIES, $term, $this->graph);
 
             if (\count($this->tripleTermStack)) {
                 $frame = array_pop($this->tripleTermStack);
@@ -928,6 +957,9 @@ class TriGParser
             if ('reifiedtriplestart' === $token['type'] || 'tripletermstart' === $token['type']) {
                 return \call_user_func($this->error, 'Expected entity but got <<', $token);
             }
+            if ('blank' === $token['type']) {
+                return \call_user_func($this->error, 'Disallowed blank node as reified triple predicate', $token);
+            }
             if ('abbreviation' === $token['type']) {
                 $this->tripleTerm['predicate'] = $token['value'];
             } else {
@@ -953,6 +985,9 @@ class TriGParser
 
                     return $this->readTripleTermSubject;
                 case 'reifiedtriplestart':
+                    if (!$this->supportsReifiedTriples) {
+                        return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                    }
                     $this->tripleTermStack[] = ['term' => $this->tripleTerm, 'mode' => $this->tripleTermMode, 'position' => 'object'];
                     $this->tripleTermMode = 'reifiedNested';
                     $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
@@ -980,12 +1015,9 @@ class TriGParser
 
                     return $this->readReifiedTripleReifierOrEnd;
                 case 'langcode':
-                    $language = strtolower($token['value']);
-                    $languageOnly = preg_replace('/--(?:ltr|rtl)$/', '', $language);
-                    foreach (explode('-', $languageOnly) as $subtag) {
-                        if (\strlen($subtag) > 8) {
-                            return \call_user_func($this->error, 'Detected language tag with subtag longer than 8 characters', $token);
-                        }
+                    $language = $this->readLanguageTag($token);
+                    if (null === $language) {
+                        return null;
                     }
                     $this->tripleTerm['object'] .= '@'.$language;
 
@@ -1033,7 +1065,7 @@ class TriGParser
             $this->annotationReifier = $reifier ?: '_:b'.$this->blankNodeCount++;
             $this->annotationHadStatement = false;
             if (!$this->annotationPendingReifier) {
-                \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, null);
+                \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, $this->annotationGraph);
             }
             $this->annotationPendingReifier = false;
 
@@ -1092,12 +1124,9 @@ class TriGParser
 
                     return $this->readAnnotationPunctuation;
                 case 'langcode':
-                    $language = strtolower($token['value']);
-                    $languageOnly = preg_replace('/--(?:ltr|rtl)$/', '', $language);
-                    foreach (explode('-', $languageOnly) as $subtag) {
-                        if (\strlen($subtag) > 8) {
-                            return \call_user_func($this->error, 'Detected language tag with subtag longer than 8 characters', $token);
-                        }
+                    $language = $this->readLanguageTag($token);
+                    if (null === $language) {
+                        return null;
                     }
                     $this->object .= '@'.$language;
 
@@ -1125,7 +1154,7 @@ class TriGParser
         $this->readAnnotationReifier = function ($token) {
             if ('.' === $token['type']) {
                 $this->annotationReifier = '_:b'.$this->blankNodeCount++;
-                \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, null);
+                \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, $this->annotationGraph);
                 $this->subject = null;
 
                 return $this->readInTopContext;
@@ -1136,7 +1165,7 @@ class TriGParser
                 throw $this->getNoBaseUriException('annotation reifier', $token['line']);
             }
             $this->annotationReifier = $reifier;
-            \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, null);
+            \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, $this->annotationGraph);
             $this->annotationPendingReifier = true;
 
             return $this->readAfterAnnotation;

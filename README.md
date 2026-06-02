@@ -288,6 +288,43 @@ curl -H "accept: application/trig" http://fragments.dbpedia.org/2015/en | php bi
 curl -H "accept: application/trig" http://fragments.dbpedia.org/2015/en | php bin/convert.php trig n-triples
 ```
 
+## RDF Working Group Test Suites
+
+The official RDF Working Group test manifests live in [`w3c/rdf-tests`](https://github.com/w3c/rdf-tests). RDF 1.2 manifests are available under [`rdf/rdf12`](https://github.com/w3c/rdf-tests/tree/main/rdf/rdf12), including Turtle, TriG, N-Triples, and N-Quads suites.
+
+This repository includes an optional [`rdf-test-suite.js`](https://github.com/rubensworks/rdf-test-suite.js) bridge in `spec/`. The JavaScript runner loads the W3C manifests, and `spec/hardf-rdf-test-engine.js` delegates parsing to `spec/hardf-rdf-test-parser.php`.
+
+Install the optional Node dependencies:
+
+```bash
+npm install
+```
+
+Run individual RDF 1.2 leaf manifests:
+
+```bash
+npm run rdf12:ntriples:syntax
+npm run rdf12:nquads:syntax
+npm run rdf12:turtle:syntax
+npm run rdf12:turtle:eval
+npm run rdf12:trig:syntax
+npm run rdf12:trig:eval
+```
+
+Or run grouped compliance reports that also include the relevant RDF 1.1 parser manifests:
+
+```bash
+npm run rdf12:ntriples
+npm run rdf12:nquads
+npm run rdf12:turtle
+npm run rdf12:trig
+npm run rdf12
+```
+
+The RDF 1.2 N-Triples and N-Quads syntax leaf manifests pass with this bridge. The grouped N-Triples and N-Quads commands still report some RDF 1.1 legacy parser failures. The RDF 1.2 root manifests also include C14N tests, but `rdf-test-suite.js` does not currently provide handlers for the RDF 1.2 C14N test types.
+
+RDF/XML and RDF semantics manifests are not wired because hardf does not implement RDF/XML parsing or entailment. The Turtle and TriG RDF 1.2 syntax/eval manifests are useful as compliance reports, but currently still expose remaining hardf gaps around some annotation, blank-node, and `VERSION` negative cases.
+
 ## Performance
 
 We compared the performance on two turtle files, and parsed it with the EasyRDF library in PHP, the N3.js library for NodeJS and with Hardf. These were the results:

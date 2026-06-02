@@ -1,0 +1,26 @@
+{
+  "name": "hardf-spec-tests",
+  "private": true,
+  "description": "Optional RDF Working Group spec compliance runner for hardf",
+  "scripts": {
+    "rdf11:ntriples": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-n-triples/manifest.ttl -c .rdf-test-suite-cache/ -o summary",
+    "rdf11:nquads": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-n-quads/manifest.ttl -c .rdf-test-suite-cache/ -o summary",
+    "rdf11:turtle": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-turtle/manifest.ttl -c .rdf-test-suite-cache/ -o summary",
+    "rdf11:trig": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-trig/manifest.ttl -c .rdf-test-suite-cache/ -o summary",
+    "rdf12:ntriples:syntax": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-n-triples/syntax/manifest.ttl -c .rdf-test-suite-cache/ -o summary",
+    "rdf12:nquads:syntax": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-n-quads/syntax/manifest.ttl -c .rdf-test-suite-cache/ -o summary",
+    "rdf12:turtle:syntax": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-turtle/syntax/manifest.ttl -c .rdf-test-suite-cache/ -o summary",
+    "rdf12:turtle:eval": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-turtle/eval/manifest.ttl -c .rdf-test-suite-cache/ -o summary",
+    "rdf12:trig:syntax": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-trig/syntax/manifest.ttl -c .rdf-test-suite-cache/ -o summary",
+    "rdf12:trig:eval": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-trig/eval/manifest.ttl -c .rdf-test-suite-cache/ -o summary",
+    "rdf12:ntriples": "npm run rdf12:ntriples:syntax && npm run rdf11:ntriples",
+    "rdf12:nquads": "npm run rdf12:nquads:syntax && npm run rdf11:nquads",
+    "rdf12:turtle": "npm run rdf12:turtle:syntax && npm run rdf12:turtle:eval && npm run rdf11:turtle",
+    "rdf12:trig": "npm run rdf12:trig:syntax && npm run rdf12:trig:eval && npm run rdf11:trig",
+    "rdf12": "npm run rdf12:ntriples && npm run rdf12:nquads && npm run rdf12:turtle && npm run rdf12:trig"
+  },
+  "devDependencies": {
+    "n3": "^2.0.3",
+    "rdf-test-suite": "^2.1.6"
+  }
+}

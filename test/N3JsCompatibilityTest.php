@@ -80,7 +80,15 @@ class N3JsCompatibilityTest extends TestCase
     {
         $this->assertEquals([
             ['subject' => 'a', 'predicate' => 'b', 'object' => '"Hello"@en--rtl', 'graph' => ''],
-        ], $this->parse('<a> <b> "Hello"@EN--RTL.'));
+        ], $this->parse('<a> <b> "Hello"@EN--rtl.'));
+    }
+
+    public function testParserRejectsUppercaseBaseDirection(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Detected illegal base direction in language tag on line 1.');
+
+        $this->parse('<a> <b> "Hello"@en--RTL.');
     }
 
     public function testParserRejectsLangStringDatatypeWithoutLanguageTag(): void
@@ -165,6 +173,14 @@ class N3JsCompatibilityTest extends TestCase
             ['subject' => '_:b0', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
             ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('_:b0_a', 'b', '_:b0_c'), 'graph' => ''],
         ], '<<_:a <b> _:c>> <b> <c>.');
+    }
+
+    public function testParserRejectsBlankNodePredicateInReifiedTriple(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Disallowed blank node as reified triple predicate on line 1.');
+
+        $this->parse('<<<a> _:b <c>>> <b> <c>.');
     }
 
     public function testParserAcceptsReifiedTripleWithLiteralObject(): void
@@ -364,8 +380,34 @@ class N3JsCompatibilityTest extends TestCase
         $this->assertParsesTriples([
             ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => 'G'],
             ['subject' => '_:b0', 'predicate' => 'b', 'object' => 'c', 'graph' => 'G'],
-            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', 'c'), 'graph' => 'G'],
         ], '<G> { <a> <b> <c> {| <b> <c> |}. }');
+    }
+
+    public function testParserAcceptsReifiedTripleSubjectWithPrefixedNamesInGraph(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0', 'predicate' => 'http://example/q', 'object' => 'http://example/z', 'graph' => 'http://example/G'],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('http://example/s', 'http://example/p', 'http://example/o'), 'graph' => 'http://example/G'],
+        ], "PREFIX : <http://example/>\n\n:G {<<:s :p :o>> :q :z .}");
+    }
+
+    public function testParserRejectsReifiedTriplesInNTriplesMode(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Disallowed reified triple on line 1.');
+
+        $this->parse('<<<a> <b> <c>>> <b> <c>.', new TriGParser(['format' => 'N-Triples']));
+    }
+
+    public function testParserAcceptsReifiedTripleWithNumberAndBooleanObjectsBeforeEnd(): void
+    {
+        $this->assertParsesTriples([
+            ['subject' => '_:b0', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b0', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', '"1"^^http://www.w3.org/2001/XMLSchema#integer'), 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => 'b', 'object' => 'c', 'graph' => ''],
+            ['subject' => '_:b1', 'predicate' => self::RDF_REIFIES, 'object' => $this->tripleTerm('a', 'b', '"true"^^http://www.w3.org/2001/XMLSchema#boolean'), 'graph' => ''],
+        ], '<<<a> <b> 1>> <b> <c>. <<<a> <b> true>> <b> <c>.');
     }
 
     /**
