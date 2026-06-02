@@ -2,7 +2,7 @@
     "name": "pietercolpaert/hardf",
     "description": "A fast parser for RDF serializations such as turtle, n-triples, n-quads, trig and N3",
     "homepage": "https://github.com/pietercolpaert/hardf",
-    "keywords": ["turtle","rdf","rdf1.1", "quads", "triples","n-triples","n-quads","trig", "n3","linked data", "open data", "streaming"],
+    "keywords": ["turtle","rdf","rdf1.1","rdf1.2", "quads", "triples","n-triples","n-quads","trig", "n3","linked data", "open data", "streaming"],
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -10,12 +10,6 @@
             "name": "Pieter Colpaert",
             "homepage": "https://pietercolpaert.be",
             "email": "pieter.colpaert@ugent.be",
-            "role": "developer"
-        },
-        {
-            "name": "Ruben Verborgh",
-            "homepage": "https://ruben.verborgh.org",
-            "email": "ruben.verborgh@ugent.be",
             "role": "developer"
         }
     ],
@@ -39,9 +33,18 @@
     "require-dev" : {
         "friendsofphp/php-cs-fixer": "*",
         "phpstan/phpstan": "^0.12.36",
-        "phpunit/phpunit": "^7 || ^8 || ^9"
+        "phpunit/phpunit": "^7 || ^8 || ^9",
+        "easyrdf/easyrdf": "^1.1",
+        "semsol/arc2": "^3.1"
     },
     "scripts": {
+        "install-githooks": "@php install-githooks.php",
+        "post-install-cmd": [
+            "@install-githooks"
+        ],
+        "post-update-cmd": [
+            "@install-githooks"
+        ],
         "cs": "vendor/bin/php-cs-fixer fix",
         "cs-dry-run": "vendor/bin/php-cs-fixer fix --dry-run",
         "phpstan": "vendor/bin/phpstan analyse -c phpstan.neon -vvv",

@@ -1,0 +1,44 @@
+name: W3C RDF1.2 Spec Compliance Tests
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  spec-tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: ['24.3.0']
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.3'
+        
+    - name: Install PHP dependencies
+      run: composer install --no-interaction --prefer-dist
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Clean spec cache
+      run: npm run clean:spec-cache
+
+    - name: Run RDF 1.2 spec compliance tests
+      run: npm run rdf12

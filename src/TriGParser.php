@@ -15,6 +15,9 @@ class TriGParser
     const RDF_NIL = self::RDF_PREFIX.'nil';
     const RDF_FIRST = self::RDF_PREFIX.'first';
     const RDF_REST = self::RDF_PREFIX.'rest';
+    const RDF_LANG_STRING = self::RDF_PREFIX.'langString';
+    const RDF_DIR_LANG_STRING = self::RDF_PREFIX.'dirLangString';
+    const RDF_REIFIES = self::RDF_PREFIX.'reifies';
     const QUANTIFIERS_GRAPH = 'urn:n3:quantifiers';
 
     private $absoluteIRI = '/^[a-z][a-z0-9+.-]*:/i';
@@ -76,17 +79,52 @@ class TriGParser
     private $readQuantifierList;
     private $readQuantifierPunctuation;
     private $readSubject;
+    private $readTripleTermSubject;
+    private $readTripleTermPredicate;
+    private $readTripleTermObject;
+    private $readTripleTermObjectDataTypeOrLang;
+    private $readTripleTermEnd;
+    private $readReifiedTripleSubject;
+    private $readReifiedTriplePredicate;
+    private $readReifiedTripleObject;
+    private $readReifiedTripleObjectDataTypeOrLang;
+    private $readReifiedTripleReifierOrEnd;
+    private $readReifiedTripleReifier;
+    private $readReifiedTripleEnd;
+    private $readPredicateAfterReifiedTriple;
+    private $readAnnotationPredicate;
+    private $readAnnotationObject;
+    private $readAnnotationObjectDataTypeOrLang;
+    private $readAnnotationPunctuation;
+    private $readAnnotationReifier;
+    private $readAfterAnnotation;
+    private $readVersion;
     private $removeDotSegments;
     private $resolveIRI;
     private $sparqlStyle;
     private $subject;
     private $supportsNamedGraphs;
+    private $supportsMessages;
     private $supportsQuads;
+    private $supportsReifiedTriples;
     private $triple;
     private $tripleCallback;
+    private $tripleTerm;
+    private $tripleTermMode;
+    private $tripleTermStack;
+    private $annotationHadStatement;
+    private $annotationReifier;
+    private $annotationPendingReifier;
+    private $annotationTripleTerm;
+    private $annotationGraph;
+    private $annotationStack;
+    private $messageCounter;
 
     private $readInTopContext;
     private $readCallback;
+    private $blankNodeEndReader;
+    private $blankNodeMustBeEmpty;
+    private $collectMessages;
 
     // Constructor
     public function __construct($options = [], $tripleCallback = null, $prefixCallback = null)
@@ -120,6 +158,10 @@ class TriGParser
             $this->readPredicateOrNamedGraph = $this->readPredicate;
         }
         $this->supportsQuads = !($isTurtle || $isTriG || $isNTriples || $isN3);
+        $this->supportsReifiedTriples = !$isLineMode;
+        $this->supportsMessages = false;
+        $this->messageCounter = null;
+        $this->collectMessages = !empty($options['messages']);
         // Disable relative IRIs in N-Triples or N-Quads mode
         if ($isLineMode) {
             $this->base = '';
@@ -148,6 +190,8 @@ class TriGParser
         $this->prefixes['_'] = isset($this->blankNodePrefix) ? $this->blankNodePrefix : '_:b'.$this->blankNodeCount.'_';
         $this->inversePredicate = false;
         $this->quantified = [];
+        $this->tripleTermStack = [];
+        $this->annotationStack = [];
     }
 
     // ## Private class methods
@@ -155,6 +199,27 @@ class TriGParser
     public function _resetBlankNodeIds()
     {
         $this->blankNodeCount = 0;
+    }
+
+    private function readLanguageTag($token): ?string
+    {
+        if (preg_match('/--/', $token['value']) && !preg_match('/--(?:ltr|rtl)$/', $token['value'])) {
+            \call_user_func($this->error, 'Detected illegal base direction in language tag', $token);
+
+            return null;
+        }
+
+        $language = strtolower($token['value']);
+        $languageOnly = preg_replace('/--(?:ltr|rtl)$/', '', $language);
+        foreach (explode('-', $languageOnly) as $subtag) {
+            if (\strlen($subtag) > 8) {
+                \call_user_func($this->error, 'Detected language tag with subtag longer than 8 characters', $token);
+
+                return null;
+            }
+        }
+
+        return $language;
     }
 
     // ### `_setBase` sets the base IRI to resolve relative IRIs
@@ -234,7 +299,7 @@ class TriGParser
                 }
                 unset($this->prefixes['_']);
                 if ($this->callback) {
-                    return \call_user_func($this->callback, null, null, $this->prefixes);
+                    return \call_user_func($this->callback, null, null, $this->prefixes, $this->messageCounter);
                 }
                 // It could be a prefix declaration
                 // no break
@@ -249,6 +314,30 @@ class TriGParser
                 // no break
                 case '@base':
                 return $this->readBaseIRI;
+                case 'VERSION':
+                $this->sparqlStyle = true;
+                // no break
+                case '@version':
+                return $this->readVersion;
+                case 'MESSAGE':
+                case '@message':
+                if (!$this->supportsMessages) {
+                    return \call_user_func($this->error, 'Unexpected "'.$token['type'].'"', $token);
+                }
+                if (null !== $this->graph || 0 !== \count($this->contextStack)) {
+                    return \call_user_func($this->error, 'Unexpected "'.$token['type'].'"', $token);
+                }
+
+                if (null === $this->messageCounter) {
+                    $this->messageCounter = 1;
+                }
+                if ($this->callback) {
+                    \call_user_func($this->callback, null, null, null, $this->messageCounter);
+                }
+                ++$this->messageCounter;
+                $this->prefixes['_'] = isset($this->blankNodePrefix) ? $this->blankNodePrefix : '_:b'.$this->blankNodeCount++.'_';
+
+                return 'MESSAGE' === $token['type'] ? $this->readInTopContext : $this->readDeclarationPunctuation;
                 // It could be a graph
                 case '{':
                 if ($this->supportsNamedGraphs) {
@@ -339,17 +428,34 @@ class TriGParser
                     // No subject; the graph in which we are reading is closed instead
                     return \call_user_func($this->readPunctuation, $token);
                 case '@forSome':
+                    if (!$this->n3Mode) {
+                        return \call_user_func($this->error, 'Unexpected "@forSome"', $token);
+                    }
                     $this->subject = null;
                     $this->predicate = 'http://www.w3.org/2000/10/swap/reify#forSome';
                     $this->quantifiedPrefix = '_:b';
 
                     return $this->readQuantifierList;
                 case '@forAll':
+                    if (!$this->n3Mode) {
+                        return \call_user_func($this->error, 'Unexpected "@forAll"', $token);
+                    }
                     $this->subject = null;
                     $this->predicate = 'http://www.w3.org/2000/10/swap/reify#forAll';
                     $this->quantifiedPrefix = '?b-';
 
                     return $this->readQuantifierList;
+                case 'tripletermstart':
+                    return \call_user_func($this->error, 'Disallowed triple term as subject', $token);
+                case 'reifiedtriplestart':
+                    if (!$this->supportsReifiedTriples) {
+                        return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                    }
+                    $this->saveContext('reifiedTripleSubject', $this->graph, null, null, null);
+                    $this->tripleTermMode = 'reifiedSubject';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                    return $this->readReifiedTripleSubject;
                 default:
                     // Read the subject entity
                     $this->subject = \call_user_func($this->readEntity, $token);
@@ -412,6 +518,21 @@ class TriGParser
                 $this->object = $token['value'];
 
                 return $this->readDataTypeOrLang;
+                case 'tripletermstart':
+                $this->saveContext('tripleTerm', $this->graph, $this->subject, $this->predicate, null);
+                $this->tripleTermMode = 'explicitObject';
+                $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                return $this->readTripleTermSubject;
+                case 'reifiedtriplestart':
+                if (!$this->supportsReifiedTriples) {
+                    return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                }
+                $this->saveContext('reifiedTripleObject', $this->graph, $this->subject, $this->predicate, null);
+                $this->tripleTermMode = 'reifiedObject';
+                $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                return $this->readReifiedTripleSubject;
                 case '[':
                 // Start a new triple with a new blank node as subject
                 $this->saveContext('blank', $this->graph, $this->subject, $this->predicate,
@@ -469,9 +590,15 @@ class TriGParser
         $this->readBlankNodeHead = function ($token) {
             if (']' === $token['type']) {
                 $this->subject = null;
+                $this->blankNodeMustBeEmpty = null;
 
                 return \call_user_func($this->readBlankNodeTail, $token);
             } else {
+                if ($this->blankNodeMustBeEmpty) {
+                    $this->blankNodeMustBeEmpty = null;
+
+                    return \call_user_func($this->error, 'Disallowed compound blank node expression', $token);
+                }
                 $this->predicate = null;
 
                 return \call_user_func($this->readPredicate, $token);
@@ -490,8 +617,15 @@ class TriGParser
             }
 
             // Restore the parent context containing this blank node
+            $this->blankNodeMustBeEmpty = null;
             $empty = null === $this->predicate;
             $this->restoreContext();
+            if (isset($this->blankNodeEndReader)) {
+                $next = $this->blankNodeEndReader;
+                $this->blankNodeEndReader = null;
+
+                return \call_user_func($next);
+            }
             // If the blank node was the subject, continue reading the predicate
             if (null === $this->object) {
                 // If the blank node was empty, it could be a named graph label
@@ -508,6 +642,13 @@ class TriGParser
             // If a dot follows a blank node in top context, there is no predicate
             if ('.' === $token['type'] && 0 === \count($this->contextStack)) {
                 $this->subject = null; // cancel the current triple
+
+                return \call_user_func($this->readPunctuation, $token);
+            }
+
+            // Inside a named graph, a sole blank node property list can end right before the closing brace.
+            if ('}' === $token['type'] && null !== $this->graph) {
+                $this->subject = null;
 
                 return \call_user_func($this->readPunctuation, $token);
             }
@@ -572,6 +713,28 @@ class TriGParser
                     $itemComplete = false; // Can still have a datatype or language
                     $next = $this->readListItemDataTypeOrLang;
                     break;
+                case 'reifiedtriplestart':
+                    if (!$this->supportsReifiedTriples) {
+                        return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                    }
+                    if (null === $list) {
+                        $list = '_:b'.$this->blankNodeCount++;
+                        $this->subject = $list;
+                    }
+                    if (null === $prevList) {
+                        if (null === $parent['predicate']) {
+                            $parent['subject'] = $list;
+                        } else {
+                            $parent['object'] = $list;
+                        }
+                    } else {
+                        \call_user_func($this->triple, $prevList, self::RDF_REST, $list, $this->graph);
+                    }
+                    $this->saveContext('reifiedListItem', $this->graph, $list, self::RDF_FIRST, null);
+                    $this->tripleTermMode = 'reifiedListItem';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                    return $this->readReifiedTripleSubject;
                 default:
                     $item = \call_user_func($this->readEntity, $token);
                     if (null == $item) {
@@ -638,12 +801,20 @@ class TriGParser
                 case 'type':
                 case 'typeIRI':
                     $suffix = true;
-                    $this->object .= '^^'.\call_user_func($this->readEntity, $token);
+                    $type = \call_user_func($this->readEntity, $token);
+                    if (self::RDF_LANG_STRING === $type || self::RDF_DIR_LANG_STRING === $type) {
+                        return \call_user_func($this->error, 'Detected illegal (directional) languaged-tagged string with explicit datatype', $token);
+                    }
+                    $this->object .= '^^'.$type;
                     break;
                     // Add an "@lang" suffix for language tags
                 case 'langcode':
+                    $language = $this->readLanguageTag($token);
+                    if (null === $language) {
+                        return null;
+                    }
                     $suffix = true;
-                    $this->object .= '@'.strtolower($token['value']);
+                    $this->object .= '@'.$language;
                     break;
             }
             // If this literal was part of a list, write the item
@@ -658,6 +829,570 @@ class TriGParser
                 $this->readCallback = \call_user_func($this->getContextEndReader);
 
                 return \call_user_func($this->readCallback, $token);
+            }
+        };
+
+        $makeTripleTerm = function ($term) {
+            return [
+                'type' => 'TripleTerm',
+                'subject' => $term['subject'],
+                'predicate' => $term['predicate'],
+                'object' => $term['object'],
+            ];
+        };
+
+        $completeTripleTerm = function ($token) use ($makeTripleTerm) {
+            if ('tripletermend' !== $token['type']) {
+                return \call_user_func($this->error, 'Expected triple term end but got '.$token['type'], $token);
+            }
+
+            $term = \call_user_func($makeTripleTerm, $this->tripleTerm);
+
+            if (\count($this->tripleTermStack)) {
+                $frame = array_pop($this->tripleTermStack);
+                $this->tripleTerm = $frame['term'];
+                $this->tripleTermMode = $frame['mode'];
+                $this->tripleTerm[$frame['position']] = $term;
+
+                return 'subject' === $frame['position'] ? $this->readReifiedTriplePredicate :
+                    ('reified' === substr($this->tripleTermMode, 0, 7) ? $this->readReifiedTripleReifierOrEnd : $this->readTripleTermEnd);
+            }
+
+            $mode = $this->tripleTermMode;
+            $this->restoreContext();
+            $this->object = $term;
+
+            return ('annotationExplicitObject' === $mode || 'annotationReifiedObject' === $mode) ?
+                $this->readAnnotationPunctuation : \call_user_func($this->getContextEndReader);
+        };
+
+        $this->readTripleTermSubject = function ($token) {
+            if ('tripletermstart' === $token['type']) {
+                return \call_user_func($this->error, 'Disallowed triple term as subject', $token);
+            }
+            if ('[' === $token['type']) {
+                $id = '_:b'.$this->blankNodeCount++;
+                $this->blankNodeMustBeEmpty = true;
+                $this->blankNodeEndReader = function () use ($id) {
+                    $this->tripleTerm['subject'] = $id;
+
+                    return $this->readTripleTermPredicate;
+                };
+                $this->saveContext('blank', $this->graph, $this->subject, $this->predicate, $this->subject = $id);
+
+                return $this->readBlankNodeHead;
+            }
+            $this->tripleTerm['subject'] = \call_user_func($this->readEntity, $token);
+            if (null == $this->tripleTerm['subject']) {
+                throw $this->getNoBaseUriException('triple term subject', $token['line']);
+            }
+
+            return $this->readTripleTermPredicate;
+        };
+
+        $this->readTripleTermPredicate = function ($token) {
+            if ('abbreviation' === $token['type']) {
+                $this->tripleTerm['predicate'] = $token['value'];
+            } else {
+                $this->tripleTerm['predicate'] = \call_user_func($this->readEntity, $token);
+                if (null == $this->tripleTerm['predicate']) {
+                    throw $this->getNoBaseUriException('triple term predicate', $token['line']);
+                }
+            }
+
+            return $this->readTripleTermObject;
+        };
+
+        $this->readTripleTermObject = function ($token) {
+            switch ($token['type']) {
+                case 'literal':
+                    $this->tripleTerm['object'] = $token['value'];
+
+                    return $this->readTripleTermObjectDataTypeOrLang;
+                case 'tripletermstart':
+                    $this->tripleTermStack[] = ['term' => $this->tripleTerm, 'mode' => $this->tripleTermMode, 'position' => 'object'];
+                    $this->tripleTermMode = 'explicitNested';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                    return $this->readTripleTermSubject;
+                case 'reifiedtriplestart':
+                    if (!$this->supportsReifiedTriples) {
+                        return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                    }
+                    $this->tripleTermStack[] = ['term' => $this->tripleTerm, 'mode' => $this->tripleTermMode, 'position' => 'object'];
+                    $this->tripleTermMode = 'reifiedNested';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                    return $this->readReifiedTripleSubject;
+                case '[':
+                    $id = '_:b'.$this->blankNodeCount++;
+                    $this->blankNodeMustBeEmpty = true;
+                    $this->blankNodeEndReader = function () use ($id) {
+                        $this->tripleTerm['object'] = $id;
+
+                        return $this->readTripleTermEnd;
+                    };
+                    $this->saveContext('blank', $this->graph, $this->subject, $this->predicate, $this->object = $id);
+
+                    return $this->readBlankNodeHead;
+                default:
+                    $this->tripleTerm['object'] = \call_user_func($this->readEntity, $token);
+                    if (null == $this->tripleTerm['object']) {
+                        throw $this->getNoBaseUriException('triple term object', $token['line']);
+                    }
+
+                    return $this->readTripleTermEnd;
+            }
+        };
+
+        $this->readTripleTermObjectDataTypeOrLang = function ($token) use ($completeTripleTerm) {
+            switch ($token['type']) {
+                case 'type':
+                case 'typeIRI':
+                    $type = \call_user_func($this->readEntity, $token);
+                    if (self::RDF_LANG_STRING === $type || self::RDF_DIR_LANG_STRING === $type) {
+                        return \call_user_func($this->error, 'Detected illegal (directional) languaged-tagged string with explicit datatype', $token);
+                    }
+                    $this->tripleTerm['object'] .= '^^'.$type;
+
+                    return $this->readTripleTermEnd;
+                case 'langcode':
+                    $language = $this->readLanguageTag($token);
+                    if (null === $language) {
+                        return null;
+                    }
+                    $this->tripleTerm['object'] .= '@'.$language;
+
+                    return $this->readTripleTermEnd;
+                default:
+                    return \call_user_func($completeTripleTerm, $token);
+            }
+        };
+
+        $this->readTripleTermEnd = function ($token) use ($completeTripleTerm) {
+            return \call_user_func($completeTripleTerm, $token);
+        };
+
+        $completeReifiedTriple = function ($token, $reifier = null) use ($makeTripleTerm) {
+            if ('reifiedtripleend' !== $token['type']) {
+                return \call_user_func($this->error, 'Expected >> but got '.$token['type'], $token);
+            }
+            if (null === $reifier) {
+                $reifier = '_:b'.$this->blankNodeCount++;
+            }
+
+            $term = \call_user_func($makeTripleTerm, $this->tripleTerm);
+            \call_user_func($this->triple, $reifier, self::RDF_REIFIES, $term, $this->graph);
+
+            if (\count($this->tripleTermStack)) {
+                $frame = array_pop($this->tripleTermStack);
+                $this->tripleTerm = $frame['term'];
+                $this->tripleTermMode = $frame['mode'];
+                $this->tripleTerm[$frame['position']] = $reifier;
+
+                return 'subject' === $frame['position'] ? $this->readReifiedTriplePredicate :
+                    ('reified' === substr($this->tripleTermMode, 0, 7) ? $this->readReifiedTripleReifierOrEnd : $this->readTripleTermEnd);
+            }
+
+            $mode = $this->tripleTermMode;
+            $this->restoreContext();
+            if ('reifiedSubject' === $mode) {
+                $this->subject = $reifier;
+
+                return $this->readPredicateAfterReifiedTriple;
+            }
+            if ('reifiedListItem' === $mode) {
+                $this->object = $reifier;
+                \call_user_func($this->triple, $this->subject, $this->predicate, $this->object, $this->graph);
+
+                return $this->readListItem;
+            }
+            if ('annotationReifiedObject' === $mode) {
+                $this->object = $reifier;
+
+                return $this->readAnnotationPunctuation;
+            }
+
+            $this->object = $reifier;
+
+            return \call_user_func($this->getContextEndReader);
+        };
+
+        $this->readReifiedTripleSubject = function ($token) {
+            if ('tripletermstart' === $token['type']) {
+                return \call_user_func($this->error, 'Disallowed triple term as subject', $token);
+            }
+            if ('reifiedtriplestart' === $token['type']) {
+                $this->tripleTermStack[] = ['term' => $this->tripleTerm, 'mode' => $this->tripleTermMode, 'position' => 'subject'];
+                $this->tripleTermMode = 'reifiedNested';
+                $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                return $this->readReifiedTripleSubject;
+            }
+            if ('[' === $token['type']) {
+                $id = '_:b'.$this->blankNodeCount++;
+                $this->blankNodeMustBeEmpty = true;
+                $this->blankNodeEndReader = function () use ($id) {
+                    $this->tripleTerm['subject'] = $id;
+
+                    return $this->readReifiedTriplePredicate;
+                };
+                $this->saveContext('blank', $this->graph, $this->subject, $this->predicate, $this->subject = $id);
+
+                return $this->readBlankNodeHead;
+            }
+
+            $this->tripleTerm['subject'] = \call_user_func($this->readEntity, $token);
+            if (null == $this->tripleTerm['subject']) {
+                throw $this->getNoBaseUriException('reified triple subject', $token['line']);
+            }
+
+            return $this->readReifiedTriplePredicate;
+        };
+
+        $this->readReifiedTriplePredicate = function ($token) {
+            if ('reifiedtriplestart' === $token['type'] || 'tripletermstart' === $token['type']) {
+                return \call_user_func($this->error, 'Expected entity but got <<', $token);
+            }
+            if ('blank' === $token['type']) {
+                return \call_user_func($this->error, 'Disallowed blank node as reified triple predicate', $token);
+            }
+            if ('abbreviation' === $token['type']) {
+                $this->tripleTerm['predicate'] = $token['value'];
+            } else {
+                $this->tripleTerm['predicate'] = \call_user_func($this->readEntity, $token);
+                if (null == $this->tripleTerm['predicate']) {
+                    throw $this->getNoBaseUriException('reified triple predicate', $token['line']);
+                }
+            }
+
+            return $this->readReifiedTripleObject;
+        };
+
+        $this->readReifiedTripleObject = function ($token) {
+            switch ($token['type']) {
+                case 'literal':
+                    $this->tripleTerm['object'] = $token['value'];
+
+                    return $this->readReifiedTripleObjectDataTypeOrLang;
+                case 'tripletermstart':
+                    $this->tripleTermStack[] = ['term' => $this->tripleTerm, 'mode' => $this->tripleTermMode, 'position' => 'object'];
+                    $this->tripleTermMode = 'explicitNested';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                    return $this->readTripleTermSubject;
+                case 'reifiedtriplestart':
+                    if (!$this->supportsReifiedTriples) {
+                        return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                    }
+                    $this->tripleTermStack[] = ['term' => $this->tripleTerm, 'mode' => $this->tripleTermMode, 'position' => 'object'];
+                    $this->tripleTermMode = 'reifiedNested';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                    return $this->readReifiedTripleSubject;
+                case '[':
+                    $id = '_:b'.$this->blankNodeCount++;
+                    $this->blankNodeMustBeEmpty = true;
+                    $this->blankNodeEndReader = function () use ($id) {
+                        $this->tripleTerm['object'] = $id;
+
+                        return $this->readReifiedTripleReifierOrEnd;
+                    };
+                    $this->saveContext('blank', $this->graph, $this->subject, $this->predicate, $this->object = $id);
+
+                    return $this->readBlankNodeHead;
+                default:
+                    $this->tripleTerm['object'] = \call_user_func($this->readEntity, $token);
+                    if (null == $this->tripleTerm['object']) {
+                        throw $this->getNoBaseUriException('reified triple object', $token['line']);
+                    }
+
+                    return $this->readReifiedTripleReifierOrEnd;
+            }
+        };
+
+        $this->readReifiedTripleObjectDataTypeOrLang = function ($token) use ($completeReifiedTriple) {
+            switch ($token['type']) {
+                case 'type':
+                case 'typeIRI':
+                    $type = \call_user_func($this->readEntity, $token);
+                    if (self::RDF_LANG_STRING === $type || self::RDF_DIR_LANG_STRING === $type) {
+                        return \call_user_func($this->error, 'Detected illegal (directional) languaged-tagged string with explicit datatype', $token);
+                    }
+                    $this->tripleTerm['object'] .= '^^'.$type;
+
+                    return $this->readReifiedTripleReifierOrEnd;
+                case 'langcode':
+                    $language = $this->readLanguageTag($token);
+                    if (null === $language) {
+                        return null;
+                    }
+                    $this->tripleTerm['object'] .= '@'.$language;
+
+                    return $this->readReifiedTripleReifierOrEnd;
+                default:
+                    return \call_user_func($completeReifiedTriple, $token);
+            }
+        };
+
+        $this->readReifiedTripleReifierOrEnd = function ($token) use ($completeReifiedTriple) {
+            if ('~' === $token['type']) {
+                return $this->readReifiedTripleReifier;
+            }
+
+            return \call_user_func($completeReifiedTriple, $token);
+        };
+
+        $this->readReifiedTripleReifier = function ($token) {
+            if ('reifiedtripleend' === $token['type']) {
+                $this->object = null;
+
+                return \call_user_func($this->readReifiedTripleEnd, $token);
+            }
+
+            $this->object = \call_user_func($this->readEntity, $token);
+            if (null == $this->object) {
+                throw $this->getNoBaseUriException('reified triple reifier', $token['line']);
+            }
+
+            return $this->readReifiedTripleEnd;
+        };
+
+        $this->readReifiedTripleEnd = function ($token) use ($completeReifiedTriple) {
+            return \call_user_func($completeReifiedTriple, $token, $this->object);
+        };
+
+        $this->readPredicateAfterReifiedTriple = function ($token) {
+            if ('.' === $token['type'] && 0 === \count($this->contextStack)) {
+                $this->subject = null;
+
+                return $this->readInTopContext;
+            }
+
+            return \call_user_func($this->readPredicate, $token);
+        };
+
+        $startAnnotation = function ($token, $reifier = null) {
+            if ('annotationstart' !== $token['type']) {
+                return \call_user_func($this->error, 'Expected annotation syntax opening', $token);
+            }
+            $this->annotationReifier = $reifier ?: '_:b'.$this->blankNodeCount++;
+            $this->annotationHadStatement = false;
+            if (!$this->annotationPendingReifier) {
+                \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, $this->annotationGraph);
+            }
+            $this->annotationPendingReifier = false;
+
+            return $this->readAnnotationPredicate;
+        };
+
+        $resumeParentAnnotation = function ($token) {
+            $frame = array_pop($this->annotationStack);
+            $this->annotationHadStatement = $frame['hadStatement'];
+            $this->annotationReifier = $frame['reifier'];
+            $this->annotationPendingReifier = $frame['pendingReifier'];
+            $this->annotationTripleTerm = $frame['tripleTerm'];
+            $this->annotationGraph = $frame['graph'];
+
+            if (';' === $token['type']) {
+                return $this->readAnnotationPredicate;
+            }
+            if ('annotationend' === $token['type']) {
+                return $this->readAfterAnnotation;
+            }
+
+            return \call_user_func($this->error, 'Expected annotation punctuation', $token);
+        };
+
+        $readCompletedAnnotationStatement = function ($token, $statementTripleTerm) use ($startAnnotation) {
+            if (';' === $token['type']) {
+                return $this->readAnnotationPredicate;
+            }
+            if ('annotationend' === $token['type']) {
+                return $this->readAfterAnnotation;
+            }
+            if ('~' === $token['type'] || 'annotationstart' === $token['type']) {
+                $this->annotationStack[] = [
+                    'hadStatement' => $this->annotationHadStatement,
+                    'reifier' => $this->annotationReifier,
+                    'pendingReifier' => $this->annotationPendingReifier,
+                    'tripleTerm' => $this->annotationTripleTerm,
+                    'graph' => $this->annotationGraph,
+                ];
+                $this->annotationTripleTerm = $statementTripleTerm;
+                $this->annotationPendingReifier = false;
+                if ('~' === $token['type']) {
+                    return $this->readAnnotationReifier;
+                }
+
+                return \call_user_func($startAnnotation, $token);
+            }
+
+            return \call_user_func($this->error, 'Expected annotation punctuation to follow "'.$this->object.'"', $token);
+        };
+
+        $this->readAnnotationPredicate = function ($token) {
+            switch ($token['type']) {
+                case 'annotationend':
+                    if (!$this->annotationHadStatement) {
+                        return \call_user_func($this->error, 'Annotation block can not be empty', $token);
+                    }
+
+                    return $this->readAfterAnnotation;
+                case ';':
+                    if (!$this->annotationHadStatement) {
+                        return \call_user_func($this->error, 'Expected entity but got '.$token['type'], $token);
+                    }
+
+                    return $this->readAnnotationPredicate;
+                default:
+                    $this->predicate = \call_user_func($this->readEntity, $token);
+                    if (null == $this->predicate) {
+                        throw $this->getNoBaseUriException('annotation predicate', $token['line']);
+                    }
+
+                    return $this->readAnnotationObject;
+            }
+        };
+
+        $this->readAnnotationObject = function ($token) {
+            switch ($token['type']) {
+                case 'literal':
+                    $this->object = $token['value'];
+
+                    return $this->readAnnotationObjectDataTypeOrLang;
+                case 'tripletermstart':
+                    $this->saveContext('annotationObject', $this->graph, $this->subject, $this->predicate, null);
+                    $this->tripleTermMode = 'annotationExplicitObject';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                    return $this->readTripleTermSubject;
+                case 'reifiedtriplestart':
+                    if (!$this->supportsReifiedTriples) {
+                        return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                    }
+                    $this->saveContext('annotationObject', $this->graph, $this->subject, $this->predicate, null);
+                    $this->tripleTermMode = 'annotationReifiedObject';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+
+                    return $this->readReifiedTripleSubject;
+                case '[':
+                    $id = '_:b'.$this->blankNodeCount++;
+                    $this->blankNodeEndReader = function () {
+                        return $this->readAnnotationPunctuation;
+                    };
+                    $this->saveContext('blank', $this->graph, $this->subject, $this->predicate, $this->subject = $id);
+
+                    return $this->readBlankNodeHead;
+                default:
+                    $this->object = \call_user_func($this->readEntity, $token);
+                    if (null == $this->object) {
+                        throw $this->getNoBaseUriException('annotation object', $token['line']);
+                    }
+
+                    return $this->readAnnotationPunctuation;
+            }
+        };
+
+        $this->readAnnotationObjectDataTypeOrLang = function ($token) {
+            switch ($token['type']) {
+                case 'type':
+                case 'typeIRI':
+                    $type = \call_user_func($this->readEntity, $token);
+                    if (self::RDF_LANG_STRING === $type || self::RDF_DIR_LANG_STRING === $type) {
+                        return \call_user_func($this->error, 'Detected illegal (directional) languaged-tagged string with explicit datatype', $token);
+                    }
+                    $this->object .= '^^'.$type;
+
+                    return $this->readAnnotationPunctuation;
+                case 'langcode':
+                    $language = $this->readLanguageTag($token);
+                    if (null === $language) {
+                        return null;
+                    }
+                    $this->object .= '@'.$language;
+
+                    return $this->readAnnotationPunctuation;
+                default:
+                    $this->readCallback = $this->readAnnotationPunctuation;
+
+                    return \call_user_func($this->readCallback, $token);
+            }
+        };
+
+        $this->readAnnotationPunctuation = function ($token) use ($makeTripleTerm, $readCompletedAnnotationStatement) {
+            \call_user_func($this->triple, $this->annotationReifier, $this->predicate, $this->object, $this->annotationGraph);
+            $this->annotationHadStatement = true;
+            $statementTripleTerm = \call_user_func($makeTripleTerm, [
+                'subject' => $this->annotationReifier,
+                'predicate' => $this->predicate,
+                'object' => $this->object,
+            ]);
+
+            return \call_user_func($readCompletedAnnotationStatement, $token, $statementTripleTerm);
+        };
+
+        $this->readAnnotationReifier = function ($token) use ($startAnnotation) {
+            if ('reifiedtripleend' === $token['type']) {
+                $this->object = null;
+
+                return $this->readReifiedTripleEnd($token);
+            }
+            if ('.' === $token['type']) {
+                $this->annotationReifier = '_:b'.$this->blankNodeCount++;
+                \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, $this->annotationGraph);
+                $this->subject = null;
+
+                return $this->readInTopContext;
+            }
+            if ('annotationstart' === $token['type']) {
+                $this->annotationReifier = '_:b'.$this->blankNodeCount++;
+                \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, $this->annotationGraph);
+                $this->annotationPendingReifier = false;
+
+                return \call_user_func($startAnnotation, $token, $this->annotationReifier);
+            }
+
+            $reifier = \call_user_func($this->readEntity, $token);
+            if (null == $reifier) {
+                throw $this->getNoBaseUriException('annotation reifier', $token['line']);
+            }
+            $this->annotationReifier = $reifier;
+            \call_user_func($this->triple, $this->annotationReifier, self::RDF_REIFIES, $this->annotationTripleTerm, $this->annotationGraph);
+            $this->annotationPendingReifier = true;
+
+            return $this->readAfterAnnotation;
+        };
+
+        $this->readAfterAnnotation = function ($token) use ($startAnnotation, $resumeParentAnnotation) {
+            if (\count($this->annotationStack) && (';' === $token['type'] || 'annotationend' === $token['type'])) {
+                return \call_user_func($resumeParentAnnotation, $token);
+            }
+
+            switch ($token['type']) {
+                case 'annotationstart':
+                    return \call_user_func($startAnnotation, $token, $this->annotationPendingReifier ? $this->annotationReifier : null);
+                case '~':
+                    return $this->readAnnotationReifier;
+                case ';':
+                    $this->subject = $this->annotationTripleTerm['subject'];
+
+                    return $this->readPredicate;
+                case ',':
+                    $this->subject = $this->annotationTripleTerm['subject'];
+                    $this->predicate = $this->annotationTripleTerm['predicate'];
+
+                    return $this->readObject;
+                case '.':
+                    $this->subject = null;
+
+                    return \count($this->contextStack) ? $this->readSubject : $this->readInTopContext;
+                case '}':
+                    $this->subject = null;
+
+                    return \call_user_func($this->readPunctuation, $token);
+                default:
+                    return \call_user_func($this->error, 'Expected annotation punctuation', $token);
             }
         };
 
@@ -680,7 +1415,7 @@ class TriGParser
         };
 
         // ### `_readPunctuation` reads punctuation between triples or triple parts
-        $this->readPunctuation = function ($token) {
+        $this->readPunctuation = function ($token) use ($makeTripleTerm, $startAnnotation) {
             $next = null;
             $subject = isset($this->subject) ? $this->subject : null;
             $graph = $this->graph;
@@ -712,6 +1447,29 @@ class TriGParser
                 case ',':
                     $next = $this->readObject;
                     break;
+                case '~':
+                case 'annotationstart':
+                    if (null === $subject) {
+                        return \call_user_func($this->error, 'Unexpected annotation syntax', $token);
+                    }
+                    $predicate = $this->predicate;
+                    $object = $this->object;
+                    $baseSubject = $inversePredicate ? $object : $subject;
+                    $baseObject = $inversePredicate ? $subject : $object;
+                    \call_user_func($this->triple, $baseSubject, $predicate, $baseObject, $graph);
+                    $this->annotationTripleTerm = \call_user_func($makeTripleTerm, [
+                        'subject' => $baseSubject,
+                        'predicate' => $predicate,
+                        'object' => $baseObject,
+                    ]);
+                    $this->annotationGraph = $graph;
+                    $this->annotationPendingReifier = false;
+                    $this->subject = null;
+                    if ('~' === $token['type']) {
+                        return $this->readAnnotationReifier;
+                    }
+
+                    return \call_user_func($startAnnotation, $token);
                 default:
                     // An entity means this is a quad (only allowed if not already inside a graph)
                     $graph = \call_user_func($this->readEntity, $token);
@@ -795,6 +1553,32 @@ class TriGParser
             }
             $this->setBase(null === $this->base || preg_match($this->absoluteIRI, $token['value']) ?
             $token['value'] : \call_user_func($this->resolveIRI, $token));
+
+            return $this->readDeclarationPunctuation;
+        };
+
+        // ### `_readVersion` reads an RDF version declaration
+        $this->readVersion = function ($token) {
+            if ('literal' !== $token['type']) {
+                return \call_user_func($this->error, 'Expected literal to follow version declaration', $token);
+            }
+            if (isset($token['quoted']) && 'long' === $token['quoted']) {
+                return \call_user_func($this->error, 'Expected simple literal to follow version declaration', $token);
+            }
+            if (false !== strpos($token['value'], '^^')) {
+                return \call_user_func($this->error, 'Expected simple literal to follow version declaration', $token);
+            }
+
+            $versionLabel = substr($token['value'], 1, -1);
+            if (preg_match('/-messages$/', $versionLabel)) {
+                $this->supportsMessages = true;
+                if (null === $this->messageCounter) {
+                    $this->messageCounter = 1;
+                    $this->prefixes['_'] = isset($this->blankNodePrefix) ? $this->blankNodePrefix : '_:b'.$this->blankNodeCount++.'_';
+                }
+            } else {
+                $this->supportsMessages = false;
+            }
 
             return $this->readDeclarationPunctuation;
         };
@@ -993,6 +1777,8 @@ class TriGParser
             switch ($contextStack[\count($contextStack) - 1]['type']) {
                 case 'blank':
                     return $this->readBlankNodeTail;
+                case 'annotationObject':
+                    return $this->readAnnotationPunctuation;
                 case 'list':
                     return $this->readListItem;
                 case 'formula':
@@ -1002,7 +1788,7 @@ class TriGParser
 
         // ### `_triple` emits a triple through the callback
         $this->triple = function ($subject, $predicate, $object, $graph) {
-            \call_user_func($this->callback, null, ['subject' => $subject, 'predicate' => $predicate, 'object' => $object, 'graph' => isset($graph) ? $graph : '']);
+            \call_user_func($this->callback, null, ['subject' => $subject, 'predicate' => $predicate, 'object' => $object, 'graph' => isset($graph) ? $graph : ''], null, $this->messageCounter);
         };
 
         // ### `_error` emits an error message through the callback
@@ -1155,12 +1941,37 @@ class TriGParser
     {
         if (!isset($this->tripleCallback)) {
             $triples = [];
+            $messages = [];
+            $collectMessages = $this->collectMessages;
             $error = null;
-            $this->callback = function ($e, $t = null) use (&$triples, &$error) {
+            $this->callback = function ($e, $t = null, $prefixes = null, $messageCounter = null) use (&$triples, &$messages, &$collectMessages, &$error) {
                 if (!$e && $t) {
-                    $triples[] = $t;
+                    if (null !== $messageCounter) {
+                        $collectMessages = true;
+                    }
+
+                    if ($collectMessages && null !== $messageCounter) {
+                        if (!isset($messages[$messageCounter])) {
+                            $messages[$messageCounter] = [];
+                        }
+                        $messages[$messageCounter][] = $t;
+                    } else {
+                        $triples[] = $t;
+                    }
                 } elseif (!$e) {
-                    //DONE
+                    if (null !== $messageCounter) {
+                        $collectMessages = true;
+                    }
+
+                    if ($collectMessages && null !== $messageCounter) {
+                        if (null === $prefixes) {
+                            if (!isset($messages[$messageCounter])) {
+                                $messages[$messageCounter] = [];
+                            }
+                        } elseif (empty($messages)) {
+                            $messages[$messageCounter] = [];
+                        }
+                    }
                 } else {
                     $error = $e;
                 }
@@ -1173,6 +1984,16 @@ class TriGParser
             }
             if ($error) {
                 throw $error;
+            }
+
+            if ($collectMessages) {
+                if (empty($messages)) {
+                    return [];
+                }
+
+                ksort($messages);
+
+                return array_values($messages);
             }
 
             return $triples;

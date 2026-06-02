@@ -13,7 +13,7 @@ class TriGWriter
      *
      * @var string
      */
-    const LITERALMATCHER = '/^"(.*)"(?:\\^\\^(.+)|@([\\-a-z]+))?$/is';
+    const LITERALMATCHER = '/^"(.*)"(?:\\^\\^(.+)|@([a-z]+(?:-[a-z0-9]+)*(?:--(?:ltr|rtl))?))?$/is';
 
     /**
      * rdf:type predicate (for 'a' abbreviation)
@@ -28,16 +28,14 @@ class TriGWriter
     const RDF_TYPE = self::RDF_PREFIX.'type';
 
     /**
-     * Characters in literals that require escaping
+     * Legacy matcher for characters that require escaping.
+     *
+     * The writer uses byte-aware escaping internally so invalid UTF-8 can be
+     * handled without running PCRE over malformed input.
      *
      * @var string
      */
-    const ESCAPE = '/["\\\\\\t\\n\\r\\b\\f]/';
-
-    /**
-     * @var array
-     */
-    private $escapeReplacements;
+    const ESCAPE = '/["\\\\\\x00-\\x1F\\x7F]/';
 
     /**
      * matches a prefixed name or IRI that begins with one of the added prefixes
@@ -79,13 +77,6 @@ class TriGWriter
     private $readCallback;
 
     /**
-     * Replaces a character by its escaped version
-     *
-     * @todo remove
-     */
-    private $characterReplacer;
-
-    /**
      * @var callable
      */
     private $writeTriple;
@@ -95,42 +86,41 @@ class TriGWriter
      */
     private $writeTripleLine;
 
+    /**
+     * @var bool
+     */
+    private $lineMode = false;
+
+    /**
+     * @var bool
+     */
+    private $messageMode = false;
+
     public function __construct($options = [], $readCallback = null)
     {
-        $this->escapeReplacements = [
-            '\\' => '\\\\', '"' => '\\"', "\t" => '\\t',
-            "\n" => '\\n', "\r" => '\\r', \chr(8) => '\\b', "\f" => '\\f',
-        ];
-
         $this->setReadCallback($readCallback);
         $this->initWriter();
+        $this->messageMode = !empty($options['messages']);
 
         /* Initialize writer, depending on the format*/
         $this->subject = null;
         if (!isset($options['format']) || !(preg_match('/triple|quad/i', $options['format']))) {
             $this->graph = '';
             $this->prefixIRIs = [];
+            if ($this->messageMode && isset($options['version'])) {
+                $this->writeVersionDirective((string) $options['version']);
+            }
             if (isset($options['prefixes'])) {
                 $this->addPrefixes($options['prefixes']);
             }
         } else {
+            $this->lineMode = true;
             $this->writeTriple = $this->writeTripleLine;
+            if ($this->messageMode && isset($options['version'])) {
+                $this->writeVersionDirective((string) $options['version']);
+            }
         }
 
-        /*
-         * @todo make that a separate function
-         *
-         * @param mixed $character
-         */
-        $this->characterReplacer = function ($character): string {
-            // Replace a single character by its escaped version
-            $character = $character[0];
-            if (\strlen($character) > 0 && isset($this->escapeReplacements[$character[0]])) {
-                return $this->escapeReplacements[$character[0]];
-            } else {
-                return $character; //no escaping necessary, should not happen, or something is wrong in our regex
-            }
-        };
     }
 
     public function setReadCallback($readCallback)
@@ -208,6 +198,114 @@ class TriGWriter
         };
     }
 
+    private function escapeByte(int $byte): string
+    {
+        switch ($byte) {
+            case 34:
+                return '\\"';
+            case 92:
+                return '\\\\';
+            case 9:
+                return '\\t';
+            case 10:
+                return '\\n';
+            case 13:
+                return '\\r';
+            case 8:
+                return '\\b';
+            case 12:
+                return '\\f';
+            default:
+                return sprintf('\\u%04x', $byte);
+        }
+    }
+
+    private function isContinuationByte(int $byte): bool
+    {
+        return $byte >= 0x80 && $byte <= 0xBF;
+    }
+
+    private function getValidUtf8SequenceLength(string $value, int $offset, int $byte): int
+    {
+        $length = \strlen($value);
+        if ($byte >= 0xC2 && $byte <= 0xDF) {
+            return $offset + 1 < $length && $this->isContinuationByte(\ord($value[$offset + 1])) ? 2 : 0;
+        }
+        if (0xE0 === $byte) {
+            return $offset + 2 < $length &&
+                \ord($value[$offset + 1]) >= 0xA0 && \ord($value[$offset + 1]) <= 0xBF &&
+                $this->isContinuationByte(\ord($value[$offset + 2])) ? 3 : 0;
+        }
+        if ($byte >= 0xE1 && $byte <= 0xEC || $byte >= 0xEE && $byte <= 0xEF) {
+            return $offset + 2 < $length &&
+                $this->isContinuationByte(\ord($value[$offset + 1])) &&
+                $this->isContinuationByte(\ord($value[$offset + 2])) ? 3 : 0;
+        }
+        if (0xED === $byte) {
+            return $offset + 2 < $length &&
+                \ord($value[$offset + 1]) >= 0x80 && \ord($value[$offset + 1]) <= 0x9F &&
+                $this->isContinuationByte(\ord($value[$offset + 2])) ? 3 : 0;
+        }
+        if (0xF0 === $byte) {
+            return $offset + 3 < $length &&
+                \ord($value[$offset + 1]) >= 0x90 && \ord($value[$offset + 1]) <= 0xBF &&
+                $this->isContinuationByte(\ord($value[$offset + 2])) &&
+                $this->isContinuationByte(\ord($value[$offset + 3])) ? 4 : 0;
+        }
+        if ($byte >= 0xF1 && $byte <= 0xF3) {
+            return $offset + 3 < $length &&
+                $this->isContinuationByte(\ord($value[$offset + 1])) &&
+                $this->isContinuationByte(\ord($value[$offset + 2])) &&
+                $this->isContinuationByte(\ord($value[$offset + 3])) ? 4 : 0;
+        }
+        if (0xF4 === $byte) {
+            return $offset + 3 < $length &&
+                \ord($value[$offset + 1]) >= 0x80 && \ord($value[$offset + 1]) <= 0x8F &&
+                $this->isContinuationByte(\ord($value[$offset + 2])) &&
+                $this->isContinuationByte(\ord($value[$offset + 3])) ? 4 : 0;
+        }
+
+        return 0;
+    }
+
+    private function escapeString(string $value): string
+    {
+        $escaped = '';
+        $length = \strlen($value);
+        for ($i = 0; $i < $length; ++$i) {
+            $byte = \ord($value[$i]);
+            if (34 === $byte || 92 === $byte || $byte < 32 || 127 === $byte) {
+                $escaped .= $this->escapeByte($byte);
+            } elseif ($byte < 128) {
+                $escaped .= $value[$i];
+            } elseif (0xC2 === $byte && $i + 1 < $length) {
+                $nextByte = \ord($value[$i + 1]);
+                if ($nextByte >= 0x80 && $nextByte <= 0x9F) {
+                    $escaped .= sprintf('\\u%04x', $nextByte);
+                    ++$i;
+                } else {
+                    $sequenceLength = $this->getValidUtf8SequenceLength($value, $i, $byte);
+                    if ($sequenceLength > 0) {
+                        $escaped .= substr($value, $i, $sequenceLength);
+                        $i += $sequenceLength - 1;
+                    } else {
+                        $escaped .= $this->escapeByte($byte);
+                    }
+                }
+            } else {
+                $sequenceLength = $this->getValidUtf8SequenceLength($value, $i, $byte);
+                if ($sequenceLength > 0) {
+                    $escaped .= substr($value, $i, $sequenceLength);
+                    $i += $sequenceLength - 1;
+                } else {
+                    $escaped .= $this->escapeByte($byte);
+                }
+            }
+        }
+
+        return $escaped;
+    }
+
     /**
      * writes the argument to the output stream
      */
@@ -225,6 +323,29 @@ class TriGWriter
         }
     }
 
+    private function normalizeMessageVersion(string $version): string
+    {
+        return preg_match('/-messages$/', $version) ? $version : $version.'-messages';
+    }
+
+    private function writeVersionDirective(string $version): void
+    {
+        $this->write('VERSION "'.$this->normalizeMessageVersion($version).'"'.PHP_EOL);
+    }
+
+    private function writeMessageDelimiter(): void
+    {
+        if (null !== $this->subject) {
+            $this->write($this->graph ? "\n}\n" : ".\n");
+            $this->subject = null;
+        }
+        if (!$this->lineMode) {
+            $this->graph = '';
+        }
+
+        $this->write('MESSAGE'.PHP_EOL);
+    }
+
     // ### Reads a bit of the string
     public function read(): string
     {
@@ -235,17 +356,36 @@ class TriGWriter
     }
 
     // ### `_encodeIriOrBlankNode` represents an IRI or blank node
+    private function isTripleTerm($entity): bool
+    {
+        return \is_array($entity) && isset($entity['type']) && 'TripleTerm' === $entity['type'];
+    }
+
+    private function encodeTripleTerm(array $term): string
+    {
+        $value = '<<('.
+            $this->encodeIriOrBlankNode($term['subject']).' '.
+            $this->encodeIriOrBlankNode($term['predicate']).' '.
+            $this->encodeObject($term['object']);
+        if (isset($term['graph']) && '' !== $term['graph'] && null !== $term['graph']) {
+            $value .= ' '.$this->encodeIriOrBlankNode($term['graph']);
+        }
+
+        return $value.')>>';
+    }
+
     private function encodeIriOrBlankNode($entity)
     {
+        if ($this->isTripleTerm($entity)) {
+            return $this->encodeTripleTerm($entity);
+        }
+
         // A blank node or list is represented as-is
         $firstChar = substr($entity, 0, 1);
-        if ('[' === $firstChar || '(' === $firstChar || '_' === $firstChar && ':' === substr($entity, 1, 1)) {
+        if ('<<(' === substr($entity, 0, 3) || '[' === $firstChar || '(' === $firstChar || '_' === $firstChar && ':' === substr($entity, 1, 1)) {
             return $entity;
         }
-        // Escape special characters
-        if (preg_match(self::ESCAPE, $entity)) {
-            $entity = preg_replace_callback(self::ESCAPE, $this->characterReplacer, $entity);
-        }
+        $entity = $this->escapeString($entity);
 
         // Try to represent the IRI as prefixed name
         preg_match($this->prefixRegex, $entity, $prefixMatch);
@@ -263,11 +403,7 @@ class TriGWriter
     // ### `_encodeLiteral` represents a literal
     private function encodeLiteral($value, $type = null, $language = null)
     {
-        // Escape special characters
-        if (preg_match(self::ESCAPE, $value)) {
-            $value = preg_replace_callback(self::ESCAPE, $this->characterReplacer, $value);
-        }
-        $value = $value;
+        $value = $this->escapeString($value);
         // Write the literal, possibly with type or language
         if (isset($language)) {
             return '"'.$value.'"@'.$language;
@@ -279,14 +415,14 @@ class TriGWriter
     }
 
     // ### `_encodeSubject` represents a subject
-    private function encodeSubject(string $subject)
+    private function encodeSubject($subject)
     {
-        if ('"' === $subject[0]) {
+        if (!$this->isTripleTerm($subject) && '"' === $subject[0]) {
             throw new \Exception('A literal as subject is not allowed: '.$subject);
         }
 
         // Don't treat identical blank nodes as repeating subjects
-        if ('[' === $subject[0]) {
+        if (!$this->isTripleTerm($subject) && '[' === $subject[0]) {
             $this->subject = ']';
         }
 
@@ -294,8 +430,12 @@ class TriGWriter
     }
 
     // ### `_encodePredicate` represents a predicate
-    private function encodePredicate(string $predicate)
+    private function encodePredicate($predicate)
     {
+        if ($this->isTripleTerm($predicate)) {
+            throw new \Exception('A triple term as predicate is not allowed.');
+        }
+
         if ('"' === $predicate[0]) {
             throw new \Exception('A literal as predicate is not allowed: '.$predicate);
         }
@@ -310,6 +450,10 @@ class TriGWriter
      */
     private function encodeObject($object)
     {
+        if ($this->isTripleTerm($object)) {
+            return $this->encodeTripleTerm($object);
+        }
+
         // Represent an IRI or blank node
         if ('"' !== $object[0]) {
             return $this->encodeIriOrBlankNode($object);
@@ -339,7 +483,7 @@ class TriGWriter
          *      callers to split S, P, O, G as different paramaters. This change also allows better
          *      static code analysis
          */
-        if (\is_array($subject)) {
+        if (\is_array($subject) && !$this->isTripleTerm($subject)) {
             $g = isset($subject['graph']) ? $subject['graph'] : null;
             \call_user_func($this->writeTriple, $subject['subject'], $subject['predicate'], $subject['object'], $g, $predicate);
         }
@@ -367,6 +511,21 @@ class TriGWriter
     }
 
     /**
+     * adds one RDF Message to the output stream
+     *
+     * @param array<int, array<string, string|null>> $quads
+     */
+    public function addMessage(array $quads): void
+    {
+        if (!$this->messageMode) {
+            throw new \Exception('addMessage requires the writer to be created with the messages option enabled.');
+        }
+
+        $this->addTriples($quads);
+        $this->writeMessageDelimiter();
+    }
+
+    /**
      * adds the prefix to the output stream
      */
     public function addPrefix(string $prefix, string $iri): void
@@ -383,6 +542,10 @@ class TriGWriter
      */
     public function addPrefixes(array $prefixes): void
     {
+        if ($this->lineMode) {
+            return;
+        }
+
         // Add all useful prefixes
         $hasPrefixes = false;
         foreach ($prefixes as $prefix => $iri) {

@@ -1,4 +1,7 @@
 /vendor/
+/node_modules/
 /composer.lock
+/package-lock.json
+/.rdf-test-suite-cache/
 /.phpunit.result.cache
 /.php_cs.cache
