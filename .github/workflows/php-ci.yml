@@ -49,12 +49,13 @@ jobs:
     - name: Composer install
       uses: php-actions/composer@v6
       with:
-        php_version: 8.3
+        php_version: "8.3"
+        args: --no-scripts
 
     - name: Run PHPStan
       uses: php-actions/phpstan@v3
       with:
-        php_version: 8.3
+        php_version: "8.3"
         version: composer
         configuration: phpstan.neon
         path: src test bin perf examples
@@ -69,7 +70,8 @@ jobs:
     - name: Run PHPCS
       uses: php-actions/phpcs@v1
       with:
-        php_version: 8.3
+        php_version: "8.3"
         standard: PSR12
-        path: src test bin perf examples
+        path: .
+        ignore: vendor/*,node_modules/*,coverage/*
         extensions: php
