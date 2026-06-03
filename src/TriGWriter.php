@@ -663,7 +663,7 @@ class TriGWriter
             $this->subject = null;
         }
         if (null !== $this->readCallback) {
-            \call_user_func($this->readCallback, $this->string);
+            \call_user_func($this->readCallback, $this->string ?? '');
         }
 
         // Disallow further writing

@@ -6,23 +6,27 @@ const DEFAULT_SIZES = [100000, 1000000, 10000000];
 
 function formatUsage(): void
 {
-    echo "Usage: compare-hardf-n3js.php [triple-count ...]\n";
+    echo "Usage: compare-hardf-n3js.php [--all] [triple-count ...]\n";
+    echo "  --all    Also benchmark EasyRDF and ARC2 (slower)\n";
     echo "Example: php perf/compare-hardf-n3js.php 100000 1000000 10000000\n";
+    echo "Example: php perf/compare-hardf-n3js.php --all 100000\n";
 }
 
-function parseSizes(array $argv): array
+function parseArgs(array $argv): array
 {
-    if (1 === count($argv)) {
-        return DEFAULT_SIZES;
-    }
-
     $sizes = [];
-    foreach (array_slice($argv, 1) as $rawSize) {
-        if (!preg_match('/^\d+$/', $rawSize)) {
+    $all = false;
+
+    foreach (array_slice($argv, 1) as $arg) {
+        if ('--all' === $arg) {
+            $all = true;
+            continue;
+        }
+        if (!preg_match('/^\d+$/', $arg)) {
             formatUsage();
             throw new InvalidArgumentException('Triple counts must be positive integers.');
         }
-        $size = (int) $rawSize;
+        $size = (int) $arg;
         if ($size <= 0) {
             formatUsage();
             throw new InvalidArgumentException('Triple counts must be positive integers.');
@@ -30,7 +34,11 @@ function parseSizes(array $argv): array
         $sizes[] = $size;
     }
 
-    return $sizes;
+    if (empty($sizes)) {
+        $sizes = DEFAULT_SIZES;
+    }
+
+    return ['sizes' => $sizes, 'all' => $all];
 }
 
 function ensureNodeAvailable(): void
@@ -81,34 +89,54 @@ function parseBenchmarkOutput(string $output): array
     ];
 }
 
-function printResults(array $results): void
+function printResults(array $results, bool $all): void
 {
-    echo "\n| triples | Hardf no opcache (ms) | Hardf no opcache (MB) | Hardf no opcache vs N3.js | Hardf opcache (ms) | Hardf opcache (MB) | Hardf opcache vs N3.js | EasyRDF opcache (ms) | EasyRDF opcache (MB) | EasyRDF vs N3.js | ARC2 opcache (ms) | ARC2 opcache (MB) | ARC2 vs N3.js | N3.js (ms) | N3.js (MB) |\n";
-    echo "|--------:|----------------------:|----------------------:|--------------------------:|-------------------:|-------------------:|-----------------------:|---------------------:|---------------------:|-----------------:|------------------:|------------------:|---------------:|----------:|-----------:|\n";
+    if ($all) {
+        echo "\n| triples | Hardf no opcache (ms) | Hardf no opcache (MB) | Hardf no opcache vs N3.js | Hardf opcache (ms) | Hardf opcache (MB) | Hardf opcache vs N3.js | EasyRDF opcache (ms) | EasyRDF opcache (MB) | EasyRDF vs N3.js | ARC2 opcache (ms) | ARC2 opcache (MB) | ARC2 vs N3.js | N3.js (ms) | N3.js (MB) |\n";
+        echo "|--------:|----------------------:|----------------------:|--------------------------:|-------------------:|-------------------:|-----------------------:|---------------------:|---------------------:|-----------------:|------------------:|------------------:|---------------:|----------:|-----------:|\n";
+    } else {
+        echo "\n| triples | Hardf no opcache (ms) | Hardf no opcache (MB) | Hardf no opcache vs N3.js | Hardf opcache (ms) | Hardf opcache (MB) | Hardf opcache vs N3.js | N3.js (ms) | N3.js (MB) |\n";
+        echo "|--------:|----------------------:|----------------------:|--------------------------:|-------------------:|-------------------:|-----------------------:|----------:|-----------:|\n";
+    }
 
     foreach ($results as $row) {
         $hardfNoOpcacheSlower = slowerThanN3js($row['hardfNoOpcache']['seconds'], $row['n3js']['seconds']);
         $hardfOpcacheSlower = slowerThanN3js($row['hardfOpcache']['seconds'], $row['n3js']['seconds']);
-        $easyRdfSlower = slowerThanN3js($row['easyRdfOpcache']['seconds'], $row['n3js']['seconds']);
-        $arc2Slower = slowerThanN3js($row['arc2Opcache']['seconds'], $row['n3js']['seconds']);
-        printf(
-            "| %s | %.0f | %.3f | %.2fx | %.0f | %.3f | %.2fx | %.0f | %.3f | %.2fx | %.0f | %.3f | %.2fx | %.0f | %.3f |\n",
-            number_format($row['triples']),
-            $row['hardfNoOpcache']['seconds'] * 1000,
-            $row['hardfNoOpcache']['memoryMb'],
-            $hardfNoOpcacheSlower,
-            $row['hardfOpcache']['seconds'] * 1000,
-            $row['hardfOpcache']['memoryMb'],
-            $hardfOpcacheSlower,
-            $row['easyRdfOpcache']['seconds'] * 1000,
-            $row['easyRdfOpcache']['memoryMb'],
-            $easyRdfSlower,
-            $row['arc2Opcache']['seconds'] * 1000,
-            $row['arc2Opcache']['memoryMb'],
-            $arc2Slower,
-            $row['n3js']['seconds'] * 1000,
-            $row['n3js']['memoryMb']
-        );
+        if ($all) {
+            $easyRdfSlower = slowerThanN3js($row['easyRdfOpcache']['seconds'], $row['n3js']['seconds']);
+            $arc2Slower = slowerThanN3js($row['arc2Opcache']['seconds'], $row['n3js']['seconds']);
+            printf(
+                "| %s | %.0f | %.3f | %.2fx | %.0f | %.3f | %.2fx | %.0f | %.3f | %.2fx | %.0f | %.3f | %.2fx | %.0f | %.3f |\n",
+                number_format($row['triples']),
+                $row['hardfNoOpcache']['seconds'] * 1000,
+                $row['hardfNoOpcache']['memoryMb'],
+                $hardfNoOpcacheSlower,
+                $row['hardfOpcache']['seconds'] * 1000,
+                $row['hardfOpcache']['memoryMb'],
+                $hardfOpcacheSlower,
+                $row['easyRdfOpcache']['seconds'] * 1000,
+                $row['easyRdfOpcache']['memoryMb'],
+                $easyRdfSlower,
+                $row['arc2Opcache']['seconds'] * 1000,
+                $row['arc2Opcache']['memoryMb'],
+                $arc2Slower,
+                $row['n3js']['seconds'] * 1000,
+                $row['n3js']['memoryMb']
+            );
+        } else {
+            printf(
+                "| %s | %.0f | %.3f | %.2fx | %.0f | %.3f | %.2fx | %.0f | %.3f |\n",
+                number_format($row['triples']),
+                $row['hardfNoOpcache']['seconds'] * 1000,
+                $row['hardfNoOpcache']['memoryMb'],
+                $hardfNoOpcacheSlower,
+                $row['hardfOpcache']['seconds'] * 1000,
+                $row['hardfOpcache']['memoryMb'],
+                $hardfOpcacheSlower,
+                $row['n3js']['seconds'] * 1000,
+                $row['n3js']['memoryMb']
+            );
+        }
     }
 }
 
@@ -120,7 +148,9 @@ $n3Bench = __DIR__.'/n3js-perf.js';
 $generatedDir = rtrim(sys_get_temp_dir(), \DIRECTORY_SEPARATOR).\DIRECTORY_SEPARATOR.'hardf-perf';
 
 try {
-    $sizes = parseSizes($argv);
+    $args = parseArgs($argv);
+    $sizes = $args['sizes'];
+    $all = $args['all'];
     ensureNodeAvailable();
 } catch (Throwable $error) {
     echo $error->getMessage()."\n";
@@ -162,21 +192,29 @@ foreach ($sizes as $size) {
             escapeshellarg($filename),
         ]));
 
-        $easyRdfOutput = runCommand(implode(' ', [
-            escapeshellarg(\PHP_BINARY),
-            '-d',
-            escapeshellarg('opcache.enable_cli=1'),
-            escapeshellarg($easyRdfBench),
-            escapeshellarg($filename),
-        ]));
+        $easyRdfOpcache = null;
+        $arc2Opcache = null;
 
-        $arc2Output = runCommand(implode(' ', [
-            escapeshellarg(\PHP_BINARY),
-            '-d',
-            escapeshellarg('opcache.enable_cli=1'),
-            escapeshellarg($arc2Bench),
-            escapeshellarg($filename),
-        ]));
+        if ($all) {
+            $easyRdfOutput = runCommand(implode(' ', [
+                escapeshellarg(\PHP_BINARY),
+                '-d',
+                escapeshellarg('opcache.enable_cli=1'),
+                escapeshellarg($easyRdfBench),
+                escapeshellarg($filename),
+            ]));
+
+            $arc2Output = runCommand(implode(' ', [
+                escapeshellarg(\PHP_BINARY),
+                '-d',
+                escapeshellarg('opcache.enable_cli=1'),
+                escapeshellarg($arc2Bench),
+                escapeshellarg($filename),
+            ]));
+
+            $easyRdfOpcache = parseBenchmarkOutput($easyRdfOutput);
+            $arc2Opcache = parseBenchmarkOutput($arc2Output);
+        }
 
         $n3Output = runCommand(implode(' ', [
             'node',
@@ -188,8 +226,8 @@ foreach ($sizes as $size) {
             'triples' => $size,
             'hardfNoOpcache' => parseBenchmarkOutput($hardfOutput),
             'hardfOpcache' => parseBenchmarkOutput($hardfOpcacheOutput),
-            'easyRdfOpcache' => parseBenchmarkOutput($easyRdfOutput),
-            'arc2Opcache' => parseBenchmarkOutput($arc2Output),
+            'easyRdfOpcache' => $easyRdfOpcache,
+            'arc2Opcache' => $arc2Opcache,
             'n3js' => parseBenchmarkOutput($n3Output),
         ];
     } catch (Throwable $error) {
@@ -202,4 +240,4 @@ foreach ($sizes as $size) {
     }
 }
 
-printResults($results);
+printResults($results, $all);

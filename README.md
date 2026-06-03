@@ -431,6 +431,16 @@ Because of that, the benchmark below uses a generated **N-Triples** dataset, not
 
 The measurements below were taken with PHP 8.3.6 and Node.js 25.9.0 using `php perf/compare-hardf-n3js.php`. EasyRDF and ARC2 were measured with CLI opcache enabled. Hardf was measured both with and without CLI opcache enabled. N3.js is included as a reference implementation on a very fast runtime, so it is expected to win on absolute throughput.
 
+```bash
+# Run the default comparison (Hardf vs N3.js)
+php perf/compare-hardf-n3js.php
+
+# Also include EasyRDF and ARC2
+php perf/compare-hardf-n3js.php --all
+```
+
+The script generates synthetic N-Triples datasets at `/tmp/hardf-perf/` and reports parse time and memory for each framework.
+
 That expectation does show up in the results, but the interesting part is the size of the gap: Hardf remains within a single-digit factor of N3.js across the whole range and scales roughly linearly from $10^5$ to $10^7$ triples. CLI opcache helps Hardf modestly on runtime and significantly on reported PHP memory. EasyRDF and ARC2 fall further behind as the data grows.
 
 We report on the findings for increasing number of triples.
