@@ -32,7 +32,7 @@ class TriGParserIterator implements \Iterator
     private $options;
     private $prefixCallback;
     /**
-     * @var \pietercolpaert\hardf\TriGParser
+     * @var TriGParser
      */
     private $parser;
     private $chunkSize;
@@ -114,7 +114,7 @@ class TriGParserIterator implements \Iterator
         if (false === $el) {
             $this->triplesBuffer = [];
             $this->parser->setTripleCallback(function (?\Exception $e,
-                                                      ?array $quad): void {
+                ?array $quad): void {
                 if ($e) {
                     throw $e;
                 }
@@ -122,8 +122,15 @@ class TriGParserIterator implements \Iterator
                     $this->triplesBuffer[] = $quad;
                 }
             });
-            while (!feof($this->input) && 0 === \count($this->triplesBuffer)) {
-                $this->parser->parseChunk(fgets($this->input, $this->chunkSize));
+            while (!feof($this->input)) {
+                $chunk = fgets($this->input, $this->chunkSize);
+                if (false === $chunk) {
+                    break;
+                }
+                $this->parser->parseChunk($chunk);
+                if (!empty($this->triplesBuffer)) {
+                    break;
+                }
             }
             if (feof($this->input)) {
                 $this->parser->end();

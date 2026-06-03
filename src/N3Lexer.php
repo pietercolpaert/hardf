@@ -76,7 +76,7 @@ class N3Lexer
     }
 
     // ## Regular expressions
-    //_iri:        /^<((?:[^ <>{}\\]|\\[uU])+)>[ \t]*/, // IRI with escape sequences; needs sanity check after unescaping
+    // _iri:        /^<((?:[^ <>{}\\]|\\[uU])+)>[ \t]*/, // IRI with escape sequences; needs sanity check after unescaping
     private $iri = '/^<((?:[^ <>{}\\\\]|\\\\[uU])+)>[ \\t]*/'; // IRI with escape sequences; needs sanity check after unescaping
     //      _unescapedIri:    /^<([^\x00-\x20<>\\"\{\}\|\^\`]*)>[ \t]*/, // IRI without escape sequences; no unescaping
     private $unescapedIri = '/^<([^\\x00-\\x20<>\\\\"\\{\\}\\|\\^\\`]*)>[ \\t]*/'; // IRI without escape sequences; no unescaping
@@ -222,7 +222,9 @@ class N3Lexer
                     elseif (preg_match($this->iri, $input, $match)) {
                         $unescaped = $this->unescape($match[1]);
                         if (null === $unescaped || preg_match($this->illegalIriChars, $unescaped)) {
-                            return $reportSyntaxError($this);
+                            $reportSyntaxError($this);
+
+                            return null;
                         }
                         $type = 'IRI';
                         $value = $unescaped;
@@ -238,7 +240,7 @@ class N3Lexer
                     // Try to find a blank node. Since it can contain (but not end with) a dot,
                     // we always need a non-dot character before deciding it is a prefixed name.
                     // Therefore, try inserting a space if we're at the end of the $input.
-                    if ((preg_match($this->blank, $input, $match)) || $inputFinished && (preg_match($this->blank, $input.' ', $match))) {
+                    if (preg_match($this->blank, $input, $match) || $inputFinished && preg_match($this->blank, $input.' ', $match)) {
                         $type = 'blank';
                         $prefix = '_';
                         $value = $match[1];
@@ -257,29 +259,33 @@ class N3Lexer
                     elseif (preg_match($this->singleQuotedString, $input, $match)) {
                         $unescaped = $this->unescape($match[0]);
                         if (null === $unescaped) {
-                            return $reportSyntaxError($this);
+                            $reportSyntaxError($this);
+
+                            return null;
                         }
                         $type = 'literal';
                         $value = preg_replace('/^\'|\'$/', '"', $unescaped);
                     }
                     // Try to find a literal wrapped in three pairs of single or double quotes
                     elseif (preg_match($this->tripleQuotedString, $input, $match)) {
-                        $unescaped = 0 === strpos($input, "'''") ? $match[2] : $match[1];
+                        $unescaped = str_starts_with($input, "'''") ? $match[2] : $match[1];
                         // Count the newlines and advance line counter
                         $this->line += \count(preg_split('/\r\n|\r|\n/', $unescaped)) - 1;
                         $unescaped = $this->unescape($unescaped);
                         if (null === $unescaped) {
-                            return $reportSyntaxError($this);
+                            $reportSyntaxError($this);
+
+                            return null;
                         }
                         $type = 'literal';
                         $quoted = 'long';
                         $value = preg_replace("/^'|'$/", '"', $unescaped);
                     }
-                break;
+                    break;
 
                 case '?':
                     // Try to find a variable
-                    if ($this->n3Mode && (preg_match($this->variable, $input, $match))) {
+                    if ($this->n3Mode && preg_match($this->variable, $input, $match)) {
                         $type = 'var';
                         $value = $match[0];
                     }
@@ -382,7 +388,7 @@ class N3Lexer
                     if (!$this->n3Mode) {
                         break;
                     }
-                        // no break
+                    // no break
                 case ',':
                 case ';':
                 case '[':
@@ -441,7 +447,7 @@ class N3Lexer
                 // Try to find a prefixed name. Since it can contain (but not end with) a dot,
                 // we always need a non-dot character before deciding it is a prefixed name.
                 // Therefore, try inserting a space if we're at the end of the input.
-                elseif (preg_match($this->prefixed, $input, $match) || $inputFinished && (preg_match($this->prefixed, $input.' ', $match))) {
+                elseif (preg_match($this->prefixed, $input, $match) || $inputFinished && preg_match($this->prefixed, $input.' ', $match)) {
                     $type = 'prefixed';
                     $prefix = isset($match[1]) ? $match[1] : '';
                     $value = $this->unescape($match[2]);
@@ -451,8 +457,10 @@ class N3Lexer
             // A type token is special: it can only be emitted after an IRI or prefixed name is read
             if ('^^' === $this->prevTokenType) {
                 switch ($type) {
-                    case 'prefixed': $type = 'type'; break;
-                    case 'IRI':      $type = 'typeIRI'; break;
+                    case 'prefixed': $type = 'type';
+                        break;
+                    case 'IRI':      $type = 'typeIRI';
+                        break;
                     default:         $type = '';
                 }
             }
@@ -463,7 +471,9 @@ class N3Lexer
                 // Otherwise, a syntax error has occurred in the input.
                 // One exception: error on an unaccounted linebreak (= not inside a triple-quoted literal).
                 if ($inputFinished || (!preg_match('/^\'\'\'|^"""/', $input) && preg_match('/\\n|\\r/', $input))) {
-                    return $reportSyntaxError($this);
+                    $reportSyntaxError($this);
+
+                    return null;
                 } else {
                     $this->input = $input;
 

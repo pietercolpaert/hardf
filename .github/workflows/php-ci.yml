@@ -1,0 +1,75 @@
+name: PHP CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  phpunit:
+    name: PHPUnit (PHP ${{ matrix.php-versions }})
+    strategy:
+      matrix:
+        php-versions: ['7.1', '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5']
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Validate composer.json and composer.lock
+      run: composer validate --strict
+
+    - name: Cache Composer packages
+      id: composer-cache
+      uses: actions/cache@v3
+      with:
+        path: vendor
+        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-php-
+
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-progress
+
+    - name: Run test suite
+      run: composer run phpunit
+
+  phpstan:
+    name: PHPStan
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Composer install
+      uses: php-actions/composer@v6
+      with:
+        php_version: 8.3
+
+    - name: Run PHPStan
+      uses: php-actions/phpstan@v3
+      with:
+        php_version: 8.3
+        version: composer
+        configuration: phpstan.neon
+        path: src test bin perf examples
+
+  cs:
+    name: Code Style (PHPCS)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Run PHPCS
+      uses: php-actions/phpcs@v1
+      with:
+        php_version: 8.3
+        standard: PSR12
+        path: src test bin perf examples
+        extensions: php

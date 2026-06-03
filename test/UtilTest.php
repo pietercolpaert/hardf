@@ -9,14 +9,13 @@ class UtilTest extends TestCase
 {
     public function testIsIRI(): void
     {
-        $this->assertIsBool(Util::isIRI('http://test.be'));
         $this->assertTrue(
             Util::isIRI('http://test.be')
         );
         $this->assertFalse(
             Util::isIRI('"http://test.be"')
         );
-        //Does not match a blank node
+        // Does not match a blank node
         $this->assertFalse(
             Util::isIRI('_:A')
         );
@@ -99,13 +98,13 @@ class UtilTest extends TestCase
         // it gets the value of a literal with a cariage return
         $this->assertEquals('Mickey\rMouse', Util::getLiteralValue('"Mickey\rMouse"'));
 
-        $this->assertEquals("foo\nbar", Util::getLiteralValue('"' . "foo\nbar" . '"'));
+        $this->assertEquals("foo\nbar", Util::getLiteralValue('"'."foo\nbar".'"'));
 
         // it does not work with non-literals
-        //TODO: Util::getLiteralValue.bind(null, 'http://ex.org/').should.throw('http://ex.org/ is not a literal');
+        // TODO: Util::getLiteralValue.bind(null, 'http://ex.org/').should.throw('http://ex.org/ is not a literal');
 
         // it does not work with null
-        //TODO: Util::getLiteralValue.bind(null, null).should.throw('null is not a literal');
+        // TODO: Util::getLiteralValue.bind(null, null).should.throw('null is not a literal');
     }
 
     // tests reaction if no literal was given
@@ -137,10 +136,10 @@ class UtilTest extends TestCase
         $this->assertEquals('abc', Util::getLiteralType('"Mickey\rMouse"^^abc'));
 
         // it does not work with non-literals
-        //TODO: Util::getLiteralType.bind(null, 'http://example.org/').should.throw('http://example.org/ is not a literal');
+        // TODO: Util::getLiteralType.bind(null, 'http://example.org/').should.throw('http://example.org/ is not a literal');
 
         // it does not work with null
-        //TODO: Util::getLiteralType.bind(null, null).should.throw('null is not a literal');
+        // TODO: Util::getLiteralType.bind(null, null).should.throw('null is not a literal');
     }
 
     // tests getLiteralType if multi line string was given (check for adaption of Util.php,
@@ -268,7 +267,7 @@ If you wish to make comments regarding this document, please send them to public
         $this->assertEquals('"2.3"^^http://www.w3.org/2001/XMLSchema#double', Util::createLiteral(2.3));
 
         // it converts infinity
-        $this->assertEquals('"INF"^^http://www.w3.org/2001/XMLSchema#double', Util::createLiteral(INF));
+        $this->assertEquals('"INF"^^http://www.w3.org/2001/XMLSchema#double', Util::createLiteral(\INF));
 
         // it converts false
         $this->assertEquals('"false"^^http://www.w3.org/2001/XMLSchema#boolean', Util::createLiteral(false));
@@ -290,57 +289,57 @@ If you wish to make comments regarding this document, please send them to public
 
       }
     */
-/*
-  public function testprefixes () {
-  public function testCalled without arguments () {
-  var prefixes = Util::prefixes();
-  // it should return a function
-  $this->assertEquals(an.instanceof(Function), prefixes);
+    /*
+      public function testprefixes () {
+      public function testCalled without arguments () {
+      var prefixes = Util::prefixes();
+      // it should return a function
+      $this->assertEquals(an.instanceof(Function), prefixes);
 
 
-  public function testthe function () {
-  // it should not expand non-registered prefixes
-  expect(prefixes('baz')('bar')).to.equal('bar');
+      public function testthe function () {
+      // it should not expand non-registered prefixes
+      expect(prefixes('baz')('bar')).to.equal('bar');
 
 
-  // it should allow registering prefixes
-  var p = prefixes('baz', 'http://ex.org/baz#');
-  expect(p).to.exist;
-  expect(p).to.equal(prefixes('baz'));
+      // it should allow registering prefixes
+      var p = prefixes('baz', 'http://ex.org/baz#');
+      expect(p).to.exist;
+      expect(p).to.equal(prefixes('baz'));
 
 
-  // it should expand the newly registered prefix
-  expect(prefixes('baz')('bar')).to.equal('http://ex.org/baz#bar');
+      // it should expand the newly registered prefix
+      expect(prefixes('baz')('bar')).to.equal('http://ex.org/baz#bar');
 
 
-  }*/
-/*
-    public function testCalled with a hash of prefixes () {
-        var prefixes = Util::prefixes({ foo: 'http://ex.org/foo#', bar: 'http://ex.org/bar#'
-                // it should return a function
-                $this->assertEquals(an.instanceof(Function), prefixes);
+      }*/
+    /*
+        public function testCalled with a hash of prefixes () {
+            var prefixes = Util::prefixes({ foo: 'http://ex.org/foo#', bar: 'http://ex.org/bar#'
+                    // it should return a function
+                    $this->assertEquals(an.instanceof(Function), prefixes);
 
 
-            public function testthe function () {
-                // it should expand registered prefixes
-                expect(prefixes('foo')('bar')).to.equal('http://ex.org/foo#bar');
-                expect(prefixes('bar')('bar')).to.equal('http://ex.org/bar#bar');
+                public function testthe function () {
+                    // it should expand registered prefixes
+                    expect(prefixes('foo')('bar')).to.equal('http://ex.org/foo#bar');
+                    expect(prefixes('bar')('bar')).to.equal('http://ex.org/bar#bar');
 
 
-                // it should not expand non-registered prefixes
-                expect(prefixes('baz')('bar')).to.equal('bar');
+                    // it should not expand non-registered prefixes
+                    expect(prefixes('baz')('bar')).to.equal('bar');
 
 
-                // it should allow registering prefixes
-                var p = prefixes('baz', 'http://ex.org/baz#');
-                expect(p).to.exist;
-                expect(p).to.equal(prefixes('baz'));
+                    // it should allow registering prefixes
+                    var p = prefixes('baz', 'http://ex.org/baz#');
+                    expect(p).to.exist;
+                    expect(p).to.equal(prefixes('baz'));
 
 
-                // it should expand the newly registered prefix
-                expect(prefixes('baz')('bar')).to.equal('http://ex.org/baz#bar');
+                    // it should expand the newly registered prefix
+                    expect(prefixes('baz')('bar')).to.equal('http://ex.org/baz#bar');
 
 
-            }
-*/
+                }
+    */
 }

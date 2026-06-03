@@ -9,7 +9,7 @@ use pietercolpaert\hardf\Util;
 
 class N3JsCompatibilityTest extends TestCase
 {
-    const RDF_REIFIES = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies';
+    public const RDF_REIFIES = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies';
 
     /**
      * @param string|array<string, mixed> $object

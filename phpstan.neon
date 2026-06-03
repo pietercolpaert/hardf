@@ -6,6 +6,7 @@ parameters:
         - php
 
     level: 5
+    phpVersion: 70100
 
     paths:
         - bin

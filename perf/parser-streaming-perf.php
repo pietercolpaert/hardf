@@ -12,7 +12,7 @@ $filename = $argv[1];
 $base = 'file://'.$filename;
 
 if (!is_readable($filename)) {
-    echo "File not found or not readable: ".$filename."\n";
+    echo 'File not found or not readable: '.$filename."\n";
     exit(1);
 }
 
@@ -35,7 +35,7 @@ $parser = new TriGParser(['documentIRI' => $base], function ($error, $triple) us
 
 $handle = fopen($filename, 'r');
 if (false === $handle) {
-    echo "Could not open file: ".$filename."\n";
+    echo 'Could not open file: '.$filename."\n";
     exit(1);
 }
 

@@ -248,8 +248,8 @@ class RDFMessagesTest extends TestCase
                 }
                 if ($triple) {
                     $lastTripleCounter = $messageCounter;
-                } elseif ($prefixes !== null) { // end-of-stream
-                    if ($messageCounter !== null && $messageCounter !== $lastTripleCounter) {
+                } elseif (null !== $prefixes) { // end-of-stream
+                    if (null !== $messageCounter && $messageCounter !== $lastTripleCounter) {
                         $emptyTrailingMessageDetected = true;
                     }
                 }
@@ -274,8 +274,8 @@ class RDFMessagesTest extends TestCase
                 }
                 if ($triple) {
                     $lastTripleCounter = $messageCounter;
-                } elseif ($prefixes !== null) { // end-of-stream
-                    if ($messageCounter !== null && $messageCounter !== $lastTripleCounter) {
+                } elseif (null !== $prefixes) { // end-of-stream
+                    if (null !== $messageCounter && $messageCounter !== $lastTripleCounter) {
                         $emptyTrailingMessageDetected = true;
                     }
                 }

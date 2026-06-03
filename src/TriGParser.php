@@ -11,14 +11,14 @@ namespace pietercolpaert\hardf;
  */
 class TriGParser
 {
-    const RDF_PREFIX = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
-    const RDF_NIL = self::RDF_PREFIX.'nil';
-    const RDF_FIRST = self::RDF_PREFIX.'first';
-    const RDF_REST = self::RDF_PREFIX.'rest';
-    const RDF_LANG_STRING = self::RDF_PREFIX.'langString';
-    const RDF_DIR_LANG_STRING = self::RDF_PREFIX.'dirLangString';
-    const RDF_REIFIES = self::RDF_PREFIX.'reifies';
-    const QUANTIFIERS_GRAPH = 'urn:n3:quantifiers';
+    public const RDF_PREFIX = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
+    public const RDF_NIL = self::RDF_PREFIX.'nil';
+    public const RDF_FIRST = self::RDF_PREFIX.'first';
+    public const RDF_REST = self::RDF_PREFIX.'rest';
+    public const RDF_LANG_STRING = self::RDF_PREFIX.'langString';
+    public const RDF_DIR_LANG_STRING = self::RDF_PREFIX.'dirLangString';
+    public const RDF_REIFIES = self::RDF_PREFIX.'reifies';
+    public const QUANTIFIERS_GRAPH = 'urn:n3:quantifiers';
 
     private $absoluteIRI = '/^[a-z][a-z0-9+.-]*:/i';
     private $schemeAuthority = '/^(?:([a-z][a-z0-9+.-]*:))?(?:\\/\\/[^\\/]*)?/i';
@@ -134,7 +134,7 @@ class TriGParser
         $this->contextStack = [];
         $this->graph = null;
 
-        //This will initiate the callback methods
+        // This will initiate the callback methods
         $this->initReaders();
 
         // Set the document IRI
@@ -149,9 +149,9 @@ class TriGParser
         $isTurtle = 'turtle' === $format;
         $isTriG = 'trig' === $format;
 
-        $isNTriples = false !== strpos($format, 'triple') ? true : false;
-        $isNQuads = false !== strpos($format, 'quad') ? true : false;
-        $isN3 = false !== strpos($format, 'n3') ? true : false;
+        $isNTriples = str_contains($format, 'triple') ? true : false;
+        $isNQuads = str_contains($format, 'quad') ? true : false;
+        $isN3 = str_contains($format, 'n3') ? true : false;
         $this->n3Mode = $isN3;
         $isLineMode = $isNTriples || $isNQuads;
         if (!($this->supportsNamedGraphs = !($isTurtle || $isN3))) {
@@ -235,7 +235,7 @@ class TriGParser
             }
             // Set base IRI and its components
             $this->base = $baseIRI;
-            $this->basePath = false === strpos($baseIRI, '/') ? $baseIRI : preg_replace('/[^\/?]*(?:\?.*)?$/', '', $baseIRI);
+            $this->basePath = !str_contains($baseIRI, '/') ? $baseIRI : preg_replace('/[^\/?]*(?:\?.*)?$/', '', $baseIRI);
             preg_match($this->schemeAuthority, $baseIRI, $matches);
             $this->baseRoot = isset($matches[0]) ? $matches[0] : '';
             $this->baseScheme = isset($matches[1]) ? $matches[1] : '';
@@ -247,13 +247,13 @@ class TriGParser
     private function saveContext($type, $graph, $subject, $predicate, $object)
     {
         $n3Mode = $this->n3Mode ?: null;
-        array_push($this->contextStack, [
+        $this->contextStack[] = [
             'subject' => $subject, 'predicate' => $predicate, 'object' => $object,
             'graph' => $graph, 'type' => $type,
             'inverse' => $n3Mode ? $this->inversePredicate : false,
             'blankPrefix' => $n3Mode ? $this->prefixes['_'] : '',
             'quantified' => $n3Mode ? $this->quantified : null,
-        ]);
+        ];
         // The settings below only apply to N3 streams
         if ($n3Mode) {
             // Every new scope resets the predicate direction
@@ -294,67 +294,67 @@ class TriGParser
             switch ($token['type']) {
                 // If an EOF token arrives in the top context, signal that we're done
                 case 'eof':
-                if (null !== $this->graph) {
-                    return \call_user_func($this->error, 'Unclosed graph', $token);
-                }
-                unset($this->prefixes['_']);
-                if ($this->callback) {
-                    return \call_user_func($this->callback, null, null, $this->prefixes, $this->messageCounter);
-                }
-                // It could be a prefix declaration
-                // no break
+                    if (null !== $this->graph) {
+                        return \call_user_func($this->error, 'Unclosed graph', $token);
+                    }
+                    unset($this->prefixes['_']);
+                    if ($this->callback) {
+                        return \call_user_func($this->callback, null, null, $this->prefixes, $this->messageCounter);
+                    }
+                    // It could be a prefix declaration
+                    // no break
                 case 'PREFIX':
-                $this->sparqlStyle = true;
-                // no break
+                    $this->sparqlStyle = true;
+                    // no break
                 case '@prefix':
-                return $this->readPrefix;
-                // It could be a base declaration
+                    return $this->readPrefix;
+                    // It could be a base declaration
                 case 'BASE':
-                $this->sparqlStyle = true;
-                // no break
+                    $this->sparqlStyle = true;
+                    // no break
                 case '@base':
-                return $this->readBaseIRI;
+                    return $this->readBaseIRI;
                 case 'VERSION':
-                $this->sparqlStyle = true;
-                // no break
+                    $this->sparqlStyle = true;
+                    // no break
                 case '@version':
-                return $this->readVersion;
+                    return $this->readVersion;
                 case 'MESSAGE':
                 case '@message':
-                if (!$this->supportsMessages) {
-                    return \call_user_func($this->error, 'Unexpected "'.$token['type'].'"', $token);
-                }
-                if (null !== $this->graph || 0 !== \count($this->contextStack)) {
-                    return \call_user_func($this->error, 'Unexpected "'.$token['type'].'"', $token);
-                }
+                    if (!$this->supportsMessages) {
+                        return \call_user_func($this->error, 'Unexpected "'.$token['type'].'"', $token);
+                    }
+                    if (null !== $this->graph || 0 !== \count($this->contextStack)) {
+                        return \call_user_func($this->error, 'Unexpected "'.$token['type'].'"', $token);
+                    }
 
-                if (null === $this->messageCounter) {
-                    $this->messageCounter = 0;
-                }
-                if ($this->callback && !isset($this->tripleCallback)) {
-                    \call_user_func($this->callback, null, null, null, $this->messageCounter);
-                }
-                ++$this->messageCounter;
-                $this->prefixes['_'] = isset($this->blankNodePrefix) ? $this->blankNodePrefix : '_:b'.$this->blankNodeCount++.'_';
+                    if (null === $this->messageCounter) {
+                        $this->messageCounter = 0;
+                    }
+                    if ($this->callback && !isset($this->tripleCallback)) {
+                        \call_user_func($this->callback, null, null, null, $this->messageCounter);
+                    }
+                    ++$this->messageCounter;
+                    $this->prefixes['_'] = isset($this->blankNodePrefix) ? $this->blankNodePrefix : '_:b'.$this->blankNodeCount++.'_';
 
-                return 'MESSAGE' === $token['type'] ? $this->readInTopContext : $this->readDeclarationPunctuation;
-                // It could be a graph
+                    return 'MESSAGE' === $token['type'] ? $this->readInTopContext : $this->readDeclarationPunctuation;
+                    // It could be a graph
                 case '{':
-                if ($this->supportsNamedGraphs) {
-                    $this->graph = '';
-                    $this->subject = null;
+                    if ($this->supportsNamedGraphs) {
+                        $this->graph = '';
+                        $this->subject = null;
 
-                    return $this->readSubject;
-                }
-                // no break
+                        return $this->readSubject;
+                    }
+                    // no break
                 case 'GRAPH':
-                if ($this->supportsNamedGraphs) {
-                    return $this->readNamedGraphLabel;
-                }
-                // Otherwise, the next token must be a subject
-                // no break
+                    if ($this->supportsNamedGraphs) {
+                        return $this->readNamedGraphLabel;
+                    }
+                    // Otherwise, the next token must be a subject
+                    // no break
                 default:
-                return \call_user_func($this->readSubject, $token);
+                    return \call_user_func($this->readSubject, $token);
             }
         };
 
@@ -500,13 +500,14 @@ class TriGParser
                     if (!$this->n3Mode) {
                         return \call_user_func($this->error, 'Disallowed blank node as predicate', $token);
                     }
-                        // no break
+                    // no break
                 default:
                     $this->predicate = \call_user_func($this->readEntity, $token);
                     if (null == $this->predicate) {
                         throw $this->getNoBaseUriException('predicate', $token['line']);
                     }
             }
+
             // The next token must be an object
             return $this->readObject;
         };
@@ -515,55 +516,55 @@ class TriGParser
         $this->readObject = function ($token) {
             switch ($token['type']) {
                 case 'literal':
-                $this->object = $token['value'];
+                    $this->object = $token['value'];
 
-                return $this->readDataTypeOrLang;
+                    return $this->readDataTypeOrLang;
                 case 'tripletermstart':
-                $this->saveContext('tripleTerm', $this->graph, $this->subject, $this->predicate, null);
-                $this->tripleTermMode = 'explicitObject';
-                $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+                    $this->saveContext('tripleTerm', $this->graph, $this->subject, $this->predicate, null);
+                    $this->tripleTermMode = 'explicitObject';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
 
-                return $this->readTripleTermSubject;
+                    return $this->readTripleTermSubject;
                 case 'reifiedtriplestart':
-                if (!$this->supportsReifiedTriples) {
-                    return \call_user_func($this->error, 'Disallowed reified triple', $token);
-                }
-                $this->saveContext('reifiedTripleObject', $this->graph, $this->subject, $this->predicate, null);
-                $this->tripleTermMode = 'reifiedObject';
-                $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
+                    if (!$this->supportsReifiedTriples) {
+                        return \call_user_func($this->error, 'Disallowed reified triple', $token);
+                    }
+                    $this->saveContext('reifiedTripleObject', $this->graph, $this->subject, $this->predicate, null);
+                    $this->tripleTermMode = 'reifiedObject';
+                    $this->tripleTerm = ['subject' => null, 'predicate' => null, 'object' => null];
 
-                return $this->readReifiedTripleSubject;
+                    return $this->readReifiedTripleSubject;
                 case '[':
-                // Start a new triple with a new blank node as subject
-                $this->saveContext('blank', $this->graph, $this->subject, $this->predicate,
-                $this->subject = '_:b'.$this->blankNodeCount++);
+                    // Start a new triple with a new blank node as subject
+                    $this->saveContext('blank', $this->graph, $this->subject, $this->predicate,
+                        $this->subject = '_:b'.$this->blankNodeCount++);
 
-                return $this->readBlankNodeHead;
+                    return $this->readBlankNodeHead;
                 case '(':
-                // Start a new list
-                $this->saveContext('list', $this->graph, $this->subject, $this->predicate, self::RDF_NIL);
-                $this->subject = null;
+                    // Start a new list
+                    $this->saveContext('list', $this->graph, $this->subject, $this->predicate, self::RDF_NIL);
+                    $this->subject = null;
 
-                return $this->readListItem;
+                    return $this->readListItem;
                 case '{':
-                // Start a new formula
-                if (!$this->n3Mode) {
-                    return \call_user_func($this->error, 'Unexpected graph', $token);
-                }
-                $this->saveContext('formula', $this->graph, $this->subject, $this->predicate,
-                $this->graph = '_:b'.$this->blankNodeCount++);
+                    // Start a new formula
+                    if (!$this->n3Mode) {
+                        return \call_user_func($this->error, 'Unexpected graph', $token);
+                    }
+                    $this->saveContext('formula', $this->graph, $this->subject, $this->predicate,
+                        $this->graph = '_:b'.$this->blankNodeCount++);
 
-                return $this->readSubject;
+                    return $this->readSubject;
                 default:
-                // Read the object entity
-                $this->object = \call_user_func($this->readEntity, $token);
-                if (null == $this->object) {
-                    throw $this->getNoBaseUriException('object', $token['line']);
-                }
-                // In N3 mode, the object might be a path
-                if ($this->n3Mode) {
-                    return \call_user_func($this->getPathReader, \call_user_func($this->getContextEndReader));
-                }
+                    // Read the object entity
+                    $this->object = \call_user_func($this->readEntity, $token);
+                    if (null == $this->object) {
+                        throw $this->getNoBaseUriException('object', $token['line']);
+                    }
+                    // In N3 mode, the object might be a path
+                    if ($this->n3Mode) {
+                        return \call_user_func($this->getPathReader, \call_user_func($this->getContextEndReader));
+                    }
             }
 
             return \call_user_func($this->getContextEndReader);
@@ -717,10 +718,8 @@ class TriGParser
                     if (!$this->supportsReifiedTriples) {
                         return \call_user_func($this->error, 'Disallowed reified triple', $token);
                     }
-                    if (null === $list) {
-                        $list = '_:b'.$this->blankNodeCount++;
-                        $this->subject = $list;
-                    }
+                    $list = '_:b'.$this->blankNodeCount++;
+                    $this->subject = $list;
                     if (null === $prevList) {
                         if (null === $parent['predicate']) {
                             $parent['subject'] = $list;
@@ -767,6 +766,7 @@ class TriGParser
                     $this->saveContext('item', $this->graph, $list, self::RDF_FIRST, $item);
                     $this->subject = $item;
                     $this->predicate = null;
+
                     // _readPath will restore the context and output the item
                     return \call_user_func($this->getPathReader, $this->readListItem);
                 }
@@ -1336,7 +1336,7 @@ class TriGParser
             if ('reifiedtripleend' === $token['type']) {
                 $this->object = null;
 
-                return $this->readReifiedTripleEnd($token);
+                return \call_user_func($this->readReifiedTripleEnd, $token);
             }
             if ('.' === $token['type']) {
                 $this->annotationReifier = '_:b'.$this->blankNodeCount++;
@@ -1409,6 +1409,7 @@ class TriGParser
 
             // Restore the parent context containing this formula
             $this->restoreContext();
+
             // If the formula was the subject, continue reading the predicate.
             // If the formula was the object, read punctuation.
             return !isset($this->object) ? $this->readPredicate : \call_user_func($this->getContextEndReader);
@@ -1437,7 +1438,7 @@ class TriGParser
                     $next = \count($this->contextStack) ? $this->readSubject : $this->readInTopContext;
                     if ($inversePredicate) {
                         $this->inversePredicate = false;
-                    } //TODO: What’s this?
+                    } // TODO: What’s this?
                     break;
                     // Semicolon means the subject is shared; predicate and object are different
                 case ';':
@@ -1565,7 +1566,7 @@ class TriGParser
             if (isset($token['quoted']) && 'long' === $token['quoted']) {
                 return \call_user_func($this->error, 'Expected simple literal to follow version declaration', $token);
             }
-            if (false !== strpos($token['value'], '^^')) {
+            if (str_contains($token['value'], '^^')) {
                 return \call_user_func($this->error, 'Expected simple literal to follow version declaration', $token);
             }
 
@@ -1589,13 +1590,13 @@ class TriGParser
                 case 'IRI':
                 case 'blank':
                 case 'prefixed':
-                \call_user_func($this->readSubject, $token);
+                    \call_user_func($this->readSubject, $token);
 
-                return $this->readGraph;
+                    return $this->readGraph;
                 case '[':
-                return $this->readNamedGraphBlankLabel;
+                    return $this->readNamedGraphBlankLabel;
                 default:
-                return \call_user_func($this->error, 'Invalid graph label', $token);
+                    return \call_user_func($this->error, 'Invalid graph label', $token);
             }
         };
 
@@ -1648,8 +1649,8 @@ class TriGParser
                 }
                 // Otherwise, continue the previous list
                 else {
-                    \call_user_func($this->triple,$this->subject, self::RDF_REST,
-                    $this->subject = '_:b'.$this->blankNodeCount++, self::QUANTIFIERS_GRAPH);
+                    \call_user_func($this->triple, $this->subject, self::RDF_REST,
+                        $this->subject = '_:b'.$this->blankNodeCount++, self::QUANTIFIERS_GRAPH);
                 }
                 // Output the list item
                 \call_user_func($this->triple, $this->subject, self::RDF_FIRST, $entity, self::QUANTIFIERS_GRAPH);
@@ -1812,14 +1813,14 @@ class TriGParser
             switch ($iri[0]) {
                 // Resolve relative fragment IRIs against the base IRI
                 case '#': return $this->base.$iri;
-                // Resolve relative query string IRIs by replacing the query string
-                case '?': //should only replace the first occurence
+                    // Resolve relative query string IRIs by replacing the query string
+                case '?': // should only replace the first occurence
                     return preg_replace('/(?:\?.*)?$/', $iri, $this->base, 1);
-                // Resolve root-relative IRIs at the root of the base IRI
+                    // Resolve root-relative IRIs at the root of the base IRI
                 case '/':
-                // Resolve scheme-relative IRIs to the scheme
+                    // Resolve scheme-relative IRIs to the scheme
                     return ('/' === $iri[1] ? $this->baseScheme : $this->baseRoot).\call_user_func($this->removeDotSegments, $iri);
-                // Resolve all other IRIs at the base IRI's path
+                    // Resolve all other IRIs at the base IRI's path
                 default:
                     return \call_user_func($this->removeDotSegments, $this->basePath.$iri);
             }
@@ -1841,7 +1842,7 @@ class TriGParser
             $next = '/';
 
             // a function we will need here to fetch the last occurence
-            //search backwards for needle in haystack, and return its position
+            // search backwards for needle in haystack, and return its position
             $rstrpos = function ($haystack, $needle) {
                 $size = \strlen($haystack);
                 $pos = strpos(strrev($haystack), $needle);
@@ -1858,7 +1859,8 @@ class TriGParser
                     case ':':
                         if ($pathStart < 0) {
                             // Skip two slashes before the authority
-                            if ('/' === $iri[++$i] && '/' === $iri[++$i]) {
+                            if (($iri[$i + 1] ?? null) === '/' && ($iri[$i + 2] ?? null) === '/') {
+                                $i += 2;
                                 // Skip to slash after the authority
                                 while (($pathStart = $i + 1) < $length && '/' !== $iri[$pathStart]) {
                                     $i = $pathStart;
@@ -1871,7 +1873,7 @@ class TriGParser
                     case '#':
                         $i = $length;
                         break;
-                    // Handle '/.' or '/..' path segments
+                        // Handle '/.' or '/..' path segments
                     case '/':
                         if (isset($iri[$i + 1]) && '.' === $iri[$i + 1]) {
                             if (isset($iri[++$i + 1])) {
@@ -2006,7 +2008,7 @@ class TriGParser
                     if (isset($this->readCallback)) {
                         $this->readCallback = \call_user_func($this->readCallback, $token);
                     } else {
-                        //error occured in parser
+                        // error occured in parser
                         break;
                     }
                 }
@@ -2045,7 +2047,7 @@ class TriGParser
         return new \Exception(
             "$location on line $line can not be parsed without knowing the the document base IRI.\n".
             "Please set the document base IRI using the documentIRI parser configuration option.\n".
-            "See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI ."
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .'
         );
     }
 }

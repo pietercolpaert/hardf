@@ -13,19 +13,19 @@ class TriGWriter
      *
      * @var string
      */
-    const LITERALMATCHER = '/^"(.*)"(?:\\^\\^(.+)|@([a-z]+(?:-[a-z0-9]+)*(?:--(?:ltr|rtl))?))?$/is';
+    public const LITERALMATCHER = '/^"(.*)"(?:\\^\\^(.+)|@([a-z]+(?:-[a-z0-9]+)*(?:--(?:ltr|rtl))?))?$/is';
 
     /**
      * rdf:type predicate (for 'a' abbreviation)
      *
      * @var string
      */
-    const RDF_PREFIX = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
+    public const RDF_PREFIX = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
 
     /**
      * @var string
      */
-    const RDF_TYPE = self::RDF_PREFIX.'type';
+    public const RDF_TYPE = self::RDF_PREFIX.'type';
 
     /**
      * Legacy matcher for characters that require escaping.
@@ -35,7 +35,7 @@ class TriGWriter
      *
      * @var string
      */
-    const ESCAPE = '/["\\\\\\x00-\\x1F\\x7F]/';
+    public const ESCAPE = '/["\\\\\\x00-\\x1F\\x7F]/';
 
     /**
      * matches a prefixed name or IRI that begins with one of the added prefixes
@@ -57,7 +57,7 @@ class TriGWriter
     /**
      * @var array
      */
-    private $prefixIRIs;
+    private $prefixIRIs = [];
 
     /**
      * @var bool
@@ -72,7 +72,7 @@ class TriGWriter
     private $string;
 
     /**
-     * @var callable
+     * @var callable|null
      */
     private $readCallback;
 
@@ -102,9 +102,9 @@ class TriGWriter
         $this->initWriter();
         $this->messageMode = !empty($options['messages']);
 
-        /* Initialize writer, depending on the format*/
+        /* Initialize writer, depending on the format */
         $this->subject = null;
-        if (!isset($options['format']) || !(preg_match('/triple|quad/i', $options['format']))) {
+        if (!isset($options['format']) || !preg_match('/triple|quad/i', $options['format'])) {
             $this->graph = '';
             $this->prefixIRIs = [];
             if ($this->messageMode && isset($options['version'])) {
@@ -120,7 +120,6 @@ class TriGWriter
                 $this->writeVersionDirective((string) $options['version']);
             }
         }
-
     }
 
     public function setReadCallback($readCallback)
@@ -139,8 +138,8 @@ class TriGWriter
             // Write the graph's label if it has changed
             if ($this->graph !== $graph) {
                 // Close the previous graph and start the new one
-                $lineToWrite = null === $this->subject ? '' : ($this->graph ? "\n}\n" : '.'.PHP_EOL);
-                $lineToWrite .= isset($graph) ? $this->encodeIriOrBlankNode($graph).' {'.PHP_EOL : '';
+                $lineToWrite = null === $this->subject ? '' : ($this->graph ? "\n}\n" : '.'.\PHP_EOL);
+                $lineToWrite .= isset($graph) ? $this->encodeIriOrBlankNode($graph).' {'.\PHP_EOL : '';
                 $this->write($lineToWrite);
 
                 $this->subject = null;
@@ -192,7 +191,7 @@ class TriGWriter
             $tripleToWrite = $this->encodeIriOrBlankNode($subject);
             $tripleToWrite .= ' '.$this->encodeIriOrBlankNode($predicate);
             $tripleToWrite .= ' '.$this->encodeObject($object);
-            $tripleToWrite .= (isset($graph) ? ' '.$this->encodeIriOrBlankNode($graph).'.'.PHP_EOL : '.'.PHP_EOL);
+            $tripleToWrite .= (isset($graph) ? ' '.$this->encodeIriOrBlankNode($graph).'.'.\PHP_EOL : '.'.\PHP_EOL);
 
             $this->write($tripleToWrite);
         };
@@ -232,37 +231,37 @@ class TriGWriter
             return $offset + 1 < $length && $this->isContinuationByte(\ord($value[$offset + 1])) ? 2 : 0;
         }
         if (0xE0 === $byte) {
-            return $offset + 2 < $length &&
-                \ord($value[$offset + 1]) >= 0xA0 && \ord($value[$offset + 1]) <= 0xBF &&
-                $this->isContinuationByte(\ord($value[$offset + 2])) ? 3 : 0;
+            return $offset + 2 < $length
+                && \ord($value[$offset + 1]) >= 0xA0 && \ord($value[$offset + 1]) <= 0xBF
+                && $this->isContinuationByte(\ord($value[$offset + 2])) ? 3 : 0;
         }
         if ($byte >= 0xE1 && $byte <= 0xEC || $byte >= 0xEE && $byte <= 0xEF) {
-            return $offset + 2 < $length &&
-                $this->isContinuationByte(\ord($value[$offset + 1])) &&
-                $this->isContinuationByte(\ord($value[$offset + 2])) ? 3 : 0;
+            return $offset + 2 < $length
+                && $this->isContinuationByte(\ord($value[$offset + 1]))
+                && $this->isContinuationByte(\ord($value[$offset + 2])) ? 3 : 0;
         }
         if (0xED === $byte) {
-            return $offset + 2 < $length &&
-                \ord($value[$offset + 1]) >= 0x80 && \ord($value[$offset + 1]) <= 0x9F &&
-                $this->isContinuationByte(\ord($value[$offset + 2])) ? 3 : 0;
+            return $offset + 2 < $length
+                && \ord($value[$offset + 1]) >= 0x80 && \ord($value[$offset + 1]) <= 0x9F
+                && $this->isContinuationByte(\ord($value[$offset + 2])) ? 3 : 0;
         }
         if (0xF0 === $byte) {
-            return $offset + 3 < $length &&
-                \ord($value[$offset + 1]) >= 0x90 && \ord($value[$offset + 1]) <= 0xBF &&
-                $this->isContinuationByte(\ord($value[$offset + 2])) &&
-                $this->isContinuationByte(\ord($value[$offset + 3])) ? 4 : 0;
+            return $offset + 3 < $length
+                && \ord($value[$offset + 1]) >= 0x90 && \ord($value[$offset + 1]) <= 0xBF
+                && $this->isContinuationByte(\ord($value[$offset + 2]))
+                && $this->isContinuationByte(\ord($value[$offset + 3])) ? 4 : 0;
         }
         if ($byte >= 0xF1 && $byte <= 0xF3) {
-            return $offset + 3 < $length &&
-                $this->isContinuationByte(\ord($value[$offset + 1])) &&
-                $this->isContinuationByte(\ord($value[$offset + 2])) &&
-                $this->isContinuationByte(\ord($value[$offset + 3])) ? 4 : 0;
+            return $offset + 3 < $length
+                && $this->isContinuationByte(\ord($value[$offset + 1]))
+                && $this->isContinuationByte(\ord($value[$offset + 2]))
+                && $this->isContinuationByte(\ord($value[$offset + 3])) ? 4 : 0;
         }
         if (0xF4 === $byte) {
-            return $offset + 3 < $length &&
-                \ord($value[$offset + 1]) >= 0x80 && \ord($value[$offset + 1]) <= 0x8F &&
-                $this->isContinuationByte(\ord($value[$offset + 2])) &&
-                $this->isContinuationByte(\ord($value[$offset + 3])) ? 4 : 0;
+            return $offset + 3 < $length
+                && \ord($value[$offset + 1]) >= 0x80 && \ord($value[$offset + 1]) <= 0x8F
+                && $this->isContinuationByte(\ord($value[$offset + 2]))
+                && $this->isContinuationByte(\ord($value[$offset + 3])) ? 4 : 0;
         }
 
         return 0;
@@ -314,10 +313,10 @@ class TriGWriter
         if ($this->blocked) {
             throw new \Exception('Cannot write because the writer has been closed.');
         } else {
-            if (isset($this->readCallback)) {
+            if (null !== $this->readCallback) {
                 \call_user_func($this->readCallback, $string);
             } else {
-                //buffer all
+                // buffer all
                 $this->string .= $string;
             }
         }
@@ -330,7 +329,7 @@ class TriGWriter
 
     private function writeVersionDirective(string $version): void
     {
-        $this->write('VERSION "'.$this->normalizeMessageVersion($version).'"'.PHP_EOL);
+        $this->write('VERSION "'.$this->normalizeMessageVersion($version).'"'.\PHP_EOL);
     }
 
     private function writeMessageDelimiter(): void
@@ -343,7 +342,7 @@ class TriGWriter
             $this->graph = '';
         }
 
-        $this->write('MESSAGE'.PHP_EOL);
+        $this->write('MESSAGE'.\PHP_EOL);
     }
 
     // ### Reads a bit of the string
@@ -367,7 +366,7 @@ class TriGWriter
             $this->encodeIriOrBlankNode($term['subject']).' '.
             $this->encodeIriOrBlankNode($term['predicate']).' '.
             $this->encodeObject($term['object']);
-        if (isset($term['graph']) && '' !== $term['graph'] && null !== $term['graph']) {
+        if (isset($term['graph']) && '' !== $term['graph']) {
             $value .= ' '.$this->encodeIriOrBlankNode($term['graph']);
         }
 
@@ -390,7 +389,7 @@ class TriGWriter
         // Try to represent the IRI as prefixed name
         preg_match($this->prefixRegex, $entity, $prefixMatch);
         if (!isset($prefixMatch[1]) && !isset($prefixMatch[2])) {
-            if (preg_match('/(.*?:)/', $entity, $match) && isset($this->prefixIRIs) && \in_array($match[1], $this->prefixIRIs)) {
+            if (preg_match('/(.*?:)/', $entity, $match) && \in_array($match[1], $this->prefixIRIs, true)) {
                 return $entity;
             } else {
                 return '<'.$entity.'>';
@@ -573,7 +572,7 @@ class TriGWriter
                 $prefixList .= ($prefixList ? '|' : '').$iri;
             }
             $IRIlist = preg_replace("/([\]\/\(\)\*\+\?\.\\\$])/", '${1}', $IRIlist);
-            $this->prefixRegex = '%^(?:'.$prefixList.')[^/]*$|'.'^('.$IRIlist.')([a-zA-Z][\\-_a-zA-Z0-9]*)$%';
+            $this->prefixRegex = '%^(?:'.$prefixList.')[^/]*$|^('.$IRIlist.')([a-zA-Z][\\-_a-zA-Z0-9]*)$%';
         }
         // End a prefix block with a newline
         $this->write($hasPrefixes ? "\n" : '');
@@ -613,7 +612,7 @@ class TriGWriter
                     return '[ '.$this->encodePredicate($child['predicate']).' '.
                         $this->encodeObject($child['object']).' ]';
                 }
-                        // no break
+                // no break
             default:
                 // Generate a multi-triple or nested blank node
                 $contents = '[';
@@ -663,13 +662,13 @@ class TriGWriter
             $this->write($this->graph ? "\n}\n" : ".\n");
             $this->subject = null;
         }
-        if (isset($this->readCallbacks)) {
+        if (null !== $this->readCallback) {
             \call_user_func($this->readCallback, $this->string);
         }
 
         // Disallow further writing
         $this->blocked = true;
-        if (!isset($this->readCallback)) {
+        if (null === $this->readCallback) {
             return $this->string;
         }
 

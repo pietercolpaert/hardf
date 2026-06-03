@@ -1,6 +1,6 @@
 <?php
 
-return PhpCsFixer\Config::create()
+return (new PhpCsFixer\Config())
     ->setRules([
         '@Symfony' => true,
         '@Symfony:risky' => true,
@@ -13,7 +13,7 @@ return PhpCsFixer\Config::create()
         'phpdoc_summary' => false,
         'protected_to_private' => false,
         'combine_nested_dirname' => true,
-     ])
+    ])
     ->setRiskyAllowed(true)
     ->setFinder(
         PhpCsFixer\Finder::create()

@@ -117,7 +117,7 @@ $hardfBench = __DIR__.'/parser-streaming-perf.php';
 $easyRdfBench = __DIR__.'/easyrdf-perf.php';
 $arc2Bench = __DIR__.'/arc2-perf.php';
 $n3Bench = __DIR__.'/n3js-perf.js';
-$generatedDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'hardf-perf';
+$generatedDir = rtrim(sys_get_temp_dir(), \DIRECTORY_SEPARATOR).\DIRECTORY_SEPARATOR.'hardf-perf';
 
 try {
     $sizes = parseSizes($argv);
@@ -140,14 +140,14 @@ foreach ($sizes as $size) {
 
     try {
         runCommand(implode(' ', [
-            escapeshellarg(PHP_BINARY),
+            escapeshellarg(\PHP_BINARY),
             escapeshellarg($generator),
             escapeshellarg($filename),
             escapeshellarg((string) $size),
         ]));
 
         $hardfOutput = runCommand(implode(' ', [
-            escapeshellarg(PHP_BINARY),
+            escapeshellarg(\PHP_BINARY),
             '-d',
             escapeshellarg('opcache.enable_cli=0'),
             escapeshellarg($hardfBench),
@@ -155,7 +155,7 @@ foreach ($sizes as $size) {
         ]));
 
         $hardfOpcacheOutput = runCommand(implode(' ', [
-            escapeshellarg(PHP_BINARY),
+            escapeshellarg(\PHP_BINARY),
             '-d',
             escapeshellarg('opcache.enable_cli=1'),
             escapeshellarg($hardfBench),
@@ -163,7 +163,7 @@ foreach ($sizes as $size) {
         ]));
 
         $easyRdfOutput = runCommand(implode(' ', [
-            escapeshellarg(PHP_BINARY),
+            escapeshellarg(\PHP_BINARY),
             '-d',
             escapeshellarg('opcache.enable_cli=1'),
             escapeshellarg($easyRdfBench),
@@ -171,7 +171,7 @@ foreach ($sizes as $size) {
         ]));
 
         $arc2Output = runCommand(implode(' ', [
-            escapeshellarg(PHP_BINARY),
+            escapeshellarg(\PHP_BINARY),
             '-d',
             escapeshellarg('opcache.enable_cli=1'),
             escapeshellarg($arc2Bench),

@@ -7,15 +7,15 @@ namespace pietercolpaert\hardf;
 /** a clone of the N3Util class from the N3js code by Ruben Verborgh **/
 class Util
 {
-    const XSD = 'http://www.w3.org/2001/XMLSchema#';
-    const XSDSTRING = self::XSD.'string';
-    const XSDINTEGER = self::XSD.'integer';
-    const XSDDECIMAL = self::XSD.'decimal';
-    const XSDFLOAT = self::XSD.'float';
-    const XSDDOUBLE = self::XSD.'double';
-    const XSDBOOLEAN = self::XSD.'boolean';
-    const RDFLANGSTRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#langString';
-    const RDFDIRLANGSTRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#dirLangString';
+    public const XSD = 'http://www.w3.org/2001/XMLSchema#';
+    public const XSDSTRING = self::XSD.'string';
+    public const XSDINTEGER = self::XSD.'integer';
+    public const XSDDECIMAL = self::XSD.'decimal';
+    public const XSDFLOAT = self::XSD.'float';
+    public const XSDDOUBLE = self::XSD.'double';
+    public const XSDBOOLEAN = self::XSD.'boolean';
+    public const RDFLANGSTRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#langString';
+    public const RDFDIRLANGSTRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#dirLangString';
 
     /**
      * Tests whether the given entity (triple object) represents an IRI.
@@ -62,7 +62,7 @@ class Util
      */
     public static function getLiteralValue(string $literal)
     {
-        preg_match('/^"(.*)"/s', $literal, $match); //TODO: somehow the copied regex did not work. To be checked. Contained [^]
+        preg_match('/^"(.*)"/s', $literal, $match); // TODO: somehow the copied regex did not work. To be checked. Contained [^]
         if (empty($match)) {
             throw new \Exception($literal.' is not a literal');
         }
@@ -73,7 +73,7 @@ class Util
     // Gets the type of a literal in the N3 library
     public static function getLiteralType(string $literal): string
     {
-        preg_match('/^".*"(?:\^\^([^"]+)|@([^@"]+))?$/s', $literal, $match); //TODO: somehow the copied regex did not work. To be checked. Contained [^] instead of the .
+        preg_match('/^".*"(?:\^\^([^"]+)|@([^@"]+))?$/s', $literal, $match); // TODO: somehow the copied regex did not work. To be checked. Contained [^] instead of the .
         if (empty($match)) {
             throw new \Exception($literal.' is not a literal');
         }
@@ -124,7 +124,7 @@ class Util
      */
     public static function expandPrefixedName(string $prefixedName, ?array $prefixes = null): string
     {
-        preg_match("/(?:^|\"\^\^)([^:\/#\"'\^_]*):[^\/]*$/", $prefixedName, $match, PREG_OFFSET_CAPTURE);
+        preg_match("/(?:^|\"\^\^)([^:\/#\"'\^_]*):[^\/]*$/", $prefixedName, $match, \PREG_OFFSET_CAPTURE);
         $prefix = '';
         $base = '';
         $index = '';

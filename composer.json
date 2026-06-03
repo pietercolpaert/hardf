@@ -32,10 +32,10 @@
     },
     "require-dev" : {
         "friendsofphp/php-cs-fixer": "*",
-        "phpstan/phpstan": "^0.12.36",
         "phpunit/phpunit": "^7 || ^8 || ^9",
         "easyrdf/easyrdf": "^1.1",
-        "semsol/arc2": "^3.1"
+        "semsol/arc2": "^3.1",
+        "phpstan/phpstan": "^2.2"
     },
     "scripts": {
         "install-githooks": "@php install-githooks.php",

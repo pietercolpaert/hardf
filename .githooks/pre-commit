@@ -5,6 +5,12 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
+echo "Running static analysis..."
+composer run phpstan
+
+echo "Running code style checks..."
+composer run cs
+
 echo "Running RDF spec tests..."
 npm run rdf12
 

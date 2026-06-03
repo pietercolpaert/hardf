@@ -1,5 +1,6 @@
 #!/usr/bin/php
 <?php
+
 /** Validates TriG, Turtle, N3, N-QUADS or N-TRIPLES input */
 include_once __DIR__.'/../vendor/autoload.php';
 use pietercolpaert\hardf\TriGParser;
@@ -15,14 +16,14 @@ $tripleCount = 0;
 $line = true;
 while (!$finished && $line) {
     try {
-        $line = fgets(STDIN);
+        $line = fgets(\STDIN);
         if ($line) {
             $tripleCount += count($parser->parseChunk($line));
         } else {
             $tripleCount += count($parser->end());
             $finished = true;
         }
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         echo $e->getMessage()."\n";
         $errored = true;
     }
