@@ -182,7 +182,7 @@ function ($error, $triple = null, $prefixes = null, $messageCounter = null) {
 }
 ```
 
-For normal RDF parsing, `$messageCounter` stays `null`. In RDF Message mode, it starts at `1` for the first message and increments at each `MESSAGE` or `@message` delimiter.
+For normal RDF parsing, `$messageCounter` stays `null`. In RDF Message mode, it starts at `0` for the first message and increments at each `MESSAGE` or `@message` delimiter.
 
 When `messages => true` is set and no callback is passed, the return type becomes effectively:
 
@@ -277,6 +277,11 @@ $parser->parse("VERSION \"1.2-messages\"\n<a> <b> <c> .\nMESSAGE\n<d> <e> <f> .\
     }
 });
 ```
+
+The callback is invoked in two distinct situations:
+
+1. **Triple event** — `$triple` is set, `$prefixes` is `null`. `$messageCounter` is the index (starting at `0`) of the message this triple belongs to.
+2. **End-of-stream event** — `$triple` is `null` and `$prefixes` is an array (possibly empty). `$messageCounter` is the index of the **last active** message (the one that was still open when the stream ended).
 
 If you want the whole RDF Message Log at once instead of streaming callbacks:
 

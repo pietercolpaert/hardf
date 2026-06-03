@@ -130,8 +130,8 @@ class N3JsCompatibilityTest extends TestCase
         });
 
         $this->assertSame([
-            [1, ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => '']],
-            [2, ['subject' => 'd', 'predicate' => 'e', 'object' => 'f', 'graph' => '']],
+              [0, ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => '']],
+              [1, ['subject' => 'd', 'predicate' => 'e', 'object' => 'f', 'graph' => '']],
         ], $messages);
     }
 
@@ -159,8 +159,8 @@ class N3JsCompatibilityTest extends TestCase
         });
 
         $this->assertCount(2, $messages);
-        $this->assertSame(2, $messages[0][0]);
-        $this->assertSame(3, $messages[1][0]);
+        $this->assertSame(1, $messages[0][0]);
+        $this->assertSame(2, $messages[1][0]);
         $this->assertNotSame($messages[0][1]['subject'], $messages[1][1]['subject']);
         $this->assertNotSame($messages[0][1]['object'], $messages[1][1]['object']);
     }

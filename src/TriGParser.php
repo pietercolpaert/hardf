@@ -329,9 +329,9 @@ class TriGParser
                 }
 
                 if (null === $this->messageCounter) {
-                    $this->messageCounter = 1;
+                    $this->messageCounter = 0;
                 }
-                if ($this->callback) {
+                if ($this->callback && !isset($this->tripleCallback)) {
                     \call_user_func($this->callback, null, null, null, $this->messageCounter);
                 }
                 ++$this->messageCounter;
@@ -1573,7 +1573,7 @@ class TriGParser
             if (preg_match('/-messages$/', $versionLabel)) {
                 $this->supportsMessages = true;
                 if (null === $this->messageCounter) {
-                    $this->messageCounter = 1;
+                    $this->messageCounter = 0;
                     $this->prefixes['_'] = isset($this->blankNodePrefix) ? $this->blankNodePrefix : '_:b'.$this->blankNodeCount++.'_';
                 }
             } else {

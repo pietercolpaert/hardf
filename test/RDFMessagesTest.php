@@ -232,4 +232,86 @@ class RDFMessagesTest extends TestCase
         $parser = new TriGParser(['format' => 'TriG']);
         $parser->parse("VERSION \"1.2-messages\"\n<http://example.org/g> {\n  <http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n  <http://example.org/d> <http://example.org/e> <http://example.org/f> .\n}\n");
     }
+
+    public function testEmptyTrailingMessageDetectableInStreamingMode(): void
+    {
+        $parser = new TriGParser(['format' => 'N-Triples']);
+        $lastTripleCounter = null;
+        $emptyTrailingMessageDetected = false;
+
+        // File ends with MESSAGE\n — no triples follow, so the final message is empty
+        $parser->parse(
+            "VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n",
+            function ($error, $triple = null, $prefixes = null, $messageCounter = null) use (&$lastTripleCounter, &$emptyTrailingMessageDetected): void {
+                if ($error) {
+                    throw $error;
+                }
+                if ($triple) {
+                    $lastTripleCounter = $messageCounter;
+                } elseif ($prefixes !== null) { // end-of-stream
+                    if ($messageCounter !== null && $messageCounter !== $lastTripleCounter) {
+                        $emptyTrailingMessageDetected = true;
+                    }
+                }
+            }
+        );
+
+        $this->assertTrue($emptyTrailingMessageDetected);
+    }
+
+    public function testNonEmptyFinalMessageNotFlaggedAsEmpty(): void
+    {
+        $parser = new TriGParser(['format' => 'N-Triples']);
+        $lastTripleCounter = null;
+        $emptyTrailingMessageDetected = false;
+
+        // File does NOT end with a MESSAGE delimiter — last message has triples
+        $parser->parse(
+            "VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n<http://example.org/d> <http://example.org/e> <http://example.org/f> .\n",
+            function ($error, $triple = null, $prefixes = null, $messageCounter = null) use (&$lastTripleCounter, &$emptyTrailingMessageDetected): void {
+                if ($error) {
+                    throw $error;
+                }
+                if ($triple) {
+                    $lastTripleCounter = $messageCounter;
+                } elseif ($prefixes !== null) { // end-of-stream
+                    if ($messageCounter !== null && $messageCounter !== $lastTripleCounter) {
+                        $emptyTrailingMessageDetected = true;
+                    }
+                }
+            }
+        );
+
+        $this->assertFalse($emptyTrailingMessageDetected);
+    }
+
+    public function testStreamingModeEmitsOnlyTriplesAndSingleEofSignal(): void
+    {
+        $parser = new TriGParser(['format' => 'N-Triples']);
+        $nullTripleEventCount = 0;
+        $eofEventCount = 0;
+        $boundaryLikeEventCount = 0;
+
+        $parser->parse(
+            "VERSION \"1.2-messages\"\nMESSAGE\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n",
+            function ($error, $triple = null, $prefixes = null) use (&$nullTripleEventCount, &$eofEventCount, &$boundaryLikeEventCount): void {
+                if ($error) {
+                    throw $error;
+                }
+
+                if (null === $triple) {
+                    ++$nullTripleEventCount;
+                    if (null === $prefixes) {
+                        ++$boundaryLikeEventCount;
+                    } else {
+                        ++$eofEventCount;
+                    }
+                }
+            }
+        );
+
+        $this->assertSame(1, $nullTripleEventCount);
+        $this->assertSame(1, $eofEventCount);
+        $this->assertSame(0, $boundaryLikeEventCount);
+    }
 }
