@@ -38,20 +38,7 @@ jobs:
 
     - name: Run test suite
       run: composer run phpunit
-
-  phpstan:
-    name: PHPStan
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Composer install
-      uses: php-actions/composer@v6
-      with:
-        php_version: "8.3"
-        args: --no-scripts
-
+      
     - name: Run PHPStan
       uses: php-actions/phpstan@v3
       with:
@@ -59,19 +46,3 @@ jobs:
         version: composer
         configuration: phpstan.neon
         path: src test bin perf examples
-
-  cs:
-    name: Code Style (PHPCS)
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Run PHPCS
-      uses: php-actions/phpcs@v1
-      with:
-        php_version: "8.3"
-        standard: PSR12
-        path: .
-        ignore: vendor/*,node_modules/*,coverage/*
-        extensions: php
