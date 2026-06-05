@@ -1947,6 +1947,7 @@ class TriGParser
     private function quadFromParsed(string|array $subject, string $predicate, string|array $object, string $graph = ''): QuadInterface
     {
         $graphTerm = $this->graphTermFromParsed($graph);
+
         return DataFactory::quadInternal(
             $this->subjectTermFromParsed($subject),
             $this->cachedNamedNode($predicate),
