@@ -1830,7 +1830,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
         // should not parse an invalid ^ path
         $this->shouldNotParse($parser, '<a>^"invalid" ',
-            'pietercolpaert\\hardf\\TriGParser::quadFromParsed(): Argument #2 ($predicate) must be of type string, null given, called in /home/pieter/Projects/hardf/src/TriGParser.php on line 1806');
+            'pietercolpaert\\hardf\\TriGParser::quadFromParsed(): Argument #2 ($predicate) must be of type string, null given, called in /home/pieter/Projects/hardf/src/TriGParser.php on line 1809');
     }
 
     public function testN3ExplicitQuantifiers(): void

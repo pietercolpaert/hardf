@@ -32,6 +32,9 @@ final class DataFactory implements DataFactoryInterface
 {
     private static ?DefaultGraph $defaultGraphSingleton = null;
 
+    /** @var array<string, NamedNode> Cache for commonly-used datatype IRIs to avoid repeated object creation */
+    private static array $datatypeCache = [];
+
     /** Creates a NamedNode from an IRI string or Stringable. */
     public static function namedNode(string|\Stringable $iri): NamedNode
     {
@@ -70,11 +73,11 @@ final class DataFactory implements DataFactoryInterface
         $datatypeStr = null !== $datatype ? (string) $datatype : null;
 
         if (null !== $langStr && '' !== $langStr) {
-            return new Literal($lexical, new NamedNode(Literal::RDF_LANG_STRING), strtolower($langStr), '');
+            return new Literal($lexical, self::cachedDatatypeNode(Literal::RDF_LANG_STRING), strtolower($langStr), '');
         }
 
         if (null !== $datatypeStr && '' !== $datatypeStr) {
-            return new Literal($lexical, new NamedNode($datatypeStr), '', '');
+            return new Literal($lexical, self::cachedDatatypeNode($datatypeStr), '', '');
         }
 
         $inferredType = match (true) {
@@ -84,7 +87,7 @@ final class DataFactory implements DataFactoryInterface
             default => Literal::XSD_STRING,
         };
 
-        return new Literal($lexical, new NamedNode($inferredType), '', '');
+        return new Literal($lexical, self::cachedDatatypeNode($inferredType), '', '');
     }
 
     /**
@@ -101,7 +104,7 @@ final class DataFactory implements DataFactoryInterface
     ): Literal {
         return new Literal(
             (string) $value,
-            new NamedNode(Literal::RDF_DIR_LANG_STRING),
+            self::cachedDatatypeNode(Literal::RDF_DIR_LANG_STRING),
             strtolower((string) $lang),
             strtolower((string) $direction),
         );
@@ -111,6 +114,31 @@ final class DataFactory implements DataFactoryInterface
     public static function defaultGraph(): DefaultGraph
     {
         return self::$defaultGraphSingleton ??= new DefaultGraph();
+    }
+
+    /**
+     * Internal: Get or create a cached NamedNode for a datatype IRI.
+     * This avoids duplicate object creation for commonly-used datatypes.
+     * Performance-critical path: called once per literal.
+     */
+    private static function cachedDatatypeNode(string $iri): NamedNode
+    {
+        return self::$datatypeCache[$iri] ??= new NamedNode($iri);
+    }
+
+    /**
+     * Internal: Create a Quad without type validation (perf-critical).
+     * Only used by TriGParser which guarantees the types are already correct.
+     *
+     * @internal
+     */
+    public static function quadInternal(
+        NamedNode|BlankNode|TripleTerm $subject,
+        NamedNode $predicate,
+        NamedNode|BlankNode|Literal|TripleTerm $object,
+        NamedNode|BlankNode|DefaultGraph $graph,
+    ): Quad {
+        return new Quad($subject, $predicate, $object, $graph);
     }
 
     /**

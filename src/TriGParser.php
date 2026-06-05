@@ -138,6 +138,9 @@ class TriGParser
     private $blankNodeMustBeEmpty;
     private $collectMessages;
 
+    /** @var array<string, NamedNode> Cache for frequently-accessed IRIs (predicates, etc.) - perf optimization */
+    private array $iriCache = [];
+
     // Constructor
     public function __construct($options = [], $tripleCallback = null, $prefixCallback = null)
     {
@@ -1943,12 +1946,19 @@ class TriGParser
 
     private function quadFromParsed(string|array $subject, string $predicate, string|array $object, string $graph = ''): QuadInterface
     {
-        return DataFactory::quad(
+        $graphTerm = $this->graphTermFromParsed($graph);
+        return DataFactory::quadInternal(
             $this->subjectTermFromParsed($subject),
-            DataFactory::namedNode($predicate),
+            $this->cachedNamedNode($predicate),
             $this->objectTermFromParsed($object),
-            $this->graphTermFromParsed($graph),
+            $graphTerm instanceof NamedNode || $graphTerm instanceof BlankNode ? $graphTerm : DataFactory::defaultGraph(),
         );
+    }
+
+    /** Get or create a cached NamedNode for performance - predicates are heavily repeated */
+    private function cachedNamedNode(string $iri): NamedNode
+    {
+        return $this->iriCache[$iri] ??= DataFactory::namedNode($iri);
     }
 
     /**

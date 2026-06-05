@@ -22,7 +22,7 @@ final readonly class Quad implements QuadInterface
         public NamedNode|BlankNode|TripleTerm $subject,
         public NamedNode $predicate,
         public NamedNode|BlankNode|Literal|TripleTerm $object,
-        public NamedNode|BlankNode|DefaultGraph $graph = new DefaultGraph(),
+        public NamedNode|BlankNode|DefaultGraph $graph,
     ) {
     }
 
