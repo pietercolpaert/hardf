@@ -1,6 +1,10 @@
 <?php
 
-include_once(__DIR__.'/../vendor/autoload.php');
+declare(strict_types=1);
+
+include_once __DIR__.'/../vendor/autoload.php';
+
+use pietercolpaert\hardf\DataModel\DataFactory;
 use pietercolpaert\hardf\TriGWriter;
 
 //Add prefixes in the constructor
@@ -15,16 +19,50 @@ $writer = new TriGWriter([
 ]);
 
 $writer->addPrefix('ex', 'http://example.org/');
-$writer->addTriple('schema:Person', 'dct:title', '"Person"@en', 'http://example.org/#test');
-$writer->addTriple('schema:Person', 'schema:label', '"Person"@en', 'http://example.org/#test');
-$writer->addTriple('ex:1', 'dct:title', '"Person1"@en', 'http://example.org/#test');
-$writer->addTriple('ex:1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'schema:Person', 'http://example.org/#test');
-$writer->addTriple('ex:2', 'dct:title', '"Person2"@en--ltr', 'http://example.org/#test');
-$writer->addTriple('schema:Person', 'dct:title', '"Person"@en', 'http://example.org/#test2');
-$writer->addTriple('ex:claim', 'ex:about', [
-    'type' => 'TripleTerm',
-    'subject' => 'ex:1',
-    'predicate' => 'dct:title',
-    'object' => '"Person1"@en',
-], 'http://example.org/#test');
+$writer->addQuad(DataFactory::quad(
+    DataFactory::namedNode('http://schema.org/Person'),
+    DataFactory::namedNode('http://purl.org/dc/terms/title'),
+    DataFactory::literal('Person', 'en'),
+    DataFactory::namedNode('http://example.org/#test')
+));
+$writer->addQuad(DataFactory::quad(
+    DataFactory::namedNode('http://schema.org/Person'),
+    DataFactory::namedNode('http://schema.org/label'),
+    DataFactory::literal('Person', 'en'),
+    DataFactory::namedNode('http://example.org/#test')
+));
+$writer->addQuad(DataFactory::quad(
+    DataFactory::namedNode('http://example.org/1'),
+    DataFactory::namedNode('http://purl.org/dc/terms/title'),
+    DataFactory::literal('Person1', 'en'),
+    DataFactory::namedNode('http://example.org/#test')
+));
+$writer->addQuad(DataFactory::quad(
+    DataFactory::namedNode('http://example.org/1'),
+    DataFactory::namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+    DataFactory::namedNode('http://schema.org/Person'),
+    DataFactory::namedNode('http://example.org/#test')
+));
+$writer->addQuad(DataFactory::quad(
+    DataFactory::namedNode('http://example.org/2'),
+    DataFactory::namedNode('http://purl.org/dc/terms/title'),
+    DataFactory::directionalLiteral('Person2', 'en', 'ltr'),
+    DataFactory::namedNode('http://example.org/#test')
+));
+$writer->addQuad(DataFactory::quad(
+    DataFactory::namedNode('http://schema.org/Person'),
+    DataFactory::namedNode('http://purl.org/dc/terms/title'),
+    DataFactory::literal('Person', 'en'),
+    DataFactory::namedNode('http://example.org/#test2')
+));
+$writer->addQuad(DataFactory::quad(
+    DataFactory::namedNode('http://example.org/claim'),
+    DataFactory::namedNode('http://example.org/about'),
+    DataFactory::tripleTerm(
+        DataFactory::namedNode('http://example.org/1'),
+        DataFactory::namedNode('http://purl.org/dc/terms/title'),
+        DataFactory::literal('Person1', 'en')
+    ),
+    DataFactory::namedNode('http://example.org/#test')
+));
 echo $writer->end();

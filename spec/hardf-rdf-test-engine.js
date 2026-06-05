@@ -40,6 +40,12 @@ function toRdfjsTerm(term) {
         return literal(term.value, term.language);
       }
       return literal(term.value, namedNode(term.datatype));
+    case 'TripleTerm':
+      return quad(
+        toRdfjsTerm(term.subject),
+        toRdfjsTerm(term.predicate),
+        toRdfjsTerm(term.object),
+      );
     case 'Quad':
       return quad(
         toRdfjsTerm(term.subject),

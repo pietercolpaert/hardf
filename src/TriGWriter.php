@@ -4,6 +4,16 @@ declare(strict_types=1);
 
 namespace pietercolpaert\hardf;
 
+use pietercolpaert\hardf\DataModel\Literal;
+use pietercolpaert\hardf\DataModel\Quad;
+use pietercolpaert\hardf\DataModel\TripleTermInterface;
+use rdfInterface\BlankNodeInterface;
+use rdfInterface\DefaultGraphInterface;
+use rdfInterface\LiteralInterface;
+use rdfInterface\NamedNodeInterface;
+use rdfInterface\QuadInterface;
+use rdfInterface\TermInterface;
+
 /** a clone of the N3Writer class from the N3js code by Ruben Verborgh **/
 /** TriGWriter writes both Turtle and TriG from our triple representation depending on the options */
 class TriGWriter
@@ -355,10 +365,6 @@ class TriGWriter
     }
 
     // ### `_encodeIriOrBlankNode` represents an IRI or blank node
-    private function isTripleTerm($entity): bool
-    {
-        return \is_array($entity) && isset($entity['type']) && 'TripleTerm' === $entity['type'];
-    }
 
     private function encodeTripleTerm(array $term): string
     {
@@ -375,7 +381,8 @@ class TriGWriter
 
     private function encodeIriOrBlankNode($entity)
     {
-        if ($this->isTripleTerm($entity)) {
+        // Handle triple term array representation from normalizeValue()
+        if (\is_array($entity) && isset($entity['type']) && 'TripleTerm' === $entity['type']) {
             return $this->encodeTripleTerm($entity);
         }
 
@@ -416,12 +423,17 @@ class TriGWriter
     // ### `_encodeSubject` represents a subject
     private function encodeSubject($subject)
     {
-        if (!$this->isTripleTerm($subject) && '"' === $subject[0]) {
+        // Handle triple term array representation from normalizeValue()
+        if (\is_array($subject)) {
+            return $this->encodeTripleTerm($subject);
+        }
+
+        if ('"' === $subject[0]) {
             throw new \Exception('A literal as subject is not allowed: '.$subject);
         }
 
         // Don't treat identical blank nodes as repeating subjects
-        if (!$this->isTripleTerm($subject) && '[' === $subject[0]) {
+        if ('[' === $subject[0]) {
             $this->subject = ']';
         }
 
@@ -431,10 +443,6 @@ class TriGWriter
     // ### `_encodePredicate` represents a predicate
     private function encodePredicate($predicate)
     {
-        if ($this->isTripleTerm($predicate)) {
-            throw new \Exception('A triple term as predicate is not allowed.');
-        }
-
         if ('"' === $predicate[0]) {
             throw new \Exception('A literal as predicate is not allowed: '.$predicate);
         }
@@ -449,7 +457,8 @@ class TriGWriter
      */
     private function encodeObject($object)
     {
-        if ($this->isTripleTerm($object)) {
+        // Handle triple term array representation from normalizeValue()
+        if (\is_array($object)) {
             return $this->encodeTripleTerm($object);
         }
 
@@ -465,30 +474,98 @@ class TriGWriter
         }
     }
 
+    private function normalizeValue($value)
+    {
+        if ($value instanceof DefaultGraphInterface) {
+            return '';
+        }
+
+        if ($value instanceof NamedNodeInterface) {
+            return (string) $value->getValue();
+        }
+
+        if ($value instanceof BlankNodeInterface) {
+            return '_:'.(string) $value->getValue();
+        }
+
+        if ($value instanceof LiteralInterface) {
+            return $this->normalizeLiteralValue($value);
+        }
+
+        if ($value instanceof TripleTermInterface) {
+            return [
+                'type' => 'TripleTerm',
+                'subject' => $this->normalizeValue($value->getSubject()),
+                'predicate' => $this->normalizeValue($value->getPredicate()),
+                'object' => $this->normalizeValue($value->getObject()),
+            ];
+        }
+
+        if ($value instanceof TermInterface) {
+            throw new \InvalidArgumentException('Unsupported term implementation in writer: '.$value::class);
+        }
+
+        return $value;
+    }
+
+    private function normalizeLiteralValue(LiteralInterface $value): string
+    {
+        $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], (string) $value->getValue());
+        $lang = $value->getLang();
+
+        if (null !== $lang) {
+            if ($value instanceof Literal && '' !== $value->direction) {
+                return '"'.$escaped.'"@'.$lang.'--'.$value->direction;
+            }
+
+            return '"'.$escaped.'"@'.$lang;
+        }
+
+        $datatype = (string) $value->getDatatype();
+        if (Literal::XSD_STRING === $datatype) {
+            return '"'.$escaped.'"';
+        }
+
+        return '"'.$escaped.'"^^'.$datatype;
+    }
+
+    /**
+     * @return array{subject: string, predicate: string, object: string, graph: string}
+     */
+    private function normalizeQuad(QuadInterface $quad): array
+    {
+        return [
+            'subject' => $this->normalizeValue($quad->getSubject()),
+            'predicate' => $this->normalizeValue($quad->getPredicate()),
+            'object' => $this->normalizeValue($quad->getObject()),
+            'graph' => $this->normalizeValue($quad->getGraph()),
+        ];
+    }
+
     /**
      * adds the triple to the output stream
      *
-     * @param string|array<string, string|null> $subject
-     * @param string                            $predicate
-     * @param string|array<string, string|null> $object
-     * @param string|null                       $graph
+     * @param string|TermInterface|array<string, mixed>      $subject
+     * @param string|TermInterface|null                      $predicate
+     * @param string|TermInterface|array<string, mixed>|null $object
+     * @param string|TermInterface|null                      $graph
      */
     public function addTriple($subject, $predicate = null, $object = null, $graph = null): void
     {
-        /*
-         * The triple was given as a triple object, so shift parameters
-         *
-         * TODO deprecate that and remove this in next major version. That is bad style, instead adapt
-         *      callers to split S, P, O, G as different paramaters. This change also allows better
-         *      static code analysis
-         */
-        if (\is_array($subject) && !$this->isTripleTerm($subject)) {
-            $g = isset($subject['graph']) ? $subject['graph'] : null;
-            \call_user_func($this->writeTriple, $subject['subject'], $subject['predicate'], $subject['object'], $g, $predicate);
+        if ($subject instanceof QuadInterface) {
+            $quad = $this->normalizeQuad($subject);
+            \call_user_func($this->writeTriple, $quad['subject'], $quad['predicate'], $quad['object'], $quad['graph']);
+
+            return;
         }
 
+        $subject = $this->normalizeValue($subject);
+        $predicate = $this->normalizeValue($predicate);
+        $object = $this->normalizeValue($object);
+        $graph = $this->normalizeValue($graph);
+
         // The optional `graph` parameter was not provided
-        elseif (!\is_string($graph)) {
+        if (!\is_string($graph)) {
             \call_user_func($this->writeTriple, $subject, $predicate, $object, '', $graph);
         }
         // The `graph` parameter was provided
@@ -497,22 +574,27 @@ class TriGWriter
         }
     }
 
-    /**
-     * adds the triples to the output stream
-     *
-     * @param array<int, array<string, string>> $triples
-     */
-    public function addTriples(array $triples): void
+    public function addQuad(QuadInterface $quad): void
     {
-        for ($i = 0; $i < \count($triples); ++$i) {
-            $this->addTriple($triples[$i]);
+        $this->addTriple($quad);
+    }
+
+    /**
+     * adds the quads to the output stream
+     *
+     * @param array<int, QuadInterface> $quads
+     */
+    public function addTriples(array $quads): void
+    {
+        for ($i = 0; $i < \count($quads); ++$i) {
+            $this->addQuad($quads[$i]);
         }
     }
 
     /**
      * adds one RDF Message to the output stream
      *
-     * @param array<int, array<string, string|null>> $quads
+     * @param array<int, QuadInterface> $quads
      */
     public function addMessage(array $quads): void
     {

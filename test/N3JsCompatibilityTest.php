@@ -3,27 +3,72 @@
 namespace Tests\hardf;
 
 use PHPUnit\Framework\TestCase;
+use pietercolpaert\hardf\DataModel\BlankNode;
+use pietercolpaert\hardf\DataModel\DataFactory;
+use pietercolpaert\hardf\DataModel\DefaultGraph;
+use pietercolpaert\hardf\DataModel\Literal;
+use pietercolpaert\hardf\DataModel\NamedNode;
+use pietercolpaert\hardf\DataModel\TripleTermInterface;
 use pietercolpaert\hardf\TriGParser;
 use pietercolpaert\hardf\TriGWriter;
 use pietercolpaert\hardf\Util;
+use rdfInterface\BlankNodeInterface;
+use rdfInterface\LiteralInterface;
+use rdfInterface\NamedNodeInterface;
+use rdfInterface\QuadInterface;
+use rdfInterface\TermInterface;
 
 class N3JsCompatibilityTest extends TestCase
 {
     public const RDF_REIFIES = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies';
 
     /**
-     * @param string|array<string, mixed> $object
+     * Converts a string representation (N3 internal format) to a typed Term object.
      *
-     * @return array<string, mixed>
+     * String format:
+     * - IRI: the IRI itself, e.g. 'http://example.org/foo'
+     * - Blank node: '_:label', e.g. '_:b0'
+     * - Literal: '"value"', '"value"@lang', '"value"^^datatype', '"value"@lang--dir'
+     * - Default graph: '' (empty string)
      */
-    private function tripleTerm($subject, $predicate, $object, $graph = null): array
+    private function stringToTerm(string $str)
     {
-        $term = ['type' => 'TripleTerm', 'subject' => $subject, 'predicate' => $predicate, 'object' => $object];
-        if (null !== $graph) {
-            $term['graph'] = $graph;
-        }
+        if (Util::isLiteral($str)) {
+            $value = Util::getLiteralValue($str);
+            $type = Util::getLiteralType($str);
+            $lang = Util::getLiteralLanguage($str);
+            $direction = Util::getLiteralDirection($str);
 
-        return $term;
+            if ('' !== $lang) {
+                $datatype = '' !== $direction ? Util::RDFDIRLANGSTRING : Util::RDFLANGSTRING;
+                $literal = new Literal($value, new NamedNode($datatype), $lang, $direction);
+            } else {
+                $literal = new Literal($value, new NamedNode($type), '', '');
+            }
+
+            return $literal;
+        } elseif (Util::isBlank($str)) {
+            return new BlankNode(substr($str, 2));
+        } elseif (Util::isDefaultGraph($str)) {
+            return new DefaultGraph();
+        } else {
+            return new NamedNode($str);
+        }
+    }
+
+    /**
+     * @param string|TripleTermInterface $subject
+     * @param string|TripleTermInterface $predicate
+     * @param string|TripleTermInterface $object
+     */
+    private function tripleTerm($subject, $predicate, $object, $graph = null): TripleTermInterface
+    {
+        $subjectTerm = \is_string($subject) ? $this->stringToTerm($subject) : $subject;
+        // Always create NamedNode for predicates (RDF spec requirement)
+        $predicateTerm = \is_string($predicate) ? new NamedNode($predicate) : $predicate;
+        $objectTerm = \is_string($object) ? $this->stringToTerm($object) : $object;
+
+        return DataFactory::tripleTerm($subjectTerm, $predicateTerm, $objectTerm);
     }
 
     /**
@@ -33,18 +78,79 @@ class N3JsCompatibilityTest extends TestCase
     {
         $parser = $parser ?: new TriGParser();
         $parser->_resetBlankNodeIds();
-        $results = [];
+        $quads = iterator_to_array($parser->parse($input), false);
 
-        $parser->parse($input, function ($error, $triple = null) use (&$results): void {
-            if ($error) {
-                throw $error;
-            }
-            if ($triple) {
-                $results[] = $triple;
-            }
-        });
+        return array_map(
+            fn (QuadInterface $quad): array => $this->quadToLegacyArray($quad),
+            $quads
+        );
+    }
 
-        return $results;
+    /**
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    private function parseMessages(string $input, ?TriGParser $parser = null): array
+    {
+        $parser = $parser ?: new TriGParser(['messages' => true]);
+        $parser->_resetBlankNodeIds();
+        $messages = iterator_to_array($parser->parseMessages($input), false);
+
+        return array_map(
+            fn (array $message): array => array_map(
+                fn (QuadInterface $quad): array => $this->quadToLegacyArray($quad),
+                $message
+            ),
+            $messages
+        );
+    }
+
+    /** @return array{subject: mixed, predicate: mixed, object: mixed, graph: mixed} */
+    private function quadToLegacyArray(QuadInterface $quad): array
+    {
+        return [
+            'subject' => $this->serializeLegacyTerm($quad->getSubject()),
+            'predicate' => $this->serializeLegacyTerm($quad->getPredicate()),
+            'object' => $this->serializeLegacyTerm($quad->getObject()),
+            'graph' => $quad->getGraph() instanceof DefaultGraph ? '' : $this->serializeLegacyTerm($quad->getGraph()),
+        ];
+    }
+
+    /** @return string|TripleTermInterface */
+    private function serializeLegacyTerm(TermInterface $term)
+    {
+        if ($term instanceof NamedNodeInterface) {
+            return (string) $term->getValue();
+        }
+
+        if ($term instanceof BlankNodeInterface) {
+            return '_:'.(string) $term->getValue();
+        }
+
+        if ($term instanceof TripleTermInterface) {
+            // Return the TripleTerm object directly instead of converting to array
+            return $term;
+        }
+
+        if ($term instanceof LiteralInterface) {
+            $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], (string) $term->getValue());
+            $lang = $term->getLang();
+            if (null !== $lang) {
+                if ($term instanceof Literal && '' !== $term->direction) {
+                    return '"'.$escaped.'"@'.$lang.'--'.$term->direction;
+                }
+
+                return '"'.$escaped.'"@'.$lang;
+            }
+
+            $datatype = (string) $term->getDatatype();
+            if (Literal::XSD_STRING === $datatype) {
+                return '"'.$escaped.'"';
+            }
+
+            return '"'.$escaped.'"^^'.$datatype;
+        }
+
+        throw new \InvalidArgumentException('Unsupported term '.$term::class);
     }
 
     /**
@@ -116,22 +222,12 @@ class N3JsCompatibilityTest extends TestCase
 
     public function testParserAcceptsMessageDirectivesAfterMessageVersionDeclaration(): void
     {
-        $messages = [];
         $parser = new TriGParser(['format' => 'TriG']);
-        $parser->_resetBlankNodeIds();
-
-        $parser->parse("VERSION \"1.2-messages\"\n<a> <b> <c> .\nMESSAGE\n<d> <e> <f> .\n@message .\n", function ($error, $triple = null, $prefixes = null, $messageCounter = null) use (&$messages): void {
-            if ($error) {
-                throw $error;
-            }
-            if ($triple) {
-                $messages[] = [$messageCounter, $triple];
-            }
-        });
+        $messages = $this->parseMessages("VERSION \"1.2-messages\"\n<a> <b> <c> .\nMESSAGE\n<d> <e> <f> .\n@message .\n", $parser);
 
         $this->assertSame([
-              [0, ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => '']],
-              [1, ['subject' => 'd', 'predicate' => 'e', 'object' => 'f', 'graph' => '']],
+              [['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => '']],
+              [['subject' => 'd', 'predicate' => 'e', 'object' => 'f', 'graph' => '']],
         ], $messages);
     }
 
@@ -145,30 +241,19 @@ class N3JsCompatibilityTest extends TestCase
 
     public function testParserScopesBlankNodeLabelsPerMessage(): void
     {
-        $messages = [];
         $parser = new TriGParser(['format' => 'N-Triples']);
-        $parser->_resetBlankNodeIds();
-
-        $parser->parse("VERSION \"1.2-messages\"\nMESSAGE\n_:a <http://example.org/p> _:b .\nMESSAGE\n_:a <http://example.org/p> _:b .\n", function ($error, $triple = null, $prefixes = null, $messageCounter = null) use (&$messages): void {
-            if ($error) {
-                throw $error;
-            }
-            if ($triple) {
-                $messages[] = [$messageCounter, $triple];
-            }
-        });
+        $messages = $this->parseMessages("VERSION \"1.2-messages\"\nMESSAGE\n_:a <http://example.org/p> _:b .\nMESSAGE\n_:a <http://example.org/p> _:b .\n", $parser);
+        $messages = array_values(array_filter($messages, static fn (array $message): bool => [] !== $message));
 
         $this->assertCount(2, $messages);
-        $this->assertSame(1, $messages[0][0]);
-        $this->assertSame(2, $messages[1][0]);
-        $this->assertNotSame($messages[0][1]['subject'], $messages[1][1]['subject']);
-        $this->assertNotSame($messages[0][1]['object'], $messages[1][1]['object']);
+        $this->assertNotSame($messages[0][0]['subject'], $messages[1][0]['subject']);
+        $this->assertNotSame($messages[0][0]['object'], $messages[1][0]['object']);
     }
 
     public function testParserCanReturnMessagesSynchronously(): void
     {
         $parser = new TriGParser(['format' => 'N-Triples', 'messages' => true]);
-        $messages = $parser->parse("VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n<http://example.org/d> <http://example.org/e> <http://example.org/f> .\nMESSAGE\n");
+        $messages = $this->parseMessages("VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n<http://example.org/d> <http://example.org/e> <http://example.org/f> .\nMESSAGE\n", $parser);
 
         $this->assertSame([
             [
@@ -183,7 +268,7 @@ class N3JsCompatibilityTest extends TestCase
     public function testParserCanReturnMessagesSynchronouslyWithoutMessagesFlagWhenVersionEnablesIt(): void
     {
         $parser = new TriGParser(['format' => 'N-Triples']);
-        $messages = $parser->parse("VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n<http://example.org/d> <http://example.org/e> <http://example.org/f> .\nMESSAGE\n");
+        $messages = $this->parseMessages("VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n<http://example.org/d> <http://example.org/e> <http://example.org/f> .\nMESSAGE\n", $parser);
 
         $this->assertSame([
             [
@@ -744,7 +829,7 @@ class N3JsCompatibilityTest extends TestCase
         $writer = new TriGWriter(['format' => 'N-Quads']);
         $writer->addTriple($this->tripleTerm('a', 'b', 'c', 'g'), 'b', 'c', 'g');
 
-        $this->assertEquals("<<(<a> <b> <c> <g>)>> <b> <c> <g>.\n", $writer->end());
+        $this->assertEquals("<<(<a> <b> <c>)>> <b> <c> <g>.\n", $writer->end());
     }
 
     public function testWriterSerializesQuadTermObjects(): void
@@ -752,7 +837,7 @@ class N3JsCompatibilityTest extends TestCase
         $writer = new TriGWriter(['format' => 'N-Quads']);
         $writer->addTriple('a', 'b', $this->tripleTerm('a', 'b', 'c', 'g'), 'g');
 
-        $this->assertEquals("<a> <b> <<(<a> <b> <c> <g>)>> <g>.\n", $writer->end());
+        $this->assertEquals("<a> <b> <<(<a> <b> <c>)>> <g>.\n", $writer->end());
     }
 
     public function testWriterSerializesTripleWithQuadTermObject(): void
@@ -760,7 +845,7 @@ class N3JsCompatibilityTest extends TestCase
         $writer = new TriGWriter();
         $writer->addTriple('a', 'b', $this->tripleTerm('a', 'b', 'c', 'g'));
 
-        $this->assertEquals("<a> <b> <<(<a> <b> <c> <g>)>>.\n", $writer->end());
+        $this->assertEquals("<a> <b> <<(<a> <b> <c>)>>.\n", $writer->end());
     }
 
     public function testWriterEscapesLowAsciiControlCharacters(): void

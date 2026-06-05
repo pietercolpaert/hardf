@@ -1,9 +1,11 @@
 #!/usr/bin/php
 <?php
 
+declare(strict_types=1);
+
 /** Converts TriG, Turtle, N3, N-QUADS or N-TRIPLES input to TriG, Turtle, N-QUADS or N-TRIPLES*/
 include_once __DIR__.'/../vendor/autoload.php';
-use pietercolpaert\hardf\TriGParser;
+use pietercolpaert\hardf\TriGParserIterator;
 use pietercolpaert\hardf\TriGWriter;
 
 $informat = 'turtle';
@@ -17,18 +19,19 @@ if (isset($argv[2])) {
 }
 
 $writer = new TriGWriter(['format' => $outformat]);
-$parser = new TriGParser(['format' => $informat], function ($error, $triple) use (&$writer) {
-    if (!isset($error) && !isset($triple)) { // flags end
-        echo $writer->end();
-    } elseif (!$error) {
-        $writer->addTriple($triple);
-        echo $writer->read();
-    } else {
-        fwrite(\STDERR, $error->getMessage()."\n");
-    }
+$parser = new TriGParserIterator(['format' => $informat], function (string $prefix, string $iri) use (&$writer): void {
+    $writer->addPrefix($prefix, $iri);
+    echo $writer->read();
 });
 
-while ($line = fgets(\STDIN)) {
-    $parser->parseChunk($line);
+try {
+    foreach ($parser->parseStream(\STDIN) as $quad) {
+        $writer->addQuad($quad);
+        echo $writer->read();
+    }
+
+    echo $writer->end();
+} catch (Exception $e) {
+    fwrite(\STDERR, $e->getMessage()."\n");
+    exit(1);
 }
-$parser->end();

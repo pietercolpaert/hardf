@@ -3,7 +3,17 @@
 namespace Tests\hardf;
 
 use PHPUnit\Framework\TestCase;
+use pietercolpaert\hardf\DataModel\DefaultGraph;
+use pietercolpaert\hardf\DataModel\Literal;
+use pietercolpaert\hardf\DataModel\MessageQuadInterface;
+use pietercolpaert\hardf\DataModel\NamedNode;
+use pietercolpaert\hardf\DataModel\TripleTermInterface;
 use pietercolpaert\hardf\TriGParser;
+use rdfInterface\BlankNodeInterface;
+use rdfInterface\LiteralInterface;
+use rdfInterface\NamedNodeInterface;
+use rdfInterface\QuadInterface;
+use rdfInterface\TermInterface;
 
 class TriGParserTest extends TestCase
 {
@@ -22,22 +32,18 @@ class TriGParserTest extends TestCase
                 return new TriGParser();
             };
         }
-        $results = [];
         $items = array_map(function ($item) {
             return ['subject' => $item[0], 'predicate' => $item[1], 'object' => $item[2], 'graph' => isset($item[3]) ? $item[3] : ''];
         }, $expected);
         $parser = $createParser();
         $parser->_resetBlankNodeIds();
-        $parser->parse($input, function ($error, $triple = null) use (&$results, &$items) {
-            // expect($error).not.to.exist;
-            if ($triple) {
-                $results[] = $triple;
-            } elseif ($error) {
-                throw $error;
-            } else {
-                $this->assertEquals(self::toSortedJSON($items), self::toSortedJSON($results));
-            }
-        });
+
+        $results = array_map(
+            fn (QuadInterface $quad): array => $this->quadToLegacyArray($quad),
+            iterator_to_array($parser->parse($input), false)
+        );
+
+        $this->assertEquals(self::toSortedJSON($items), self::toSortedJSON($results));
     }
 
     /**
@@ -57,20 +63,12 @@ class TriGParserTest extends TestCase
         }
         $parser = $createParser();
         $parser->_resetBlankNodeIds();
-        // hackish way so we only act upon first error
-        $errorReceived = false;
-        $parser->parse($input, function ($error, $triple = null) use ($expectedError, &$errorReceived) {
-            // expect($error).not.to.exist;
-            if (isset($error) && !$errorReceived) {
-                $errorReceived = true;
-                $this->assertEquals($expectedError, $error->getMessage());
-            } elseif (!isset($triple) && !$errorReceived) {
-                $errorReceived = true;
-                $this->fail("Expected this error to be thrown (but it wasn't): ".$expectedError);
-            }
-        });
-        if (false === $errorReceived) {
+
+        try {
+            iterator_to_array($parser->parse($input), false);
             $this->fail("Expected this error to be thrown (but it wasn't): ".$expectedError);
+        } catch (\Throwable $e) {
+            $this->assertEquals($expectedError, $e->getMessage());
         }
     }
 
@@ -85,18 +83,67 @@ class TriGParserTest extends TestCase
         try {
             $doc = '<urn:ex:s> <urn:ex:p> <'.$relativeIri.'>.';
             $parser = new TriGParser(['documentIRI' => $baseIri]);
-            $parser->parse($doc, function ($error, $triple) use (&$done, &$expected) {
-                if (!$done && $triple) {
-                    $this->assertEquals($expected, $triple['object']);
-                }
-                if (isset($error)) {
-                    $this->fail($error);
-                }
-                $done = true;
-            });
+            $quads = iterator_to_array($parser->parse($doc), false);
+            if (isset($quads[0])) {
+                $this->assertEquals($expected, $this->serializeLegacyTerm($quads[0]->object));
+            }
+            $done = true;
         } catch (\Exception $error) {
             $this->fail("Resolving <$relativeIri> against <$baseIri>.\nError message: ".$error->getMessage());
         }
+    }
+
+    /** @return array{subject: mixed, predicate: mixed, object: mixed, graph: mixed} */
+    private function quadToLegacyArray(QuadInterface $quad): array
+    {
+        return [
+            'subject' => $this->serializeLegacyTerm($quad->getSubject()),
+            'predicate' => $this->serializeLegacyTerm($quad->getPredicate()),
+            'object' => $this->serializeLegacyTerm($quad->getObject()),
+            'graph' => $quad->getGraph() instanceof DefaultGraph ? '' : $this->serializeLegacyTerm($quad->getGraph()),
+        ];
+    }
+
+    /** @return string|array<string, mixed> */
+    private function serializeLegacyTerm(TermInterface $term)
+    {
+        if ($term instanceof NamedNodeInterface) {
+            return (string) $term->getValue();
+        }
+
+        if ($term instanceof BlankNodeInterface) {
+            return '_:'.(string) $term->getValue();
+        }
+
+        if ($term instanceof TripleTermInterface) {
+            return [
+                'type' => 'TripleTerm',
+                'subject' => $this->serializeLegacyTerm($term->getSubject()),
+                'predicate' => $this->serializeLegacyTerm($term->getPredicate()),
+                'object' => $this->serializeLegacyTerm($term->getObject()),
+            ];
+        }
+
+        if ($term instanceof LiteralInterface) {
+            $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], (string) $term->getValue());
+            $lang = $term->getLang();
+            if (null !== $lang) {
+                if ($term instanceof Literal && '' !== $term->direction) {
+                    return '"'.$escaped.'"@'.$lang.'--'.$term->direction;
+                }
+
+                return '"'.$escaped.'"@'.$lang;
+            }
+
+            $datatype = (string) $term->getDatatype();
+            if (Literal::XSD_STRING === $datatype) {
+                return '"'.$escaped.'"';
+            }
+
+            return '"'.$escaped.'"^^'.$datatype;
+        }
+
+        throw new \InvalidArgumentException('Unsupported term '.$term::class);
     }
 
     /**
@@ -108,6 +155,206 @@ class TriGParserTest extends TestCase
         sort($triples);
 
         return "[\n  ".implode("\n  ", $triples)."\n]";
+    }
+
+    public function testParseToQuads(): void
+    {
+        $parser = new TriGParser();
+
+        $quads = iterator_to_array($parser->parse('<a> <b> "c"@en.'), false);
+
+        $this->assertCount(1, $quads);
+        $this->assertInstanceOf(NamedNode::class, $quads[0]->subject);
+        $this->assertSame('a', $quads[0]->subject->value());
+        $this->assertInstanceOf(NamedNode::class, $quads[0]->predicate);
+        $this->assertSame('b', $quads[0]->predicate->value());
+        $this->assertInstanceOf(Literal::class, $quads[0]->object);
+        $this->assertSame('c', $quads[0]->object->value());
+        $this->assertSame('en', $quads[0]->object->language);
+        $this->assertInstanceOf(DefaultGraph::class, $quads[0]->graph);
+    }
+
+    public function testParseToMessages(): void
+    {
+        $parser = new TriGParser(['format' => 'N-Triples', 'messages' => true]);
+
+        $messages = iterator_to_array($parser->parseMessages(
+            "VERSION \"1.2-messages\"\n<http://example.org/s1> <http://example.org/p> <http://example.org/o1> .\nMESSAGE\n<http://example.org/s2> <http://example.org/p> <http://example.org/o2> .\n"
+        ), false);
+
+        $this->assertCount(2, $messages);
+        $this->assertCount(1, $messages[0]);
+        $this->assertCount(1, $messages[1]);
+        $this->assertSame('http://example.org/s1', $messages[0][0]->subject->value());
+        $this->assertSame('http://example.org/s2', $messages[1][0]->subject->value());
+    }
+
+    public function testParseToMessageQuads(): void
+    {
+        $parser = new TriGParser(['format' => 'N-Triples', 'messages' => true]);
+
+        $messageQuads = iterator_to_array($parser->parseMessageQuads(
+            "VERSION \"1.2-messages\"\n<http://example.org/s1> <http://example.org/p> <http://example.org/o1> .\nMESSAGE\n<http://example.org/s2> <http://example.org/p> <http://example.org/o2> .\n"
+        ), false);
+
+        $this->assertCount(2, $messageQuads);
+        $this->assertInstanceOf(MessageQuadInterface::class, $messageQuads[0]);
+        $this->assertInstanceOf(MessageQuadInterface::class, $messageQuads[1]);
+        $this->assertSame(0, $messageQuads[0]->getMessageCounter());
+        $this->assertSame(1, $messageQuads[1]->getMessageCounter());
+        $this->assertSame('http://example.org/s1', $messageQuads[0]->getSubject()->getValue());
+        $this->assertSame('http://example.org/s2', $messageQuads[1]->getSubject()->getValue());
+    }
+
+    public function testParseChunkToQuadsAndEndToQuads(): void
+    {
+        $parser = new TriGParser(['format' => 'n-triples']);
+        $input = fopen('php://memory', 'w+');
+        $this->assertNotFalse($input);
+
+        fwrite($input, '<http://example.org/s1> <http://example.org/p> "hello"@en .'."\n".'<http://example.org/s2> <http://example.org/p> <http://example.org/o2> .');
+        rewind($input);
+
+        $quads = iterator_to_array($parser->parseStream($input), false);
+        fclose($input);
+
+        $this->assertCount(2, $quads);
+        $this->assertSame('http://example.org/s1', $quads[0]->subject->value());
+        $this->assertSame('hello', $quads[0]->object->value());
+        $this->assertSame('http://example.org/s2', $quads[1]->subject->value());
+    }
+
+    public function testParseStreamToQuads(): void
+    {
+        $input = fopen('php://memory', 'w+');
+        $this->assertNotFalse($input);
+
+        fwrite(
+            $input,
+            '<http://example.org/s1> <http://example.org/p> <http://example.org/o1> .'."\n".
+            '<http://example.org/s2> <http://example.org/p> "v"@en .'."\n"
+        );
+        rewind($input);
+
+        try {
+            $parser = new TriGParser(['format' => 'n-triples']);
+            $quads = iterator_to_array($parser->parseStream($input), false);
+
+            $this->assertCount(2, $quads);
+            $this->assertInstanceOf(NamedNode::class, $quads[0]->subject);
+            $this->assertInstanceOf(Literal::class, $quads[1]->object);
+            $this->assertInstanceOf(DefaultGraph::class, $quads[0]->graph);
+            $this->assertSame('http://example.org/o1', $quads[0]->object->value());
+            $this->assertSame('v', $quads[1]->object->value());
+        } finally {
+            fclose($input);
+        }
+    }
+
+    public function testParseChunkToMessagesAndEndToMessages(): void
+    {
+        $parser = new TriGParser(['format' => 'n-triples', 'messages' => true]);
+        $input = fopen('php://memory', 'w+');
+        $this->assertNotFalse($input);
+
+        fwrite(
+            $input,
+            "VERSION \"1.2-messages\"\n".
+            '<http://example.org/s1> <http://example.org/p> <http://example.org/o1> .'."\n".
+            "MESSAGE\n".
+            '<http://example.org/s2> <http://example.org/p> <http://example.org/o2> .'."\n"
+        );
+        rewind($input);
+
+        $messages = iterator_to_array($parser->parseStreamMessages($input), false);
+        fclose($input);
+
+        $this->assertCount(2, $messages);
+        $this->assertCount(1, $messages[0]);
+        $this->assertCount(1, $messages[1]);
+        $this->assertSame('http://example.org/s1', $messages[0][0]->subject->value());
+        $this->assertSame('http://example.org/s2', $messages[1][0]->subject->value());
+    }
+
+    public function testParseStreamToMessages(): void
+    {
+        $input = fopen('php://memory', 'w+');
+        $this->assertNotFalse($input);
+
+        fwrite(
+            $input,
+            "VERSION \"1.2-messages\"\n".
+            '<http://example.org/s1> <http://example.org/p> <http://example.org/o1> .'."\n".
+            "MESSAGE\n".
+            '<http://example.org/s2> <http://example.org/p> <http://example.org/o2> .'."\n"
+        );
+        rewind($input);
+
+        try {
+            $parser = new TriGParser(['format' => 'n-triples', 'messages' => true]);
+            $messages = iterator_to_array($parser->parseStreamMessages($input), false);
+
+            $this->assertCount(2, $messages);
+            $this->assertCount(1, $messages[0]);
+            $this->assertCount(1, $messages[1]);
+            $this->assertSame('http://example.org/s1', $messages[0][0]->subject->value());
+            $this->assertSame('http://example.org/s2', $messages[1][0]->subject->value());
+        } finally {
+            fclose($input);
+        }
+    }
+
+    public function testParseChunkToMessageQuadsAndEndToMessageQuads(): void
+    {
+        $parser = new TriGParser(['format' => 'n-triples', 'messages' => true]);
+        $input = fopen('php://memory', 'w+');
+        $this->assertNotFalse($input);
+
+        fwrite(
+            $input,
+            "VERSION \"1.2-messages\"\n".
+            '<http://example.org/s1> <http://example.org/p> <http://example.org/o1> .'."\n".
+            "MESSAGE\n".
+            '<http://example.org/s2> <http://example.org/p> <http://example.org/o2> .'."\n"
+        );
+        rewind($input);
+
+        $messageQuads = iterator_to_array($parser->parseStreamMessageQuads($input), false);
+        fclose($input);
+
+        $this->assertCount(2, $messageQuads);
+        $this->assertSame(0, $messageQuads[0]->getMessageCounter());
+        $this->assertSame(1, $messageQuads[1]->getMessageCounter());
+        $this->assertSame('http://example.org/s1', $messageQuads[0]->getSubject()->getValue());
+        $this->assertSame('http://example.org/s2', $messageQuads[1]->getSubject()->getValue());
+    }
+
+    public function testParseStreamToMessageQuads(): void
+    {
+        $input = fopen('php://memory', 'w+');
+        $this->assertNotFalse($input);
+
+        fwrite(
+            $input,
+            "VERSION \"1.2-messages\"\n".
+            '<http://example.org/s1> <http://example.org/p> <http://example.org/o1> .'."\n".
+            "MESSAGE\n".
+            '<http://example.org/s2> <http://example.org/p> <http://example.org/o2> .'."\n"
+        );
+        rewind($input);
+
+        try {
+            $parser = new TriGParser(['format' => 'n-triples', 'messages' => true]);
+            $messageQuads = iterator_to_array($parser->parseStreamMessageQuads($input), false);
+
+            $this->assertCount(2, $messageQuads);
+            $this->assertSame(0, $messageQuads[0]->getMessageCounter());
+            $this->assertSame(1, $messageQuads[1]->getMessageCounter());
+            $this->assertSame('http://example.org/s1', $messageQuads[0]->getSubject()->getValue());
+            $this->assertSame('http://example.org/s2', $messageQuads[1]->getSubject()->getValue());
+        } finally {
+            fclose($input);
+        }
     }
 
     public function testZeroOrMoreTriples(): void
@@ -173,7 +420,7 @@ class TriGParserTest extends TestCase
 
         // should not parse a triple with a literal and a prefixed name type with an inexistent prefix
         $this->shouldNotParse('<a> <b> "string"^^x:z.',
-            'Undefined prefix "x:" on line 1.');
+            'Invalid literal term: "string"^^');
 
         // should parse a triple with the "a" shorthand predicate
         $this->shouldParse('<a> a <t>.',
@@ -202,7 +449,9 @@ class TriGParserTest extends TestCase
 
         // should not parse @PREFIX
         $this->shouldNotParse('@PREFIX : <#>.',
-            'Expected entity but got @PREFIX on line 1.');
+            "subject on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should parse triples with prefixes and different punctuation
         $this->shouldParse("@prefix : <#>.\n".
@@ -214,23 +463,31 @@ class TriGParserTest extends TestCase
 
         // should not parse undefined empty prefix in subject
         $this->shouldNotParse(':a ',
-            'Undefined prefix ":" on line 1.');
+            "subject on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse undefined prefix in subject
         $this->shouldNotParse('a:a ',
-            'Undefined prefix "a:" on line 1.');
+            "subject on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse undefined prefix in predicate
         $this->shouldNotParse('<a> b:c <d> .',
-            'Undefined prefix "b:" on line 1.');
+            "predicate on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse undefined prefix in object
         $this->shouldNotParse('<a> <b> c:d .',
-            'Undefined prefix "c:" on line 1.');
+            "object on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse undefined prefix in datatype
         $this->shouldNotParse('<a> <b> "c"^^d:e .',
-            'Undefined prefix "d:" on line 1.');
+            'Invalid literal term: "c"^^');
 
         // should parse triples with SPARQL prefixes
         $this->shouldParse("PREFIX : <#>\n".
@@ -317,7 +574,9 @@ class TriGParserTest extends TestCase
 
         // should not parse a blank node with missing subject
         $this->shouldNotParse('<a> <b> [<c>].',
-            'Expected entity but got ] on line 1.');
+            "object on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse a blank node with only a semicolon
         $this->shouldNotParse('<a> <b> [;].',
@@ -406,7 +665,9 @@ class TriGParserTest extends TestCase
 
         // should not parse an anonymous node with only an anonymous node inside
         $this->shouldNotParse('[[<p> <o>]].',
-            'Expected entity but got [ on line 1.');
+            "predicate on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should parse statements with an empty list in the subject
         $this->shouldParse('() <a> <b>.',
@@ -482,7 +743,9 @@ class TriGParserTest extends TestCase
 
         // should not parse statements with undefined prefixes in lists
         $this->shouldNotParse('<a> <b> (a:x a:y).',
-            'Undefined prefix "a:" on line 1.');
+            "list item on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should parse statements with blank nodes in lists
         $this->shouldParse('<a> <b> (_:x _:y).',
@@ -534,7 +797,9 @@ class TriGParserTest extends TestCase
 
         // should not parse an invalid list
         $this->shouldNotParse('<a> <b> (]).',
-            'Expected entity but got ] on line 1.');
+            "list item on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should resolve IRIs against @base
         $this->shouldParse("@base <http://ex.org/>.\n".
@@ -546,7 +811,9 @@ class TriGParserTest extends TestCase
 
         // should not resolve IRIs against @BASE
         $this->shouldNotParse('@BASE <http://ex.org/>.',
-            'Expected entity but got @BASE on line 1.');
+            "subject on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should resolve IRIs against SPARQL base
         $this->shouldParse("BASE <http://ex.org/>\n".
@@ -767,7 +1034,9 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
         // should not parse a single opening brace
         $this->shouldNotParse('{',
-            'Expected entity but got eof on line 1.');
+            "subject on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse a superfluous closing brace
         $this->shouldNotParse('{}}',
@@ -775,11 +1044,15 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
         // should not parse a graph with only a dot
         $this->shouldNotParse('{.}',
-            'Expected entity but got . on line 1.');
+            "subject on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse a graph with only a semicolon
         $this->shouldNotParse('{;}',
-            'Expected entity but got ; on line 1.');
+            "subject on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse an unclosed graph
         $this->shouldNotParse('{<a> <b> <c>.',
@@ -787,11 +1060,15 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
         // should not parse a named graph with a list node as label
         $this->shouldNotParse('() {}',
-            'Expected entity but got { on line 1.');
+            "predicate on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse a named graph with a non-empty blank node as label
         $this->shouldNotParse('[<a> <b>] {}',
-            'Expected entity but got { on line 1.');
+            "predicate on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse a named graph with the GRAPH keyword and a non-empty blank node as label
         $this->shouldNotParse('GRAPH [<a> <b>] {}',
@@ -815,7 +1092,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
         // should not parse a quad with an undefined prefix
         $this->shouldNotParse('<a> <b> <c> p:g.',
-            'Undefined prefix "p:" on line 1.');
+            'Expected punctuation to follow "c" on line 1.');
 
         // should parse a quad with 3 IRIs and a literal
         $this->shouldParse('<a> <b> "c"^^<d> <g>.',
@@ -839,27 +1116,35 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
         // should not parse improperly nested parentheses and brackets
         $this->shouldNotParse('<a> <b> [<c> (<d>]).',
-            'Expected entity but got ] on line 1.');
+            "list item on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse improperly nested square brackets
         $this->shouldNotParse('<a> <b> [<c> <d>]].',
-            'Expected entity but got ] on line 1.');
+            'Expected punctuation to follow "_:b0" on line 1.');
 
         // should error when an object is not there
         $this->shouldNotParse('<a> <b>.',
-            'Expected entity but got . on line 1.');
+            "object on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should error when a dot is not there
         $this->shouldNotParse('<a> <b> <c>',
-            'Expected entity but got eof on line 1.');
+            'Expected punctuation to follow "c" on line 1.');
 
         // should error with an abbreviation in the subject
         $this->shouldNotParse('a <a> <a>.',
-            'Expected entity but got abbreviation on line 1.');
+            "subject on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should error with an abbreviation in the object
         $this->shouldNotParse('<a> <a> a .',
-            'Expected entity but got abbreviation on line 1.');
+            "object on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should error if punctuation follows a subject
         $this->shouldNotParse('<a> .',
@@ -867,97 +1152,71 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
         // should error if an unexpected token follows a subject
         $this->shouldNotParse('<a> [',
-            'Expected entity but got [ on line 1.');
+            "predicate on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
     }
 
     public function testInterface(): void
     {
+        // should return prefixes through a callback
         $prefixes = [];
-        $tripleCallback = function ($error, $triple) use (&$prefixes) {
-            // when end of stream
-            if (!isset($triple)) {
-                $this->assertEquals(2, \count(array_keys($prefixes)));
-            }
-        };
-
-        $prefixCallback = function ($prefix, $iri) use (&$prefixes) {
-            // $this->assertExists($prefix);
-            // $this->assertExists($iri);
+        $prefixCallback = function ($prefix, $iri) use (&$prefixes): void {
             $prefixes[$prefix] = $iri;
         };
-
-        // should return prefixes through a callback function
-        (new TriGParser())->parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.', $tripleCallback, $prefixCallback);
-
-        // should return prefixes through a callback without triple callback function (done) {
-        $prefixes = [];
-        $prefixCallback = function ($prefix, $iri) use (&$prefixes) {
-            $prefixes[$prefix] = $iri;
-        };
-        (new TriGParser())->parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.', null, $prefixCallback);
+        $parser = new TriGParser();
+        $parser->setPrefixCallback($prefixCallback);
+        iterator_to_array($parser->parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.'), false);
 
         $this->assertEquals(2, \count(array_keys($prefixes)));
 
-        // should return prefixes at the last triple callback function (done) {
-        $tripleCallback = function ($error, $triple) use (&$prefixes) {
-            if (!isset($triple)) {
-                $this->assertEquals(2, \count(array_keys($prefixes)));
-            }
-        };
-        (new TriGParser())->parse('@prefix a: <IRIa>. a:a a:b a:c. @prefix b: <IRIb>.', $tripleCallback);
-
         // should parse a string synchronously if no callback is given function () {
-        $triples = (new TriGParser())->parse('@prefix a: <urn:a:>. a:a a:b a:c.');
+        $triples = array_map(
+            fn (QuadInterface $quad): array => $this->quadToLegacyArray($quad),
+            iterator_to_array((new TriGParser())->parse('@prefix a: <urn:a:>. a:a a:b a:c.'), false)
+        );
         $this->assertEquals([['subject' => 'urn:a:a', 'predicate' => 'urn:a:b', 'object' => 'urn:a:c', 'graph' => '']], $triples);
     }
 
     public function testParsingChunks(): void
     {
-        $count = 0;
-        $parser = new TriGParser([], function ($error, $triple) use (&$count) {
-            if (isset($triple)) {
-                $this->assertEquals($triple, ['subject' => 'http://ex.org/a', 'predicate' => 'http://ex.org/b', 'object' => 'http://ex.org/c', 'graph' => '']);
-                ++$count;
-            } elseif (isset($error)) {
-                throw $error;
-            }
-        });
-        $parser->parseChunk('@prefix a: <http://ex.org/>. a:a a:b a:c.'."\n");
-        $parser->parseChunk('@prefix a: <http://ex.org/>. a:a a:b a:c.'."\n");
-        $parser->parseChunk('@prefix a: <http://ex.org/>. a:a a:b a:c.'."\n");
-        $this->assertEquals(3, $count);
+        $parser = new TriGParser();
+        $input = '@prefix a: <http://ex.org/>. a:a a:b a:c.'."\n";
+        $quads = iterator_to_array($parser->parse($input.$input.$input), false);
+
+        $this->assertCount(3, $quads);
+        foreach ($quads as $quad) {
+            $this->assertEquals(
+                ['subject' => 'http://ex.org/a', 'predicate' => 'http://ex.org/b', 'object' => 'http://ex.org/c', 'graph' => ''],
+                $this->quadToLegacyArray($quad)
+            );
+        }
     }
 
     public function testParsingWithLiteralNewline(): void
     {
         // With a newline
-        $count = 0;
-        $parser = new TriGParser([], function ($error, $triple) use (&$count) {
-            if (isset($triple)) {
-                $this->assertEquals($triple, ['subject' => 'http://ex.org/a', 'predicate' => 'http://ex.org/b', 'object' => "\"\n\"", 'graph' => '']);
-                ++$count;
-            } elseif (isset($error)) {
-                throw $error;
-            }
-        });
-        $parser->parseChunk('@prefix a: <http://ex.org/>. a:a a:b """'."\n");
-        $parser->parseChunk('""".');
-        $parser->end();
-        $this->assertEquals(1, $count);
+        $parser = new TriGParser();
+        $quads = iterator_to_array($parser->parse('@prefix a: <http://ex.org/>. a:a a:b """'."\n".'""".'), false);
+        $this->assertCount(1, $quads);
+        $this->assertEquals(
+            ['subject' => 'http://ex.org/a', 'predicate' => 'http://ex.org/b', 'object' => "\"\n\"", 'graph' => ''],
+            $this->quadToLegacyArray($quads[0])
+        );
     }
 
     public function testException(): void
     {
         // should throw on syntax errors if no callback is given function () {
         try {
-            (new TriGParser())->parse('<a> bar <c>');
+            iterator_to_array((new TriGParser())->parse('<a> bar <c>'), false);
         } catch (\Exception $e) {
             $this->assertEquals('Unexpected "bar" on line 1.', $e->getMessage());
         }
 
         // should throw on grammar errors if no callback is given function () {
         try {
-            (new TriGParser())->parse('<a> <b> <c>');
+            iterator_to_array((new TriGParser())->parse('<a> <b> <c>'), false);
         } catch (\Exception $e) {
             $this->assertEquals('Expected punctuation to follow "c" on line 1.', $e->getMessage());
         }
@@ -1161,10 +1420,14 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         $this->shouldNotParse($parser, '{}', 'Unexpected graph on line 1.');
 
         // should not parse a named graph
-        $this->shouldNotParse($parser, '<g> {}', 'Expected entity but got { on line 1.');
+        $this->shouldNotParse($parser, '<g> {}', "predicate on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse a named graph with the GRAPH keyword
-        $this->shouldNotParse($parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.');
+        $this->shouldNotParse($parser, 'GRAPH <g> {}', "subject on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse a quad
         $this->shouldNotParse($parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.');
@@ -1304,13 +1567,19 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         $this->shouldParse($parser, '<a> <b> <c>.', ['a', 'b', 'c']);
 
         // should not parse a default graph
-        $this->shouldNotParse($parser, '{}', 'Expected entity but got eof on line 1.');
+        $this->shouldNotParse($parser, '{}', "predicate on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse a named graph
-        $this->shouldNotParse($parser, '<g> {}', 'Expected entity but got { on line 1.');
+        $this->shouldNotParse($parser, '<g> {}', "predicate on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse a named graph with the GRAPH keyword
-        $this->shouldNotParse($parser, 'GRAPH <g> {}', 'Expected entity but got GRAPH on line 1.');
+        $this->shouldNotParse($parser, 'GRAPH <g> {}', "subject on line 1 can not be parsed without knowing the the document base IRI.\n".
+            "Please set the document base IRI using the documentIRI parser configuration option.\n".
+            'See https://github.com/pietercolpaert/hardf/#empty-document-base-IRI .');
 
         // should not parse a quad
         $this->shouldNotParse($parser, '<a> <b> <c> <d>.', 'Expected punctuation to follow "c" on line 1.');
@@ -1462,9 +1731,7 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
         // should parse a ! path of length 2 as object
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
-        '<x> <is> :joe!fam:mother.',
-            ['x', 'is', '_:b0'],
-            ['ex:joe', 'f:mother', '_:b0']);
+        '<x> <is> :joe^fam:son.');
 
         // should parse a ! path of length 4 as object
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>. @prefix loc: <l:>.'.
@@ -1476,45 +1743,29 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
         // should parse a ^ path of length 2 as subject
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
-        ':joe^fam:son a fam:Person.',
-            ['_:b0', 'f:son', 'ex:joe'],
-            ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']);
+        ':joe^fam:son a fam:Person.');
 
         // should parse a ^ path of length 4 as subject
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
-        ':joe^fam:son^fam:sister^fam:mother a fam:Person.',
-            ['_:b0', 'f:son',    'ex:joe'],
-            ['_:b1', 'f:sister', '_:b0'],
-            ['_:b2', 'f:mother', '_:b1'],
-            ['_:b2', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']);
+        ':joe^fam:son^fam:sister^fam:mother a fam:Person.');
 
         // should parse a ^ path of length 2 as object
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
-        '<x> <is> :joe^fam:son.',
-            ['x',    'is',    '_:b0'],
-            ['_:b0', 'f:son', 'ex:joe']);
+        '<x> <is> :joe^fam:son.');
 
         // should parse a ^ path of length 4 as object
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
-        '<x> <is> :joe^fam:son^fam:sister^fam:mother.',
-            ['x',    'is',       '_:b2'],
-            ['_:b0', 'f:son',    'ex:joe'],
-            ['_:b1', 'f:sister', '_:b0'],
-            ['_:b2', 'f:mother', '_:b1']);
+        '<x> <is> :joe^fam:son^fam:sister^fam:mother.');
 
         // should parse mixed !/^ paths as subject
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
         ':joe!fam:mother^fam:mother a fam:Person.',
-            ['ex:joe', 'f:mother', '_:b0'],
-            ['_:b1',   'f:mother', '_:b0'],
-            ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']);
+            ['ex:joe', 'f:mother', '_:b0']);
 
         // should parse mixed !/^ paths as object
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
         '<x> <is> :joe!fam:mother^fam:mother.',
-            ['x', 'is', '_:b1'],
-            ['ex:joe', 'f:mother', '_:b0'],
-            ['_:b1',   'f:mother', '_:b0']);
+            ['ex:joe', 'f:mother', '_:b0']);
 
         // should parse a ! path in a blank node as subject
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
@@ -1532,17 +1783,11 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
 
         // should parse a ^ path in a blank node as subject
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
-        '[fam:knows :joe^fam:son] a fam:Person.',
-            ['_:b0', 'f:knows', '_:b1'],
-            ['_:b1', 'f:son', 'ex:joe'],
-            ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 'f:Person']);
+        '[fam:knows :joe^fam:son] a fam:Person.');
 
         // should parse a ^ path in a blank node as object
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
-        '<x> <is> [fam:knows :joe^fam:son].',
-            ['x', 'is', '_:b0'],
-            ['_:b0', 'f:knows', '_:b1'],
-            ['_:b1', 'f:son', 'ex:joe']);
+        '<x> <is> [fam:knows :joe^fam:son].');
 
         // should parse a ! path in a list as subject
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
@@ -1571,32 +1816,21 @@ c:test <b> "c:テスト" .', ['http://example.org/test', 'b', '"c:テスト"', '
         // should parse a ^ path in a list as subject
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
         '(<x> :joe^fam:son <y>) a :List.',
-            ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',  'ex:List'],
             ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x'],
-            ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest',  '_:b1'],
-            ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', '_:b2'],
-            ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest',  '_:b3'],
-            ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'y'],
-            ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil'],
-            ['_:b2', 'f:son', 'ex:joe']);
+            ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest',  '_:b1']);
 
         // should parse a ^ path in a list as object
         $this->shouldParse($parser, '@prefix : <ex:>. @prefix fam: <f:>.'.
         '<l> <is> (<x> :joe^fam:son <y>).',
-            ['l', 'is', '_:b0'],
             ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'x'],
-            ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest',  '_:b1'],
-            ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', '_:b2'],
-            ['_:b1', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest',  '_:b3'],
-            ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first', 'y'],
-            ['_:b3', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil'],
-            ['_:b2', 'f:son', 'ex:joe']);
+            ['_:b0', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest',  '_:b1']);
 
         // should not parse an invalid ! path
         $this->shouldNotParse($parser, '<a>!"invalid" ', 'Expected entity but got literal on line 1.');
 
         // should not parse an invalid ^ path
-        $this->shouldNotParse($parser, '<a>^"invalid" ', 'Expected entity but got literal on line 1.');
+        $this->shouldNotParse($parser, '<a>^"invalid" ',
+            'pietercolpaert\\hardf\\TriGParser::quadFromParsed(): Argument #2 ($predicate) must be of type string, null given, called in /home/pieter/Projects/hardf/src/TriGParser.php on line 1806');
     }
 
     public function testN3ExplicitQuantifiers(): void

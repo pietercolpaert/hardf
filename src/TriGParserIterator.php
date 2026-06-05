@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace pietercolpaert\hardf;
 
+use pietercolpaert\hardf\DataModel\Quad;
+use rdfInterface\QuadIteratorInterface;
+
 /**
  * TrigParser wrapper turning it into a triple/quad generator.
  *
@@ -22,23 +25,29 @@ namespace pietercolpaert\hardf;
  * }
  * ```
  */
-class TriGParserIterator implements \Iterator
+class TriGParserIterator implements QuadIteratorInterface
 {
-    /**
-     * Store TriG
-     *
-     * @var array
-     */
-    private $options;
+    /** @var array<string, mixed> */
+    private array $options;
+
     private $prefixCallback;
-    /**
-     * @var TriGParser
-     */
-    private $parser;
-    private $chunkSize;
+
+    private TriGParser $parser;
+
+    private int $chunkSize;
+
+    private ?\Iterator $quadIterator = null;
+
+    /** @var resource|null */
     private $input;
-    private $triplesBuffer;
-    private $n;
+
+    private bool $seekableInput = true;
+
+    private bool $started = false;
+
+    private int $position = 0;
+
+    /** @var resource|null */
     private $tmpStream;
 
     /**
@@ -48,10 +57,9 @@ class TriGParserIterator implements \Iterator
      * If you're using this class, you probably don't need the $tripleCallback
      * but $prefixCallback can be still useful.
      *
-     * @param array    $options
      * @param callable $prefixCallback
      */
-    public function __construct($options = [], $prefixCallback = null)
+    public function __construct(array $options = [], $prefixCallback = null)
     {
         $this->options = $options;
         $this->prefixCallback = $prefixCallback;
@@ -66,7 +74,7 @@ class TriGParserIterator implements \Iterator
      * A thiny wrapper for the parseStream() method turning a string into
      * a stream resource.
      */
-    public function parse(string $input): \Iterator
+    public function parse(string $input): QuadIteratorInterface
     {
         $this->closeTmpStream();
         $this->tmpStream = fopen('php://memory', 'r+');
@@ -83,7 +91,7 @@ class TriGParserIterator implements \Iterator
      *
      * @throws \Exception
      */
-    public function parseStream($input, int $chunkSize = 8192): \Iterator
+    public function parseStream($input, int $chunkSize = 8192): QuadIteratorInterface
     {
         if (!\is_resource($input)) {
             throw new \Exception('Input has to be a resource');
@@ -91,52 +99,38 @@ class TriGParserIterator implements \Iterator
 
         $this->input = $input;
         $this->chunkSize = $chunkSize;
-        $this->n = -1;
-        $this->triplesBuffer = [];
+        $this->started = false;
+        $this->position = 0;
+        $metadata = stream_get_meta_data($input);
+        $this->seekableInput = !empty($metadata['seekable']);
         $this->parser = new TriGParser($this->options, null, $this->prefixCallback);
+        $this->quadIterator = $this->parser->parseStream($this->input, '', $this->chunkSize);
 
         return $this;
     }
 
-    public function current()
+    public function current(): ?Quad
     {
-        return current($this->triplesBuffer);
+        if (null === $this->quadIterator) {
+            return null;
+        }
+
+        $current = $this->quadIterator->current();
+
+        return $current instanceof Quad ? $current : null;
     }
 
-    public function key()
+    public function key(): int
     {
-        return $this->n;
+        return $this->position;
     }
 
     public function next(): void
     {
-        $el = next($this->triplesBuffer);
-        if (false === $el) {
-            $this->triplesBuffer = [];
-            $this->parser->setTripleCallback(function (?\Exception $e,
-                ?array $quad): void {
-                if ($e) {
-                    throw $e;
-                }
-                if ($quad) {
-                    $this->triplesBuffer[] = $quad;
-                }
-            });
-            while (!feof($this->input)) {
-                $chunk = fgets($this->input, $this->chunkSize);
-                if (false === $chunk) {
-                    break;
-                }
-                $this->parser->parseChunk($chunk);
-                if (!empty($this->triplesBuffer)) {
-                    break;
-                }
-            }
-            if (feof($this->input)) {
-                $this->parser->end();
-            }
+        if (null !== $this->quadIterator) {
+            ++$this->position;
+            $this->quadIterator->next();
         }
-        ++$this->n;
     }
 
     /**
@@ -144,16 +138,33 @@ class TriGParserIterator implements \Iterator
      */
     public function rewind(): void
     {
+        if (!$this->seekableInput) {
+            if ($this->started) {
+                throw new \Exception("Can't rewind a non-seekable input stream");
+            }
+            $this->started = true;
+            if (null !== $this->quadIterator) {
+                $this->position = 0;
+                $this->quadIterator->rewind();
+            }
+
+            return;
+        }
+
         $ret = rewind($this->input);
         if (true !== $ret) {
             throw new \Exception("Can't seek in the input stream");
         }
-        $this->next();
+        $this->started = true;
+        $this->parser = new TriGParser($this->options, null, $this->prefixCallback);
+        $this->quadIterator = $this->parser->parseStream($this->input, '', $this->chunkSize);
+        $this->position = 0;
+        $this->quadIterator->rewind();
     }
 
     public function valid(): bool
     {
-        return false !== current($this->triplesBuffer);
+        return null !== $this->quadIterator && $this->quadIterator->valid();
     }
 
     private function closeTmpStream(): void

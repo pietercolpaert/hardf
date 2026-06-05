@@ -3,8 +3,19 @@
 namespace Tests\hardf;
 
 use PHPUnit\Framework\TestCase;
+use pietercolpaert\hardf\DataModel\BlankNode;
+use pietercolpaert\hardf\DataModel\DataFactory;
+use pietercolpaert\hardf\DataModel\DefaultGraph;
+use pietercolpaert\hardf\DataModel\Literal;
+use pietercolpaert\hardf\DataModel\NamedNode;
+use pietercolpaert\hardf\DataModel\Quad;
+use pietercolpaert\hardf\DataModel\TripleTerm;
+use pietercolpaert\hardf\DataModel\TripleTermInterface;
 use pietercolpaert\hardf\TriGParser;
 use pietercolpaert\hardf\TriGWriter;
+use rdfInterface\BlankNodeInterface;
+use rdfInterface\NamedNodeInterface;
+use rdfInterface\TermInterface;
 
 class RDFMessagesTest extends TestCase
 {
@@ -16,10 +27,72 @@ class RDFMessagesTest extends TestCase
         $parser = new TriGParser(['format' => $format, 'messages' => true]);
         $parser->_resetBlankNodeIds();
 
-        /** @var array<int, array<int, array<string, string>>> $messages */
-        $messages = $parser->parse($input);
+        $messages = iterator_to_array($parser->parseMessages($input), false);
 
-        return $messages;
+        /** @var array<int, array<int, array<string, string>>> $legacy */
+        $legacy = [];
+        foreach ($messages as $messageIndex => $message) {
+            $legacy[$messageIndex] = array_map([$this, 'quadToLegacyArray'], $message);
+        }
+
+        return $legacy;
+    }
+
+    /**
+     * @return array{subject: string, predicate: string, object: string, graph: string}
+     */
+    private function quadToLegacyArray(Quad $quad): array
+    {
+        return [
+            'subject' => $this->serializeLegacyTerm($quad->subject),
+            'predicate' => $this->serializeLegacyTerm($quad->predicate),
+            'object' => $this->serializeLegacyTerm($quad->object),
+            'graph' => $quad->graph instanceof DefaultGraph ? '' : $this->serializeLegacyTerm($quad->graph),
+        ];
+    }
+
+    /**
+     * @return string|array{type: string, subject: string|array, predicate: string, object: string|array}
+     */
+    private function serializeLegacyTerm(TermInterface $term)
+    {
+        if ($term instanceof NamedNodeInterface) {
+            return (string) $term->getValue();
+        }
+
+        if ($term instanceof BlankNodeInterface) {
+            return '_:'.(string) $term->getValue();
+        }
+
+        if ($term instanceof TripleTermInterface) {
+            return [
+                'type' => 'TripleTerm',
+                'subject' => $this->serializeLegacyTerm($term->getSubject()),
+                'predicate' => $this->serializeLegacyTerm($term->getPredicate()),
+                'object' => $this->serializeLegacyTerm($term->getObject()),
+            ];
+        }
+
+        if ($term instanceof Literal) {
+            $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], (string) $term->getValue());
+            $lang = $term->getLang();
+            if (null !== $lang) {
+                if ('' !== $term->direction) {
+                    return '"'.$escaped.'"@'.$lang.'--'.$term->direction;
+                }
+
+                return '"'.$escaped.'"@'.$lang;
+            }
+
+            $datatype = $term->getDatatype();
+            if (Literal::XSD_STRING === $datatype) {
+                return '"'.$escaped.'"';
+            }
+
+            return '"'.$escaped.'"^^'.$datatype;
+        }
+
+        throw new \InvalidArgumentException('Unsupported term in test serializer: '.$term::class);
     }
 
     /**
@@ -56,10 +129,96 @@ class RDFMessagesTest extends TestCase
     {
         $writer = new TriGWriter(['format' => $format, 'messages' => true, 'version' => '1.2']);
         foreach ($messages as $message) {
-            $writer->addMessage($message);
+            $typedMessage = [];
+            foreach ($message as $quad) {
+                $typedMessage[] = DataFactory::quad(
+                    $this->parseLegacySubject($quad['subject']),
+                    DataFactory::namedNode($quad['predicate']),
+                    $this->parseLegacyObject($quad['object']),
+                    $this->parseLegacyGraph($quad['graph'])
+                );
+            }
+            $writer->addMessage($typedMessage);
         }
 
         return $this->parseMessages((string) $writer->end(), $format);
+    }
+
+    /**
+     * @param string|array{subject: string|array, predicate: string, object: string|array} $term
+     */
+    private function parseLegacySubject($term): NamedNode|BlankNode|TripleTerm
+    {
+        if (\is_array($term)) {
+            return DataFactory::tripleTerm(
+                $this->parseLegacySubject($term['subject']),
+                DataFactory::namedNode($term['predicate']),
+                $this->parseLegacyObject($term['object'])
+            );
+        }
+
+        if (str_starts_with($term, '_:')) {
+            return DataFactory::blankNode(substr($term, 2));
+        }
+
+        return DataFactory::namedNode($term);
+    }
+
+    /**
+     * @param string|array{subject: string|array, predicate: string, object: string|array} $term
+     */
+    private function parseLegacyObject($term): NamedNode|BlankNode|Literal|TripleTerm
+    {
+        if (\is_array($term)) {
+            return DataFactory::tripleTerm(
+                $this->parseLegacySubject($term['subject']),
+                DataFactory::namedNode($term['predicate']),
+                $this->parseLegacyObject($term['object'])
+            );
+        }
+
+        if (str_starts_with($term, '_:')) {
+            return DataFactory::blankNode(substr($term, 2));
+        }
+
+        if (!str_starts_with($term, '"')) {
+            return DataFactory::namedNode($term);
+        }
+
+        if (!preg_match('/^"(.*)"(?:\^\^([^\"]+)|@([^@\"]+))?$/s', $term, $match)) {
+            throw new \InvalidArgumentException('Invalid legacy literal: '.$term);
+        }
+
+        $lexical = $match[1];
+        $datatype = $match[2] ?? '';
+        $lang = $match[3] ?? '';
+
+        if ('' !== $datatype) {
+            return DataFactory::literal($lexical, null, $datatype);
+        }
+
+        if ('' !== $lang) {
+            if (preg_match('/^(.+)--(ltr|rtl)$/i', $lang, $dirMatch)) {
+                return DataFactory::directionalLiteral($lexical, $dirMatch[1], strtolower($dirMatch[2]));
+            }
+
+            return DataFactory::literal($lexical, strtolower($lang));
+        }
+
+        return DataFactory::literal($lexical);
+    }
+
+    private function parseLegacyGraph(string $term): NamedNodeInterface|BlankNodeInterface|null
+    {
+        if ('' === $term) {
+            return null;
+        }
+
+        if (str_starts_with($term, '_:')) {
+            return DataFactory::blankNode(substr($term, 2));
+        }
+
+        return DataFactory::namedNode($term);
     }
 
     public function testSingleMessageWithoutDelimiter(): void
@@ -212,7 +371,7 @@ class RDFMessagesTest extends TestCase
         $this->expectExceptionMessage('Unexpected "MESSAGE" on line 2.');
 
         $parser = new TriGParser(['format' => 'N-Triples']);
-        $parser->parse("<http://example.org/s> <http://example.org/p> <http://example.org/o> .\nMESSAGE\n");
+        iterator_to_array($parser->parse("<http://example.org/s> <http://example.org/p> <http://example.org/o> .\nMESSAGE\n"), false);
     }
 
     public function testAtMessageWithoutTrailingDotFails(): void
@@ -221,7 +380,7 @@ class RDFMessagesTest extends TestCase
         $this->expectExceptionMessage('Expected declaration to end with a dot on line 3.');
 
         $parser = new TriGParser(['format' => 'TriG']);
-        $parser->parse("VERSION \"1.2-messages\"\n<http://example.org/s> <http://example.org/p> <http://example.org/o> .\n@message <http://example.org/invalid>\n");
+        iterator_to_array($parser->parse("VERSION \"1.2-messages\"\n<http://example.org/s> <http://example.org/p> <http://example.org/o> .\n@message <http://example.org/invalid>\n"), false);
     }
 
     public function testMessageDelimiterInsideOpenGraphBlockFails(): void
@@ -230,88 +389,50 @@ class RDFMessagesTest extends TestCase
         $this->expectExceptionMessage('Unexpected "MESSAGE" on line 4.');
 
         $parser = new TriGParser(['format' => 'TriG']);
-        $parser->parse("VERSION \"1.2-messages\"\n<http://example.org/g> {\n  <http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n  <http://example.org/d> <http://example.org/e> <http://example.org/f> .\n}\n");
+        iterator_to_array($parser->parse("VERSION \"1.2-messages\"\n<http://example.org/g> {\n  <http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n  <http://example.org/d> <http://example.org/e> <http://example.org/f> .\n}\n"), false);
     }
 
-    public function testEmptyTrailingMessageDetectableInStreamingMode(): void
+    public function testTypedMessagesIgnoreEmptyTrailingDelimiter(): void
     {
-        $parser = new TriGParser(['format' => 'N-Triples']);
-        $lastTripleCounter = null;
-        $emptyTrailingMessageDetected = false;
-
-        // File ends with MESSAGE\n — no triples follow, so the final message is empty
-        $parser->parse(
-            "VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n",
-            function ($error, $triple = null, $prefixes = null, $messageCounter = null) use (&$lastTripleCounter, &$emptyTrailingMessageDetected): void {
-                if ($error) {
-                    throw $error;
-                }
-                if ($triple) {
-                    $lastTripleCounter = $messageCounter;
-                } elseif (null !== $prefixes) { // end-of-stream
-                    if (null !== $messageCounter && $messageCounter !== $lastTripleCounter) {
-                        $emptyTrailingMessageDetected = true;
-                    }
-                }
-            }
+        $parser = new TriGParser(['format' => 'N-Triples', 'messages' => true]);
+        $messages = iterator_to_array(
+            $parser->parseMessages("VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n"),
+            false
         );
 
-        $this->assertTrue($emptyTrailingMessageDetected);
+        $this->assertCount(1, $messages);
+        $this->assertCount(1, $messages[0]);
     }
 
-    public function testNonEmptyFinalMessageNotFlaggedAsEmpty(): void
+    public function testTypedMessagesPreserveNonEmptyFinalMessage(): void
     {
-        $parser = new TriGParser(['format' => 'N-Triples']);
-        $lastTripleCounter = null;
-        $emptyTrailingMessageDetected = false;
-
-        // File does NOT end with a MESSAGE delimiter — last message has triples
-        $parser->parse(
-            "VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n<http://example.org/d> <http://example.org/e> <http://example.org/f> .\n",
-            function ($error, $triple = null, $prefixes = null, $messageCounter = null) use (&$lastTripleCounter, &$emptyTrailingMessageDetected): void {
-                if ($error) {
-                    throw $error;
-                }
-                if ($triple) {
-                    $lastTripleCounter = $messageCounter;
-                } elseif (null !== $prefixes) { // end-of-stream
-                    if (null !== $messageCounter && $messageCounter !== $lastTripleCounter) {
-                        $emptyTrailingMessageDetected = true;
-                    }
-                }
-            }
+        $parser = new TriGParser(['format' => 'N-Triples', 'messages' => true]);
+        $messages = iterator_to_array(
+            $parser->parseMessages("VERSION \"1.2-messages\"\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n<http://example.org/d> <http://example.org/e> <http://example.org/f> .\n"),
+            false
         );
 
-        $this->assertFalse($emptyTrailingMessageDetected);
+        $this->assertCount(2, $messages);
+        $this->assertCount(1, $messages[0]);
+        $this->assertCount(1, $messages[1]);
     }
 
-    public function testStreamingModeEmitsOnlyTriplesAndSingleEofSignal(): void
+    public function testTypedMessageStreamingSkipsBoundaryOnlyEvents(): void
     {
-        $parser = new TriGParser(['format' => 'N-Triples']);
-        $nullTripleEventCount = 0;
-        $eofEventCount = 0;
-        $boundaryLikeEventCount = 0;
-
-        $parser->parse(
-            "VERSION \"1.2-messages\"\nMESSAGE\n<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n",
-            function ($error, $triple = null, $prefixes = null) use (&$nullTripleEventCount, &$eofEventCount, &$boundaryLikeEventCount): void {
-                if ($error) {
-                    throw $error;
-                }
-
-                if (null === $triple) {
-                    ++$nullTripleEventCount;
-                    if (null === $prefixes) {
-                        ++$boundaryLikeEventCount;
-                    } else {
-                        ++$eofEventCount;
-                    }
-                }
-            }
+        $parser = new TriGParser(['format' => 'N-Triples', 'messages' => true]);
+        $input = fopen('php://memory', 'w+');
+        $this->assertNotFalse($input);
+        fwrite(
+            $input,
+            "VERSION \"1.2-messages\"\nMESSAGE\n".
+            "<http://example.org/a> <http://example.org/b> <http://example.org/c> .\nMESSAGE\n"
         );
+        rewind($input);
 
-        $this->assertSame(1, $nullTripleEventCount);
-        $this->assertSame(1, $eofEventCount);
-        $this->assertSame(0, $boundaryLikeEventCount);
+        $messages = iterator_to_array($parser->parseStreamMessages($input, '', 16), false);
+        fclose($input);
+
+        $this->assertCount(1, $messages);
+        $this->assertCount(1, $messages[0]);
     }
 }

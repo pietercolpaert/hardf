@@ -4,6 +4,18 @@ declare(strict_types=1);
 
 namespace pietercolpaert\hardf;
 
+use pietercolpaert\hardf\DataModel\BlankNode;
+use pietercolpaert\hardf\DataModel\DataFactory;
+use pietercolpaert\hardf\DataModel\Literal;
+use pietercolpaert\hardf\DataModel\MessageQuad;
+use pietercolpaert\hardf\DataModel\MessageQuadInterface;
+use pietercolpaert\hardf\DataModel\NamedNode;
+use pietercolpaert\hardf\DataModel\TripleTerm;
+use rdfInterface\BlankNodeInterface;
+use rdfInterface\DefaultGraphInterface;
+use rdfInterface\NamedNodeInterface;
+use rdfInterface\QuadInterface;
+
 /**
  * a clone of the N3Parser class from the N3js code by Ruben Verborgh
  *
@@ -173,6 +185,7 @@ class TriGParser
                 return $this->callback = function () {};
             };
         }
+
         $this->blankNodePrefix = null;
         if (isset($options['blankNodePrefix'])) {
             $this->blankNodePrefix = '_:'.preg_replace('/^_:/', '', $options['blankNodePrefix']);
@@ -195,6 +208,7 @@ class TriGParser
     }
 
     // ## Private class methods
+
     // ### `_resetBlankNodeIds` restarts blank node identification
     public function _resetBlankNodeIds()
     {
@@ -1789,7 +1803,7 @@ class TriGParser
 
         // ### `_triple` emits a triple through the callback
         $this->triple = function ($subject, $predicate, $object, $graph) {
-            \call_user_func($this->callback, null, ['subject' => $subject, 'predicate' => $predicate, 'object' => $object, 'graph' => isset($graph) ? $graph : ''], null, $this->messageCounter);
+            \call_user_func($this->callback, null, $this->quadFromParsed($subject, $predicate, $object, isset($graph) ? $graph : ''), null, $this->messageCounter);
         };
 
         // ### `_error` emits an error message through the callback
@@ -1927,19 +1941,461 @@ class TriGParser
         };
     }
 
+    private function quadFromParsed(string|array $subject, string $predicate, string|array $object, string $graph = ''): QuadInterface
+    {
+        return DataFactory::quad(
+            $this->subjectTermFromParsed($subject),
+            DataFactory::namedNode($predicate),
+            $this->objectTermFromParsed($object),
+            $this->graphTermFromParsed($graph),
+        );
+    }
+
+    /**
+     * @param string|array{subject: string|array, predicate: string, object: string|array} $term
+     */
+    private function subjectTermFromParsed(string|array $term): NamedNode|BlankNode|TripleTerm
+    {
+        if (\is_array($term)) {
+            return $this->tripleTermFromParsed($term);
+        }
+
+        if (str_starts_with($term, '_:')) {
+            return DataFactory::blankNode(substr($term, 2));
+        }
+
+        return DataFactory::namedNode($term);
+    }
+
+    /**
+     * @param string|array{subject: string|array, predicate: string, object: string|array} $term
+     */
+    private function objectTermFromParsed(string|array $term): NamedNode|BlankNode|Literal|TripleTerm
+    {
+        if (\is_array($term)) {
+            return $this->tripleTermFromParsed($term);
+        }
+
+        if (str_starts_with($term, '_:')) {
+            return DataFactory::blankNode(substr($term, 2));
+        }
+
+        if (str_starts_with($term, '"')) {
+            return $this->literalTermFromParsed($term);
+        }
+
+        return DataFactory::namedNode($term);
+    }
+
+    private function graphTermFromParsed(string $term): NamedNodeInterface|BlankNodeInterface|DefaultGraphInterface|null
+    {
+        if ('' === $term) {
+            return null;
+        }
+
+        if (str_starts_with($term, '_:')) {
+            return DataFactory::blankNode(substr($term, 2));
+        }
+
+        return DataFactory::namedNode($term);
+    }
+
+    private function literalTermFromParsed(string $term): Literal
+    {
+        if (!preg_match('/^"(.*)"(?:\^\^([^\"]+)|@([^@\"]+))?$/s', $term, $match)) {
+            throw new \InvalidArgumentException('Invalid literal term: '.$term);
+        }
+
+        $lexical = $match[1];
+        $datatype = $match[2] ?? '';
+        $lang = $match[3] ?? '';
+
+        if ('' !== $datatype) {
+            return DataFactory::literal($lexical, null, $datatype);
+        }
+
+        if ('' !== $lang) {
+            if (preg_match('/^(.+)--(ltr|rtl)$/i', $lang, $dirMatch)) {
+                return DataFactory::directionalLiteral($lexical, $dirMatch[1], strtolower($dirMatch[2]));
+            }
+
+            return DataFactory::literal($lexical, strtolower($lang));
+        }
+
+        return DataFactory::literal($lexical);
+    }
+
+    /**
+     * @param array{subject: string|array, predicate: string, object: string|array} $term
+     */
+    private function tripleTermFromParsed(array $term): TripleTerm
+    {
+        return DataFactory::tripleTerm(
+            $this->subjectTermFromParsed($term['subject']),
+            DataFactory::namedNode($term['predicate']),
+            $this->objectTermFromParsed($term['object']),
+        );
+    }
+
     // ## Public methods
 
+    /**
+     * Parses input and yields typed quads while preserving the existing parser internals.
+     *
+     * @return \Generator<int, \pietercolpaert\hardf\DataModel\Quad>
+     */
+    public function parse(string $input, string $baseUri = ''): \Generator
+    {
+        if ('' !== $baseUri) {
+            $this->setBase($baseUri);
+        }
+
+        $result = $this->parseLegacy($input, null, $this->prefixCallback);
+        yield from $this->yieldQuadsFromResult($result);
+    }
+
+    /**
+     * Parses input and yields typed messages as lists of quads.
+     *
+     * When the parser is not configured for messages, the whole document is yielded as one message.
+     *
+     * @return \Generator<int, list<\pietercolpaert\hardf\DataModel\Quad>>
+     */
+    public function parseMessages(string $input, string $baseUri = ''): \Generator
+    {
+        if ('' !== $baseUri) {
+            $this->setBase($baseUri);
+        }
+
+        $result = $this->parseLegacy($input, null, $this->prefixCallback);
+        yield from $this->yieldMessagesFromResult($result, true);
+    }
+
+    /**
+     * Parses input and yields typed quads annotated with their message counter.
+     *
+     * In non-message mode, all quads are emitted with counter 0.
+     *
+     * @return \Generator<int, MessageQuadInterface>
+     */
+    public function parseMessageQuads(string $input, string $baseUri = ''): \Generator
+    {
+        if ('' !== $baseUri) {
+            $this->setBase($baseUri);
+        }
+
+        $result = $this->parseLegacy($input, null, $this->prefixCallback);
+        yield from $this->yieldMessageQuadsFromResult($result);
+    }
+
+    /**
+     * Parses a stream incrementally and yields typed quads.
+     *
+     * @param resource $input
+     *
+     * @return \Generator<int, \pietercolpaert\hardf\DataModel\Quad>
+     */
+    public function parseStream($input, string $baseUri = '', int $chunkSize = 8192): \Generator
+    {
+        if (!\is_resource($input)) {
+            throw new \Exception('Input has to be a resource');
+        }
+
+        if ('' !== $baseUri) {
+            $this->setBase($baseUri);
+        }
+
+        while (!feof($input)) {
+            $chunk = fgets($input, $chunkSize);
+            if (false === $chunk) {
+                break;
+            }
+
+            $result = $this->parseChunkLegacy($chunk);
+            yield from $this->yieldQuadsFromResult($result);
+        }
+
+        $result = $this->endLegacy();
+        yield from $this->yieldQuadsFromResult($result);
+    }
+
+    /**
+     * Parses a stream incrementally and yields typed messages as lists of quads.
+     *
+     * @param resource $input
+     *
+     * @return \Generator<int, list<\pietercolpaert\hardf\DataModel\Quad>>
+     */
+    public function parseStreamMessages($input, string $baseUri = '', int $chunkSize = 8192): \Generator
+    {
+        if (!\is_resource($input)) {
+            throw new \Exception('Input has to be a resource');
+        }
+
+        if ('' !== $baseUri) {
+            $this->setBase($baseUri);
+        }
+
+        while (!feof($input)) {
+            $chunk = fgets($input, $chunkSize);
+            if (false === $chunk) {
+                break;
+            }
+
+            $result = $this->parseChunkLegacy($chunk);
+            yield from $this->yieldMessagesFromResult($result);
+        }
+
+        $result = $this->endLegacy();
+        yield from $this->yieldMessagesFromResult($result);
+    }
+
+    /**
+     * Parses a stream incrementally and yields typed quads with message counters.
+     *
+     * @param resource $input
+     *
+     * @return \Generator<int, MessageQuadInterface>
+     */
+    public function parseStreamMessageQuads($input, string $baseUri = '', int $chunkSize = 8192): \Generator
+    {
+        if (!\is_resource($input)) {
+            throw new \Exception('Input has to be a resource');
+        }
+
+        if ('' !== $baseUri) {
+            $this->setBase($baseUri);
+        }
+
+        while (!feof($input)) {
+            $chunk = fgets($input, $chunkSize);
+            if (false === $chunk) {
+                break;
+            }
+
+            $result = $this->parseChunkLegacy($chunk);
+            yield from $this->yieldMessageQuadsFromResult($result);
+        }
+
+        $result = $this->endLegacy();
+        yield from $this->yieldMessageQuadsFromResult($result);
+    }
+
+    /**
+     * @param array<int, mixed> $result
+     *
+     * @return \Generator<int, \pietercolpaert\hardf\DataModel\Quad>
+     */
+    private function yieldQuadsFromResult(array $result): \Generator
+    {
+        if ([] === $result) {
+            return;
+        }
+
+        $first = reset($result);
+
+        if ($first instanceof QuadInterface) {
+            foreach ($result as $quad) {
+                yield $quad;
+            }
+
+            return;
+        }
+
+        if (!\is_array($first)) {
+            return;
+        }
+
+        $isMessageList = true;
+        foreach ($result as $message) {
+            if (!\is_array($message)) {
+                $isMessageList = false;
+
+                break;
+            }
+
+            if ([] === $message) {
+                continue;
+            }
+
+            $firstMessageItem = reset($message);
+            if (!$firstMessageItem instanceof QuadInterface) {
+                $isMessageList = false;
+
+                break;
+            }
+        }
+
+        // Message mode shape: list<list<Quad>>
+        if ($isMessageList) {
+            foreach ($result as $message) {
+                foreach ($message as $quad) {
+                    yield $quad;
+                }
+            }
+
+            return;
+        }
+    }
+
+    /**
+     * @param array<int, mixed> $result
+     * @param bool              $preserveEmptyMessages preserve empty semantic messages, except trailing delimiters
+     *
+     * @return \Generator<int, list<\pietercolpaert\hardf\DataModel\Quad>>
+     */
+    private function yieldMessagesFromResult(array $result, bool $preserveEmptyMessages = false): \Generator
+    {
+        if ([] === $result) {
+            return;
+        }
+
+        $first = reset($result);
+
+        if ($first instanceof QuadInterface) {
+            $message = [];
+            foreach ($result as $quad) {
+                $message[] = $quad;
+            }
+            yield $message;
+
+            return;
+        }
+
+        if (!\is_array($first)) {
+            return;
+        }
+
+        $isMessageList = true;
+        foreach ($result as $message) {
+            if (!\is_array($message)) {
+                $isMessageList = false;
+
+                break;
+            }
+
+            if ([] === $message) {
+                continue;
+            }
+
+            $firstMessageItem = reset($message);
+            if (!$firstMessageItem instanceof QuadInterface) {
+                $isMessageList = false;
+
+                break;
+            }
+        }
+
+        // Message mode shape: list<list<Quad>>
+        if ($isMessageList) {
+            $lastNonEmptyIndex = -1;
+            foreach ($result as $index => $rawMessage) {
+                if ([] !== $rawMessage) {
+                    $lastNonEmptyIndex = $index;
+                }
+            }
+
+            foreach ($result as $index => $rawMessage) {
+                if ([] === $rawMessage) {
+                    if ($preserveEmptyMessages && $index < $lastNonEmptyIndex) {
+                        yield [];
+                    }
+
+                    continue;
+                }
+
+                $message = [];
+                foreach ($rawMessage as $quad) {
+                    $message[] = $quad;
+                }
+
+                if ([] !== $message) {
+                    yield $message;
+                }
+            }
+        }
+    }
+
+    /**
+     * @param array<int, mixed> $result
+     *
+     * @return \Generator<int, MessageQuadInterface>
+     */
+    private function yieldMessageQuadsFromResult(array $result): \Generator
+    {
+        if ([] === $result) {
+            return;
+        }
+
+        $first = reset($result);
+
+        if ($first instanceof QuadInterface) {
+            foreach ($result as $quad) {
+                yield new MessageQuad($quad, 0);
+            }
+
+            return;
+        }
+
+        if (!\is_array($first)) {
+            return;
+        }
+
+        if (!$this->isMessageList($result)) {
+            return;
+        }
+
+        $fallbackCounter = 0;
+        foreach ($result as $messageKey => $message) {
+            $messageCounter = $messageKey;
+            $fallbackCounter = $messageCounter + 1;
+
+            if ([] === $message) {
+                continue;
+            }
+
+            foreach ($message as $quad) {
+                if ($quad instanceof QuadInterface) {
+                    yield new MessageQuad($quad, $messageCounter);
+                }
+            }
+        }
+    }
+
+    /**
+     * @param array<int, mixed> $result
+     */
+    private function isMessageList(array $result): bool
+    {
+        foreach ($result as $message) {
+            if (!\is_array($message)) {
+                return false;
+            }
+
+            if ([] === $message) {
+                continue;
+            }
+
+            $firstMessageItem = reset($message);
+            if (!$firstMessageItem instanceof QuadInterface) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     // ### `parse` parses the N3 input and emits each parsed triple through the callback
-    public function parse($input, $tripleCallback = null, $prefixCallback = null)
+    private function parseLegacy($input, $tripleCallback = null, $prefixCallback = null)
     {
         $this->setTripleCallback($tripleCallback);
         $this->setPrefixCallback($prefixCallback);
 
-        return $this->parseChunk($input, true);
+        return $this->parseChunkLegacy($input, true);
     }
 
     // ### New method for streaming possibilities: parse only a chunk
-    public function parseChunk($input, $finalize = false)
+    private function parseChunkLegacy($input, $finalize = false)
     {
         if (!isset($this->tripleCallback)) {
             $triples = [];
@@ -1995,7 +2451,7 @@ class TriGParser
 
                 ksort($messages);
 
-                return array_values($messages);
+                return $messages;
             }
 
             return $triples;
@@ -2037,9 +2493,9 @@ class TriGParser
         }
     }
 
-    public function end()
+    private function endLegacy()
     {
-        return $this->parseChunk('', true);
+        return $this->parseChunkLegacy('', true);
     }
 
     private function getNoBaseUriException($location, $line)

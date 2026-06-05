@@ -3,6 +3,9 @@
 namespace Tests\hardf;
 
 use PHPUnit\Framework\TestCase;
+use pietercolpaert\hardf\DataModel\Literal;
+use pietercolpaert\hardf\DataModel\NamedNode;
+use pietercolpaert\hardf\DataModel\Quad;
 use pietercolpaert\hardf\TriGParserIterator;
 
 class TriGParserIteratorTest extends TestCase
@@ -21,6 +24,10 @@ IN
         $this->assertInstanceOf(\Iterator::class, $iterator);
         $values = iterator_to_array($iterator);
         $this->assertCount(2, $values);
+        $this->assertContainsOnlyInstancesOf(Quad::class, $values);
+        $this->assertSame('http://foo/bar', $values[0]->getSubject()->getValue());
+        $this->assertInstanceOf(Literal::class, $values[0]->getObject());
+        $this->assertSame('en', $values[0]->getObject()->getLang());
         fclose($input);
     }
 
@@ -35,6 +42,9 @@ IN;
         $this->assertInstanceOf(\Iterator::class, $iterator);
         $values = iterator_to_array($iterator);
         $this->assertCount(2, $values);
+        $this->assertContainsOnlyInstancesOf(Quad::class, $values);
+        $this->assertInstanceOf(NamedNode::class, $values[0]->getSubject());
+        $this->assertInstanceOf(Literal::class, $values[0]->getObject());
     }
 
     public function testRepeat(): void
@@ -59,5 +69,47 @@ IN;
         $this->assertInstanceOf(\Iterator::class, $iterator);
         $values = iterator_to_array($iterator);
         $this->assertCount(3, $values);
+        $this->assertContainsOnlyInstancesOf(Quad::class, $values);
+    }
+
+    public function testNonSeekableStream(): void
+    {
+        $input = popen("printf '<http://foo/bar> <http://bar/baz> \"foo baz\"@en .\\n'", 'r');
+        $this->assertNotFalse($input);
+
+        try {
+            $parser = new TriGParserIterator();
+            $iterator = $parser->parseStream($input);
+            $values = iterator_to_array($iterator);
+
+            $this->assertCount(1, $values);
+            $this->assertContainsOnlyInstancesOf(Quad::class, $values);
+        } finally {
+            pclose($input);
+        }
+    }
+
+    public function testNonSeekableStreamCannotRewindTwice(): void
+    {
+        $input = popen("printf '<http://foo/bar> <http://bar/baz> \"foo baz\"@en .\\n'", 'r');
+        $this->assertNotFalse($input);
+
+        try {
+            $parser = new TriGParserIterator();
+            $iterator = $parser->parseStream($input);
+
+            // First pass is allowed.
+            iterator_to_array($iterator);
+
+            // Second pass attempts rewind on non-seekable input and should fail.
+            try {
+                iterator_to_array($iterator);
+                $this->fail('Expected rewind failure on non-seekable stream.');
+            } catch (\Exception $e) {
+                $this->assertSame("Can't rewind a non-seekable input stream", $e->getMessage());
+            }
+        } finally {
+            pclose($input);
+        }
     }
 }

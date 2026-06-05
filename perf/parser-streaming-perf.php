@@ -19,19 +19,7 @@ if (!is_readable($filename)) {
 $TEST = microtime(true);
 
 $count = 0;
-$parser = new TriGParser(['documentIRI' => $base], function ($error, $triple) use (&$count, $TEST, $filename) {
-    if ($error) {
-        echo '- Parsing file '.$filename.' failed after '.(microtime(true) - $TEST)."s\n";
-        echo '* Error: '.$error->getMessage()."\n";
-        exit(1);
-    } elseif ($triple) {
-        ++$count;
-    } else {
-        echo '- Parsing file '.$filename.': '.(microtime(true) - $TEST)."s\n";
-        echo '* Triples parsed: '.$count."\n";
-        echo '* Memory usage: '.(memory_get_usage() / 1024 / 1024)."MB\n";
-    }
-});
+$parser = new TriGParser(['documentIRI' => $base]);
 
 $handle = fopen($filename, 'r');
 if (false === $handle) {
@@ -39,8 +27,18 @@ if (false === $handle) {
     exit(1);
 }
 
-while (false !== ($line = fgets($handle, 4096))) {
-    $parser->parseChunk($line);
+try {
+    foreach ($parser->parseStream($handle, $base) as $quad) {
+        ++$count;
+    }
+} catch (Throwable $e) {
+    echo '- Parsing file '.$filename.' failed after '.(microtime(true) - $TEST)."s\n";
+    echo '* Error: '.$e->getMessage()."\n";
+    fclose($handle);
+    exit(1);
 }
-$parser->end();
+
+echo '- Parsing file '.$filename.': '.(microtime(true) - $TEST)."s\n";
+echo '* Triples parsed: '.$count."\n";
+echo '* Memory usage: '.(memory_get_usage() / 1024 / 1024)."MB\n";
 fclose($handle);

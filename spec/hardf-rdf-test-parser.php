@@ -5,51 +5,58 @@ declare(strict_types=1);
 include_once __DIR__.'/../vendor/autoload.php';
 
 use pietercolpaert\hardf\TriGParser;
-use pietercolpaert\hardf\Util;
+use pietercolpaert\hardf\DataModel\BlankNode;
+use pietercolpaert\hardf\DataModel\DefaultGraph;
+use pietercolpaert\hardf\DataModel\Literal;
+use pietercolpaert\hardf\DataModel\NamedNode;
+use pietercolpaert\hardf\DataModel\Term;
+use pietercolpaert\hardf\DataModel\TripleTerm;
 
 const XSD_STRING = 'http://www.w3.org/2001/XMLSchema#string';
 
 /**
  * @return array<string, mixed>
  */
-function termToJson($term): array
+function termToJson(Term $term): array
 {
-    if (\is_array($term) && isset($term['type']) && 'TripleTerm' === $term['type']) {
+    if ($term instanceof TripleTerm) {
         return [
-            'termType' => 'Quad',
-            'subject' => termToJson($term['subject']),
-            'predicate' => termToJson($term['predicate']),
-            'object' => termToJson($term['object']),
-            'graph' => isset($term['graph']) ? termToJson($term['graph']) : ['termType' => 'DefaultGraph', 'value' => ''],
+            'termType' => 'TripleTerm',
+            'subject' => termToJson($term->subject),
+            'predicate' => termToJson($term->predicate),
+            'object' => termToJson($term->object),
         ];
     }
 
-    if (!\is_string($term) || '' === $term) {
+    if ($term instanceof DefaultGraph) {
         return ['termType' => 'DefaultGraph', 'value' => ''];
     }
 
-    if (Util::isBlank($term)) {
-        return ['termType' => 'BlankNode', 'value' => substr($term, 2)];
+    if ($term instanceof BlankNode) {
+        return ['termType' => 'BlankNode', 'value' => $term->value()];
     }
 
-    if (Util::isLiteral($term)) {
-        $type = Util::getLiteralType($term);
-        $language = Util::getLiteralLanguage($term);
-        $direction = Util::getLiteralDirection($term);
+    if ($term instanceof Literal) {
         $json = [
             'termType' => 'Literal',
-            'value' => Util::getLiteralValue($term),
-            'datatype' => $type ?: XSD_STRING,
-            'language' => $language,
+            'value' => $term->value(),
+            'datatype' => $term->datatype->value(),
         ];
-        if ('' !== $direction) {
-            $json['direction'] = $direction;
+        if ('' !== $term->language) {
+            $json['language'] = $term->language;
+        }
+        if ('' !== $term->direction) {
+            $json['direction'] = $term->direction;
         }
 
         return $json;
     }
 
-    return ['termType' => 'NamedNode', 'value' => $term];
+    if ($term instanceof NamedNode) {
+        return ['termType' => 'NamedNode', 'value' => $term->value()];
+    }
+
+    throw new \InvalidArgumentException('Unsupported term type: '.$term::class);
 }
 
 $input = stream_get_contents(STDIN);
@@ -66,14 +73,14 @@ try {
         'documentIRI' => isset($request['baseIRI']) ? $request['baseIRI'] : null,
         'format' => isset($request['format']) ? $request['format'] : null,
     ]);
-    $triples = $parser->parse(isset($request['data']) ? $request['data'] : '');
+    $quads = iterator_to_array($parser->parse(isset($request['data']) ? $request['data'] : ''), false);
     $json = [];
-    foreach ($triples as $triple) {
+    foreach ($quads as $quad) {
         $json[] = [
-            'subject' => termToJson($triple['subject']),
-            'predicate' => termToJson($triple['predicate']),
-            'object' => termToJson($triple['object']),
-            'graph' => termToJson(isset($triple['graph']) ? $triple['graph'] : ''),
+            'subject' => termToJson($quad->getSubject()),
+            'predicate' => termToJson($quad->getPredicate()),
+            'object' => termToJson($quad->getObject()),
+            'graph' => termToJson($quad->getGraph()),
         ];
     }
     echo json_encode($json, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n";

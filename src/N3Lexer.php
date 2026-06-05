@@ -104,6 +104,170 @@ class N3Lexer
     private $endOfFile = '/^(?:#[^\\n\\r]*)?$/';
 
     /**
+     * Skips leading whitespace and line comments, updating the current line counter.
+     */
+    private function skipWhitespaceAndComments($input, $outputComments)
+    {
+        $whiteSpaceMatch = null;
+        $comment = null;
+
+        while (preg_match($this->newline, $input, $whiteSpaceMatch)) {
+            // Try to find a comment
+            if ($outputComments && preg_match($this->comment, $whiteSpaceMatch[0], $comment)) {
+                // Comment tokens are currently ignored here; preserved behavior.
+            }
+
+            // Advance the input and line number
+            $input = substr($input, \strlen($whiteSpaceMatch[0]), \strlen($input));
+            ++$this->line;
+        }
+
+        // Skip whitespace on current line
+        if (preg_match($this->whitespace, $input, $whiteSpaceMatch)) {
+            $input = substr($input, \strlen($whiteSpaceMatch[0]), \strlen($input));
+        }
+
+        return $input;
+    }
+
+    /**
+     * Handles end-of-input processing and EOF token emission.
+     *
+     * @return array{done: bool, input: string|null}
+     */
+    private function handleEndOfInput($input, $inputFinished, $outputComments, $callback)
+    {
+        if (!preg_match($this->endOfFile, $input)) {
+            return ['done' => false, 'input' => $input];
+        }
+
+        // If the input is finished, emit EOF.
+        if ($inputFinished) {
+            $comment = null;
+            // Try to find a final comment
+            if ($outputComments && preg_match($this->comment, $input, $comment)) {
+                $callback(null, ['line' => $this->line, 'type' => 'comment', 'value' => $comment[1], 'prefix' => '']);
+            }
+            $callback($input = null, ['line' => $this->line, 'type' => 'eof', 'value' => '', 'prefix' => '']);
+        }
+
+        return ['done' => true, 'input' => $input];
+    }
+
+    /**
+     * Creates the canonical lexical representation for numeric literals.
+     */
+    private function createNumericLiteralValue($value)
+    {
+        $datatype = 'decimal';
+        if (preg_match('/[eE]/', $value)) {
+            $datatype = 'double';
+        } elseif (preg_match('/^[+\-]?\d+$/', $value)) {
+            $datatype = 'integer';
+        }
+
+        return '"'.$value.'"^^http://www.w3.org/2001/XMLSchema#'.$datatype;
+    }
+
+    /**
+     * Normalizes token type when we just consumed a '^^' indicator.
+     */
+    private function normalizeTypeAfterTypeIndicator($type)
+    {
+        return match ($type) {
+            'prefixed' => 'type',
+            'IRI' => 'typeIRI',
+            default => '',
+        };
+    }
+
+    /**
+     * Returns whether the lexer should report a syntax error now, instead of waiting for more input.
+     */
+    private function shouldReportSyntaxError($input, $inputFinished)
+    {
+        return $inputFinished || (!preg_match('/^\'\'\'|^"""/', $input) && preg_match('/\n|\r/', $input));
+    }
+
+    /**
+     * Handles token types that require additional context after the first-character switch.
+     *
+     * @return array{type: string, value: string, prefix: string, matchLength: int}
+     */
+    private function resolveInconclusiveToken($input, $inputFinished)
+    {
+        // Try to find a prefix
+        if (('@prefix' === $this->prevTokenType || 'PREFIX' === $this->prevTokenType) && preg_match($this->prefix, $input, $match)) {
+            return [
+                'type' => 'prefix',
+                'value' => isset($match[1]) ? $match[1] : '',
+                'prefix' => '',
+                'matchLength' => \strlen($match[0]),
+            ];
+        }
+
+        // Try to find a prefixed name. Since it can contain (but not end with) a dot,
+        // we always need a non-dot character before deciding it is a prefixed name.
+        // Therefore, try inserting a space if we're at the end of the input.
+        if (preg_match($this->prefixed, $input, $match) || $inputFinished && preg_match($this->prefixed, $input.' ', $match)) {
+            return [
+                'type' => 'prefixed',
+                'value' => $this->unescape($match[2]),
+                'prefix' => isset($match[1]) ? $match[1] : '',
+                'matchLength' => \strlen($match[0]),
+            ];
+        }
+
+        return ['type' => '', 'value' => '', 'prefix' => '', 'matchLength' => 0];
+    }
+
+    /**
+     * Handles structural delimiters and punctuation tokens.
+     *
+     * @return array{type: string, matchLength: int}
+     */
+    private function resolveStructuralDelimiterToken($input, $firstChar)
+    {
+        if ('|' === $firstChar) {
+            if (\strlen($input) >= 2 && '|}' === substr($input, 0, 2)) {
+                return ['type' => 'annotationend', 'matchLength' => 2];
+            }
+
+            return ['type' => '', 'matchLength' => 0];
+        }
+
+        if ('{' === $firstChar) {
+            if (\strlen($input) >= 2 && '{|' === substr($input, 0, 2)) {
+                return ['type' => 'annotationstart', 'matchLength' => 2];
+            }
+
+            return ['type' => '{', 'matchLength' => 1];
+        }
+
+        if (')' === $firstChar) {
+            if (\strlen($input) >= 3 && ')>>' === substr($input, 0, 3)) {
+                return ['type' => 'tripletermend', 'matchLength' => 3];
+            }
+
+            return ['type' => ')', 'matchLength' => 1];
+        }
+
+        if ('>' === $firstChar) {
+            if (\strlen($input) >= 2 && '>>' === substr($input, 0, 2)) {
+                return ['type' => 'reifiedtripleend', 'matchLength' => 2];
+            }
+
+            return ['type' => '', 'matchLength' => 0];
+        }
+
+        if ('!' === $firstChar || '~' === $firstChar || ',' === $firstChar || ';' === $firstChar || '[' === $firstChar || ']' === $firstChar || '(' === $firstChar || '}' === $firstChar) {
+            return ['type' => $firstChar, 'matchLength' => 1];
+        }
+
+        return ['type' => '', 'matchLength' => 0];
+    }
+
+    /**
      * tokenizes as for as possible, emitting tokens through the callback
      */
     private function tokenizeToEnd($callback, $inputFinished)
@@ -119,43 +283,12 @@ class N3Lexer
 
         $outputComments = $this->comments;
         while (true) {
-            // Count and skip whitespace lines
-            $whiteSpaceMatch = null;
-            $comment = null;
-            while (preg_match($this->newline, $input, $whiteSpaceMatch)) {
-                // Try to find a comment
-                if ($outputComments && preg_match($this->comment, $whiteSpaceMatch[0], $comment)) {
-                    /*
-                     * originally the following line was here:
-                     *
-                     *      callback(null, ['line' => $this->line, 'type' => 'comment', 'value' => $comment[1], 'prefix' => '']);
-                     *
-                     * but it makes no sense, because callback is a function from PHPUnit, which can't be relied on
-                     * in this context. therefore this line must be at least commented out. the question is, if the
-                     * whole "case" can be removed as well.
-                     *
-                     * FYI: #29
-                     */
-                }
-                // Advance the input
-                $input = substr($input, \strlen($whiteSpaceMatch[0]), \strlen($input));
-                ++$this->line;
-            }
-            // Skip whitespace on current line
-            if (preg_match($this->whitespace, $input, $whiteSpaceMatch)) {
-                $input = substr($input, \strlen($whiteSpaceMatch[0]), \strlen($input));
-            }
+            $input = $this->skipWhitespaceAndComments($input, $outputComments);
 
-            // Stop for now if we're at the end
-            if (preg_match($this->endOfFile, $input)) {
-                // If the $input is finished, emit EOF
-                if ($inputFinished) {
-                    // Try to find a final comment
-                    if ($outputComments && preg_match($this->comment, $input, $comment)) {
-                        $callback(null, ['line' => $this->line, 'type' => 'comment', 'value' => $comment[1], 'prefix' => '']);
-                    }
-                    $callback($input = null, ['line' => $this->line, 'type' => 'eof', 'value' => '', 'prefix' => '']);
-                }
+            // Stop for now if we're at the end.
+            $endResult = $this->handleEndOfInput($input, $inputFinished, $outputComments, $callback);
+            if ($endResult['done']) {
+                $input = $endResult['input'];
                 $this->input = $input;
 
                 return $input;
@@ -329,7 +462,7 @@ class N3Lexer
                     // Try to find a number
                     if (preg_match($this->number, $input, $match)) {
                         $type = 'literal';
-                        $value = '"'.$match[0].'"^^http://www.w3.org/2001/XMLSchema#'.(preg_match('/[eE]/', $match[0]) ? 'double' : (preg_match("/^[+\-]?\d+$/", $match[0]) ? 'integer' : 'decimal'));
+                        $value = $this->createNumericLiteralValue($match[0]);
                     }
                     break;
                 case 'B':
@@ -395,43 +528,14 @@ class N3Lexer
                 case ']':
                 case '(':
                 case '}':
-                    $matchLength = 1;
-                    $type = $firstChar;
-                    break;
                 case '|':
-                    if (\strlen($input) >= 2 && '|}' === substr($input, 0, 2)) {
-                        $type = 'annotationend';
-                        $matchLength = 2;
-                    }
-                    break;
                 case '~':
-                    // The next token is punctuation
-                    $matchLength = 1;
-                    $type = $firstChar;
-                    break;
                 case '{':
-                    if (\strlen($input) >= 2 && '{|' === substr($input, 0, 2)) {
-                        $type = 'annotationstart';
-                        $matchLength = 2;
-                    } else {
-                        $matchLength = 1;
-                        $type = $firstChar;
-                    }
-                    break;
                 case ')':
-                    if (\strlen($input) >= 3 && ')>>' === substr($input, 0, 3)) {
-                        $type = 'tripletermend';
-                        $matchLength = 3;
-                    } else {
-                        $matchLength = 1;
-                        $type = $firstChar;
-                    }
-                    break;
                 case '>':
-                    if (\strlen($input) >= 2 && '>>' === substr($input, 0, 2)) {
-                        $type = 'reifiedtripleend';
-                        $matchLength = 2;
-                    }
+                    $structural = $this->resolveStructuralDelimiterToken($input, $firstChar);
+                    $type = $structural['type'];
+                    $matchLength = $structural['matchLength'];
                     break;
                 default:
                     $inconclusive = true;
@@ -439,30 +543,16 @@ class N3Lexer
 
             // Some first characters do not allow an immediate decision, so inspect more
             if ($inconclusive) {
-                // Try to find a prefix
-                if (('@prefix' === $this->prevTokenType || 'PREFIX' === $this->prevTokenType) && preg_match($this->prefix, $input, $match)) {
-                    $type = 'prefix';
-                    $value = isset($match[1]) ? $match[1] : '';
-                }
-                // Try to find a prefixed name. Since it can contain (but not end with) a dot,
-                // we always need a non-dot character before deciding it is a prefixed name.
-                // Therefore, try inserting a space if we're at the end of the input.
-                elseif (preg_match($this->prefixed, $input, $match) || $inputFinished && preg_match($this->prefixed, $input.' ', $match)) {
-                    $type = 'prefixed';
-                    $prefix = isset($match[1]) ? $match[1] : '';
-                    $value = $this->unescape($match[2]);
-                }
+                $resolved = $this->resolveInconclusiveToken($input, $inputFinished);
+                $type = $resolved['type'];
+                $prefix = $resolved['prefix'];
+                $value = $resolved['value'];
+                $matchLength = $resolved['matchLength'];
             }
 
             // A type token is special: it can only be emitted after an IRI or prefixed name is read
             if ('^^' === $this->prevTokenType) {
-                switch ($type) {
-                    case 'prefixed': $type = 'type';
-                        break;
-                    case 'IRI':      $type = 'typeIRI';
-                        break;
-                    default:         $type = '';
-                }
+                $type = $this->normalizeTypeAfterTypeIndicator($type);
             }
 
             // What if nothing of the above was found?
@@ -470,7 +560,7 @@ class N3Lexer
                 // We could be in streaming mode, and then we just wait for more input to arrive.
                 // Otherwise, a syntax error has occurred in the input.
                 // One exception: error on an unaccounted linebreak (= not inside a triple-quoted literal).
-                if ($inputFinished || (!preg_match('/^\'\'\'|^"""/', $input) && preg_match('/\\n|\\r/', $input))) {
+                if ($this->shouldReportSyntaxError($input, $inputFinished)) {
                     $reportSyntaxError($this);
 
                     return null;

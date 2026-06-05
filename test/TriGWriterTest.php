@@ -3,6 +3,7 @@
 namespace Tests\hardf;
 
 use PHPUnit\Framework\TestCase;
+use pietercolpaert\hardf\DataModel\DataFactory;
 use pietercolpaert\hardf\TriGWriter;
 
 class TriGWriterTest extends TestCase
@@ -29,7 +30,7 @@ class TriGWriterTest extends TestCase
              */
             $g = isset($item[3]) ? $item[3] : null;
 
-            $writer->addTriple(['subject' => $item[0], 'predicate' => $item[1], 'object' => $item[2], 'graph' => $g]);
+            $writer->addTriple($item[0], $item[1], $item[2], $g);
         }
         $output = $writer->end();
 
@@ -56,7 +57,7 @@ class TriGWriterTest extends TestCase
              */
             $g = isset($item[3]) ? $item[3] : null;
 
-            $writer->addTriple(['subject' => $item[0], 'predicate' => $item[1], 'object' => $item[2], 'graph' => $g]);
+            $writer->addTriple($item[0], $item[1], $item[2], $g);
         }
         $output = $writer->end();
     }
@@ -82,6 +83,36 @@ class TriGWriterTest extends TestCase
             '<abc> <def> <ghi>.'."\n".
             '<jkl> <mno> <pqr>.'."\n".
             '<stu> <vwx> <yz>.'."\n");
+    }
+
+    public function testTypedQuad(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addQuad(DataFactory::quad(
+            DataFactory::namedNode('http://example.org/s'),
+            DataFactory::namedNode('http://example.org/p'),
+            DataFactory::literal('hello', 'en')
+        ));
+
+        $this->assertSame(
+            '<http://example.org/s> <http://example.org/p> "hello"@en.'."\n",
+            $writer->end()
+        );
+    }
+
+    public function testTypedTermsInAddTriple(): void
+    {
+        $writer = new TriGWriter();
+        $writer->addTriple(
+            DataFactory::namedNode('http://example.org/s'),
+            DataFactory::namedNode(TriGWriter::RDF_TYPE),
+            DataFactory::namedNode('http://example.org/Thing')
+        );
+
+        $this->assertSame(
+            '<http://example.org/s> a <http://example.org/Thing>.'."\n",
+            $writer->end()
+        );
     }
 
     public function testLiterals(): void
@@ -199,11 +230,19 @@ class TriGWriterTest extends TestCase
     {
         $writer = new TriGWriter(['format' => 'N-Triples', 'messages' => true, 'version' => '1.2']);
         $writer->addMessage([
-            ['subject' => 'http://example.org/message-1', 'predicate' => 'http://example.org/p', 'object' => '"first"'],
+            DataFactory::quad(
+                DataFactory::namedNode('http://example.org/message-1'),
+                DataFactory::namedNode('http://example.org/p'),
+                DataFactory::literal('first')
+            ),
         ]);
         $writer->addMessage([]);
         $writer->addMessage([
-            ['subject' => '_:a', 'predicate' => 'http://example.org/p', 'object' => '_:b'],
+            DataFactory::quad(
+                DataFactory::blankNode('a'),
+                DataFactory::namedNode('http://example.org/p'),
+                DataFactory::blankNode('b')
+            ),
         ]);
 
         $this->assertEquals(
@@ -337,7 +376,7 @@ class TriGWriterTest extends TestCase
     {
         // sends output through end
         $writer = new TriGWriter();
-        $writer->addTriple(['subject' => 'a', 'predicate' => 'b', 'object' => 'c']);
+        $writer->addTriple('a', 'b', 'c');
         $output = $writer->end();
         $this->assertEquals("<a> <b> <c>.\n", $output);
     }
@@ -346,7 +385,7 @@ class TriGWriterTest extends TestCase
     {
         // respects the prefixes argument when no stream argument is given', function (done) {
         $writer = new TriGWriter(['prefixes' => ['a' => 'b#']]);
-        $writer->addTriple(['subject' => 'b#a', 'predicate' => 'b#b', 'object' => 'b#c']);
+        $writer->addTriple('b#a', 'b#b', 'b#c');
         $output = $writer->end();
         $this->assertEquals("@prefix a: <b#>.\n\na:a a:b a:c.\n", $output);
     }
@@ -357,7 +396,7 @@ class TriGWriterTest extends TestCase
         $writer = new TriGWriter();
         $writer->addPrefix('a', 'b#');
         $writer->addPrefix('a', 'b#');
-        $writer->addTriple(['subject' => 'b#a', 'predicate' => 'b#b', 'object' => 'b#c']);
+        $writer->addTriple('b#a', 'b#b', 'b#c');
         $writer->addPrefix('a', 'b#');
         $writer->addPrefix('a', 'b#');
         $writer->addPrefix('b', 'b#');
@@ -368,9 +407,9 @@ class TriGWriterTest extends TestCase
         // serializes triples of a graph with a prefix declaration in between', function (done) {
         $writer = new TriGWriter();
         $writer->addPrefix('a', 'b#');
-        $writer->addTriple(['subject' => 'b#a', 'predicate' => 'b#b', 'object' => 'b#c', 'graph' => 'b#g']);
+        $writer->addTriple('b#a', 'b#b', 'b#c', 'b#g');
         $writer->addPrefix('d', 'e#');
-        $writer->addTriple(['subject' => 'b#a', 'predicate' => 'b#b', 'object' => 'b#d', 'graph' => 'b#g']);
+        $writer->addTriple('b#a', 'b#b', 'b#d', 'b#g');
         $output = $writer->end();
         $this->assertEquals('@prefix a: <b#>.'."\n\n".'a:g {'."\n".'a:a a:b a:c'."\n".'}'."\n".'@prefix d: <e#>.'."\n\n".'a:g {'."\n".'a:a a:b a:d'."\n".'}'."\n", $output);
 
@@ -546,8 +585,16 @@ class TriGWriterTest extends TestCase
         $writer = new TriGWriter();
         $writer->addTriples(
             [
-                ['subject' => 'a', 'predicate' => 'b', 'object' => 'c'],
-                ['subject' => 'a', 'predicate' => 'b', 'object' => 'd'],
+                DataFactory::quad(
+                    DataFactory::namedNode('a'),
+                    DataFactory::namedNode('b'),
+                    DataFactory::namedNode('c')
+                ),
+                DataFactory::quad(
+                    DataFactory::namedNode('a'),
+                    DataFactory::namedNode('b'),
+                    DataFactory::namedNode('d')
+                ),
             ]
         );
         $output = $writer->end();

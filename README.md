@@ -2,23 +2,25 @@
 
 **Hardf** is a PHP 7.1+ library that lets you handle Linked Data (RDF 1.2). It offers [**parsing**](#parsing) from and [**writing**](#writing) in [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/). Both the parser and the serializer have _streaming_ support.
 
-Hardf also supports [RDF 1.2](https://www.w3.org/TR/rdf12-concepts/) features that are relevant to this representation, including triple terms, reified triples, annotation syntax, directional language literals, `VERSION` declarations, and [RDF Messages](https://w3c-cg.github.io/rsp/spec/messages). Conformances is [tested using the official test suites](#rdf-working-group-test-suites).
+Hardf also supports [RDF 1.2](https://www.w3.org/TR/rdf12-concepts/) features that are relevant to this representation, including triple terms, reified triples, annotation syntax, directional language literals, `VERSION` declarations, and [RDF Messages](https://w3c-cg.github.io/rsp/spec/messages). Conformance is [tested using the official test suites](#rdf-working-group-test-suites).
 
 This library was started as a port of [N3.js](https://github.com/rdfjs/N3.js/tree/v0.10.0) to PHP.
 
 ## Triple Representation
 
-On purpose, we focused on performance, and not on developer friendliness.
-We have thus implemented this triple representation using associative arrays rather than PHP objects. For example:
+Hardf provides a typed RDF data model inspired by RDF-JS.
+
+### Typed data model (recommended)
 
 ```php
-<?php
-$triple = [
-    'subject' =>   'http://example.org/cartoons#Tom',
-    'predicate' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
-    'object' =>    'http://example.org/cartoons#Cat',
-    'graph' =>     'http://example.org/mycartoon', // optional
-];
+use pietercolpaert\hardf\DataModel\DataFactory;
+
+$quad = DataFactory::quad(
+    DataFactory::namedNode('http://example.org/cartoons#Tom'),
+    DataFactory::namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+    DataFactory::namedNode('http://example.org/cartoons#Cat'),
+    DataFactory::namedNode('http://example.org/mycartoon')
+);
 ```
 
 Encode literals as follows (similar to N3.js):
@@ -29,26 +31,23 @@ Encode literals as follows (similar to N3.js):
 '"1"^^http://www.w3.org/2001/XMLSchema#integer' // no angular brackets <>
 ```
 
-RDF 1.2 triple terms are represented as structured arrays, not as serialized strings:
+RDF 1.2 triple terms are represented as typed `DataModel\\TripleTerm` values:
 
 ```php
-$tripleTerm = [
-    'type' => 'TripleTerm',
-    'subject' => 'http://example.org/s',
-    'predicate' => 'http://example.org/p',
-    'object' => 'http://example.org/o',
-    'graph' => 'http://example.org/g', // optional, for quad terms
-];
+$tripleTerm = DataFactory::tripleTerm(
+    DataFactory::namedNode('http://example.org/s'),
+    DataFactory::namedNode('http://example.org/p'),
+    DataFactory::namedNode('http://example.org/o')
+);
 
-$triple = [
-    'subject' => 'http://example.org/assertion',
-    'predicate' => 'http://example.org/about',
-    'object' => $tripleTerm,
-    'graph' => '',
-];
+$quad = DataFactory::quad(
+    DataFactory::namedNode('http://example.org/assertion'),
+    DataFactory::namedNode('http://example.org/about'),
+    $tripleTerm
+);
 ```
 
-Parser callbacks and `parse()` return values can therefore contain either strings or triple-term arrays in the `object` position. `TriGWriter` accepts triple-term arrays in subject and object positions.
+Triple terms are represented by `DataModel\TripleTerm` in typed APIs.
 
 ## Library functions
 
@@ -60,6 +59,7 @@ composer require pietercolpaert/hardf
 
 ### Writing
 ```php
+use pietercolpaert\hardf\DataModel\DataFactory;
 use pietercolpaert\hardf\TriGWriter;
 ```
 
@@ -79,18 +79,25 @@ $writer = new TriGWriter([
 ]);
 
 $writer->addPrefix("ex", "http://example.org/");
-$writer->addTriple("schema:Person", "dct:title", "\"Person\"@en", "http://example.org/#test");
-$writer->addTriple("schema:Person", "schema:label", "\"Person\"@en", "http://example.org/#test");
-$writer->addTriple("ex:1", "dct:title", "\"Person1\"@en", "http://example.org/#test");
-$writer->addTriple("ex:1", "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", "schema:Person", "http://example.org/#test");
-$writer->addTriple("ex:2", "dct:title", "\"Person2\"@en", "http://example.org/#test");
-$writer->addTriple("schema:Person", "dct:title", "\"Person\"@en", "http://example.org/#test2");
-$writer->addTriple("ex:claim", "ex:source", [
-    "type" => "TripleTerm",
-    "subject" => "ex:1",
-    "predicate" => "dct:title",
-    "object" => "\"Person1\"@en"
-], "http://example.org/#test");
+
+$writer->addQuad(DataFactory::quad(
+    DataFactory::namedNode('http://schema.org/Person'),
+    DataFactory::namedNode('http://purl.org/dc/terms/title'),
+    DataFactory::literal('Person', 'en'),
+    DataFactory::namedNode('http://example.org/#test')
+));
+
+$writer->addQuad(DataFactory::quad(
+    DataFactory::namedNode('http://example.org/claim'),
+    DataFactory::namedNode('http://example.org/source'),
+    DataFactory::tripleTerm(
+        DataFactory::namedNode('http://example.org/1'),
+        DataFactory::namedNode('http://purl.org/dc/terms/title'),
+        DataFactory::literal('Person1', 'en')
+    ),
+    DataFactory::namedNode('http://example.org/#test')
+));
+
 echo $writer->end();
 ```
 
@@ -98,8 +105,9 @@ echo $writer->end();
 ```php
 // The method names should speak for themselves:
 $writer = new TriGWriter(["prefixes" => [ /* ... */]]);
-$writer->addTriple($subject, $predicate, $object, $graph);
-$writer->addTriples($triples);
+$writer->addQuad($quad);
+$writer->addTriple($subject, $predicate, $object, $graph); // typed term arguments
+$writer->addTriples($quads); // array of typed Quad objects
 $writer->addMessage($quads); // requires ["messages" => true]
 $writer->addPrefix($prefix, $iri);
 $writer->addPrefixes($prefixes);
@@ -157,133 +165,79 @@ MESSAGE
 
 Next to [TriG](https://www.w3.org/TR/trig/), the TriGParser class also parses [Turtle](https://www.w3.org/TR/turtle/), [N-Triples](https://www.w3.org/TR/n-triples/), and [N-Quads](https://www.w3.org/TR/n-quads/).
 
-RDF 1.2 triple terms are emitted as arrays with `type => TripleTerm`. Reified triple syntax emits an `rdf:reifies` triple whose object is such a triple term.
+RDF 1.2 triple terms are emitted as `DataModel\TripleTerm` objects. Reified triple syntax emits an `rdf:reifies` triple whose object is such a triple term.
 
-RDF Message Logs are enabled by a `VERSION` label with the `-messages` suffix, such as `VERSION "1.2-messages"`. When parsing in streaming mode, the triple callback receives the current message counter as its fourth argument. Blank node labels are scoped per message, so the same blank node labels may legally reappear in later messages.
-
-If you construct the parser with `messages => true` and use `parse()` without a callback, Hardf returns the parsed data as an array of messages, where each message is an array of quads.
+RDF Message Logs are enabled by a `VERSION` label with the `-messages` suffix, such as `VERSION "1.2-messages"`.
 
 #### All methods
 
 ```php
-$parser = new TriGParser($options, $tripleCallback, $prefixCallback);
-$parser->setTripleCallback($function);
+$parser = new TriGParser($options, null, $prefixCallback);
+$parser->parse($input); // typed generator
+$parser->parseMessages($input); // typed message generator
+$parser->parseMessageQuads($input); // typed generator with messageCounter per quad
+$parser->parseStream($stream); // typed stream parser
+$parser->parseStream($stream, 'http://example.org/base/', 8192); // optional base IRI and chunk size
+$parser->parseStreamMessages($stream); // typed message stream parser
+$parser->parseStreamMessageQuads($stream); // typed stream parser with messageCounter
 $parser->setPrefixCallback($function);
-$parser->parse($input, $tripleCallback, $prefixCallback);
-$parser->parseChunk($input);
-$parser->end();
 ```
 
-The triple callback signature is:
+These methods are intentionally separate because they serve different processing models:
 
-```php
-function ($error, $triple = null, $prefixes = null, $messageCounter = null) {
-    // ...
-}
-```
+- `parse()` is the rdfInterface-style quad parser entry point for in-memory input.
+- `parseStream()` is the rdfInterface-style stream parser entry point for resource inputs.
+- `parseMessages()` preserves message grouping for batch-per-message processing.
+- `parseMessageQuads()` keeps a flat quad stream while exposing `getMessageCounter()` so you can process incrementally and still reconstruct message boundaries.
+- `parseStreamMessages()` and `parseStreamMessageQuads()` are streaming counterparts of the message-oriented methods.
 
-For normal RDF parsing, `$messageCounter` stays `null`. In RDF Message mode, it starts at `0` for the first message and increments at each `MESSAGE` or `@message` delimiter.
+For large inputs, use `TriGParserIterator`; it yields typed `Quad` objects lazily and supports stream parsing.
 
-When `messages => true` is set and no callback is passed, the return type becomes effectively:
-
-```php
-array<int, array<int, array<string, mixed>>>
-```
-
-That is, an array of messages, each containing an array of quads.
+If you want a parser object matching `rdfInterface\\ParserInterface` for tools like quickRdfIo, use `TriGParserRdfInterfaceAdapter`.
 
 #### Basic examples for small files
 
-Using return values and passing these to a writer:
+Using typed generators and passing these to a writer:
 ```php
 use pietercolpaert\hardf\TriGParser;
 use pietercolpaert\hardf\TriGWriter;
+
 $parser = new TriGParser(["format" => "n-quads"]); // Also parses N-Triples, N3, Turtle, and TriG. The format is optional.
 $writer = new TriGWriter();
-$triples = $parser->parse("<A> <B> <C> <G> .");
-$writer->addTriples($triples);
+foreach ($parser->parse("<A> <B> <C> <G> .") as $quad) {
+    $writer->addQuad($quad);
+}
 echo $writer->end();
 ```
 
-Using callbacks and passing these to a writer:
-```php
-$parser = new TriGParser();
-$writer = new TriGWriter(["format" => "trig"]);
-$parser->parse("<http://A> <https://B> <http://C> <http://G> . <A2> <https://B2> <http://C2> <http://G3> .", function ($e, $triple) use ($writer) {
-    if (isset($e)) {
-        echo "Error occurred: ".$e->getMessage();
-    } elseif (isset($triple)) {
-        $writer->addTriple($triple);
-        echo $writer->read(); //write out what we have so far
-    } else { // signals the end of the file
-        echo $writer->end();
-    }
-});
-```
-
-Parsing RDF 1.2 triple terms:
+Parsing RDF 1.2 triple terms with typed output:
 
 ```php
 $parser = new TriGParser();
-$triples = $parser->parse('<s> <p> <<(<a> <b> <c>)>>.');
+$quads = iterator_to_array($parser->parse('<s> <p> <<(<a> <b> <c>)>>.'));
 
-// $triples[0]['object'] is:
-// [
-//     'type' => 'TripleTerm',
-//     'subject' => 'a',
-//     'predicate' => 'b',
-//     'object' => 'c',
-// ]
+// $quads[0]->object is a DataModel\TripleTerm instance
 ```
 
-#### Example using chunks and keeping prefixes
+#### Example using streams and keeping prefixes
 
-When you need to parse a large file, you will want to parse chunks and process them incrementally. You can do that as follows:
+When you need to parse a large file, parse streams incrementally as follows:
 
 ```php
 $writer = new TriGWriter(["format" => "n-quads"]);
-$tripleCallback = function ($error, $triple) use ($writer) {
-    if (isset($error)) {
-        throw $error;
-    } elseif (isset($triple)) {
-        $writer->addTriple($triple);
-        echo $writer->read();
-    } else {
-        echo $writer->end();
-    }
-};
 $prefixCallback = function ($prefix, $iri) use (&$writer) {
     $writer->addPrefix($prefix, $iri);
 };
-$parser = new TriGParser(["format" => "trig"], $tripleCallback, $prefixCallback);
-$parser->parseChunk($chunk);
-$parser->parseChunk($chunk);
-$parser->parseChunk($chunk);
-$parser->end(); // Needs to be called
+$parser = new TriGParser(["format" => "trig"], null, $prefixCallback);
+
+foreach ($parser->parseStream($stream) as $quad) {
+    $writer->addQuad($quad);
+    echo $writer->read();
+}
+echo $writer->end();
 ```
 
 #### Parsing RDF Messages
-
-```php
-$parser = new TriGParser(["format" => "n-triples"]);
-$parser->parse("VERSION \"1.2-messages\"\n<a> <b> <c> .\nMESSAGE\n<d> <e> <f> .\n", function ($error, $triple = null, $prefixes = null, $messageCounter = null) {
-    if ($error) {
-        throw $error;
-    }
-
-    if ($triple) {
-        echo "message #".$messageCounter."\n";
-        var_dump($triple);
-    }
-});
-```
-
-The callback is invoked in two distinct situations:
-
-1. **Triple event** — `$triple` is set, `$prefixes` is `null`. `$messageCounter` is the index (starting at `0`) of the message this triple belongs to.
-2. **End-of-stream event** — `$triple` is `null` and `$prefixes` is an array (possibly empty). `$messageCounter` is the index of the **last active** message (the one that was still open when the stream ended).
-
-If you want the whole RDF Message Log at once instead of streaming callbacks:
 
 ```php
 $parser = new TriGParser([
@@ -291,22 +245,14 @@ $parser = new TriGParser([
     "messages" => true,
 ]);
 
-$messages = $parser->parse(
+$messages = iterator_to_array($parser->parseMessages(
     "VERSION \"1.2-messages\"\n".
     "<http://example.org/a> <http://example.org/b> <http://example.org/c> .\n".
     "MESSAGE\n".
     "<http://example.org/d> <http://example.org/e> <http://example.org/f> .\n"
-);
+), false);
 
-// $messages is:
-// [
-//   [
-//     ['subject' => 'http://example.org/a', 'predicate' => 'http://example.org/b', 'object' => 'http://example.org/c', 'graph' => ''],
-//   ],
-//   [
-//     ['subject' => 'http://example.org/d', 'predicate' => 'http://example.org/e', 'object' => 'http://example.org/f', 'graph' => ''],
-//   ],
-// ]
+// $messages is list<list<DataModel\Quad>>
 ```
 
 #### Parser options
