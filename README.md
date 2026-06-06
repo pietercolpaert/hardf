@@ -1,12 +1,12 @@
-# The Hardf RDF 1.2 Turtle, N-Triples, N-Quads, and TriG parser for PHP
+# The Hardf RDF1.2 Turtle, N-Triples, N-Quads, and TriG parser for PHP
 
 [![PHP CI](https://github.com/pietercolpaert/hardf/actions/workflows/php-ci.yml/badge.svg)](https://github.com/pietercolpaert/hardf/actions/workflows/php-ci.yml)
 [![W3C RDF1.2 spec compliance](https://github.com/pietercolpaert/hardf/actions/workflows/spec-compliance.yml/badge.svg)](https://github.com/pietercolpaert/hardf/actions/workflows/spec-compliance.yml)
 [![Latest stable release](https://img.shields.io/packagist/v/pietercolpaert/hardf)](https://packagist.org/packages/pietercolpaert/hardf)
 
-**Hardf** is a PHP 7.1+ library that lets you handle Linked Data (RDF 1.2). It offers [**parsing**](#parsing) from and [**writing**](#writing) in [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/). Both the parser and the serializer have _streaming_ support.
+**Hardf** is a PHP 7.1+ library that lets you handle Linked Data (RDF1.2). It offers [**parsing**](#parsing) from and [**writing**](#writing) in [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/). Both the parser and the serializer have _streaming_ support.
 
-Hardf also supports [RDF 1.2](https://www.w3.org/TR/rdf12-concepts/) features that are relevant to this representation, including triple terms, reified triples, annotation syntax, directional language literals, `VERSION` declarations, and [RDF Messages](https://w3c-cg.github.io/rsp/spec/messages). Conformances is [tested using the official test suites](#rdf-working-group-test-suites).
+Hardf also supports [RDF1.2](https://www.w3.org/TR/rdf12-concepts/) features that are relevant to this representation, including triple terms, reified triples, annotation syntax, directional language literals, `VERSION` declarations, and [RDF Messages](https://w3c-cg.github.io/rsp/spec/messages). Conformances is [tested using the official test suites](#rdf-working-group-test-suites).
 
 This library was started as a port of [N3.js](https://github.com/rdfjs/N3.js/tree/v0.10.0) to PHP.
 
@@ -33,7 +33,7 @@ Encode literals as follows (similar to N3.js):
 '"1"^^http://www.w3.org/2001/XMLSchema#integer' // no angular brackets <>
 ```
 
-RDF 1.2 triple terms are represented as structured arrays, not as serialized strings:
+RDF1.2 triple terms are represented as structured arrays, not as serialized strings:
 
 ```php
 $tripleTerm = [
@@ -161,7 +161,7 @@ MESSAGE
 
 Next to [TriG](https://www.w3.org/TR/trig/), the TriGParser class also parses [Turtle](https://www.w3.org/TR/turtle/), [N-Triples](https://www.w3.org/TR/n-triples/), and [N-Quads](https://www.w3.org/TR/n-quads/).
 
-RDF 1.2 triple terms are emitted as arrays with `type => TripleTerm`. Reified triple syntax emits an `rdf:reifies` triple whose object is such a triple term.
+RDF1.2 triple terms are emitted as arrays with `type => TripleTerm`. Reified triple syntax emits an `rdf:reifies` triple whose object is such a triple term.
 
 RDF Message Logs are enabled by a `VERSION` label with the `-messages` suffix, such as `VERSION "1.2-messages"`. When parsing in streaming mode, the triple callback receives the current message counter as its fourth argument. Blank node labels are scoped per message, so the same blank node labels may legally reappear in later messages.
 
@@ -225,7 +225,7 @@ $parser->parse("<http://A> <https://B> <http://C> <http://G> . <A2> <https://B2>
 });
 ```
 
-Parsing RDF 1.2 triple terms:
+Parsing RDF1.2 triple terms:
 
 ```php
 $parser = new TriGParser();
@@ -324,6 +324,8 @@ $messages = $parser->parse(
   * contains `n3`, e.g. `n3` - [N3](https://www.w3.org/TeamSubmission/n3/)
 * `blankNodePrefix` (defaults to `b0_`) prefix forced on blank node names, e.g. `TriGParser(["blankNodePrefix" => 'foo'])` will parse `_:bar` as `_:foobar`.
 * `documentIRI` sets the base URI used to resolve relative URIs (not applicable if `format` indicates n-triples or n-quads)
+* `relax` enables the relaxed N-Triples/N-Quads hot path for trusted benchmark input. Keep this disabled for conformance tests.
+* `namedNodeCacheSize` sets the bounded cache size for recurring named nodes in the relaxed N-Triples/N-Quads hot path, such as predicates, datatypes, and graph IRIs. Defaults to `2048`.
 * `lexer` allows usage of your own lexer class. A lexer must provide the following public methods:
   * `tokenize(string $input, bool $finalize = true): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
   * `tokenizeChunk(string $input): array<array{'subject': string, 'predicate': string, 'object': string, 'graph': string}>`
@@ -392,7 +394,7 @@ curl -H "accept: application/trig" http://fragments.dbpedia.org/2015/en | php bi
 
 ## RDF Working Group Test Suites
 
-The official RDF Working Group test manifests live in [`w3c/rdf-tests`](https://github.com/w3c/rdf-tests). RDF 1.2 manifests are available under [`rdf/rdf12`](https://github.com/w3c/rdf-tests/tree/main/rdf/rdf12), including Turtle, TriG, N-Triples, and N-Quads suites.
+The official RDF Working Group test manifests live in [`w3c/rdf-tests`](https://github.com/w3c/rdf-tests). RDF1.2 manifests are available under [`rdf/rdf12`](https://github.com/w3c/rdf-tests/tree/main/rdf/rdf12), including Turtle, TriG, N-Triples, and N-Quads suites.
 
 This repository includes an optional [`rdf-test-suite.js`](https://github.com/rubensworks/rdf-test-suite.js) bridge in `spec/`. The JavaScript runner loads the W3C manifests, and `spec/hardf-rdf-test-engine.js` delegates parsing to `spec/hardf-rdf-test-parser.php`.
 
@@ -402,7 +404,7 @@ Install the optional Node dependencies:
 npm install
 ```
 
-Run individual RDF 1.2 leaf manifests:
+Run individual RDF1.2 leaf manifests:
 
 ```bash
 npm run rdf12:ntriples:syntax
@@ -430,68 +432,53 @@ npm run rdf12:turtle:eval:earl
 npm run rdf11:trig:earl
 ```
 
-All RDF 1.2 compliance commands pass. The RDF 1.2 root manifests also include C14N tests, but `rdf-test-suite.js` does not currently provide handlers for the RDF 1.2 C14N test types.
+All RDF1.2 compliance commands pass. The RDF1.2 root manifests also include C14N tests, but `rdf-test-suite.js` does not currently provide handlers for the RDF1.2 C14N test types.
 
 RDF/XML and RDF semantics manifests are not wired because hardf does not implement RDF/XML parsing or entailment. The compliance scripts in this repository therefore focus on the RDF parser manifests for Turtle, TriG, N-Triples, and N-Quads.
 
 ## Performance
 
-In the PHP ecosystem, Hardf is the only library here that supports RDF 1.1 and RDF 1.2 features such as named graphs and triple terms. EasyRDF and ARC2 are still useful comparison points, but they do not cover that full feature set.
+In the PHP ecosystem, Hardf is the only parser in this benchmark that supports the full feature set tested here: RDF 1.1 plus RDF1.2 features such as named graphs and triple terms. EasyRDF and ARC2 are useful comparison points for plain RDF1.0-compatible N-Triples, but they are not like-for-like RDF1.2 comparisons.
 
-Because of that, the benchmark below uses a generated **N-Triples** dataset, not TriG. The input is generated through Hardf's own `TriGWriter` in `N-Triples` mode and contains only plain triples, with a mix of IRI objects, literal objects, and occasional blank nodes. This gives all compared parsers the same RDF 1.0-compatible input while still reflecting realistic parser work.
+Strict parsing keeps the full conformance parser path. A strict scanner prototype was measured, but its validation overhead was slower than the existing parser path on PHP 8.3. For trusted machine-generated N-Triples and N-Quads input, the `relax` option enables a single-pass scanner hot path. The relaxed scanner keeps input as strings, scans by byte offset, emits quads immediately for streaming callbacks, buffers only incomplete trailing lines, and falls back to the general parser when it sees escapes, unsupported syntax, comments, or unusual whitespace. Spec-test paths run in strict mode.
 
-The measurements below were taken with PHP 8.3.6 and Node.js 25.9.0 using `php perf/compare-hardf-n3js.php`. EasyRDF and ARC2 were measured with CLI opcache enabled. Hardf was measured both with and without CLI opcache enabled. N3.js is included as a reference implementation on a very fast runtime, so it is expected to win on absolute throughput.
+The benchmark generates datasets at $10^4$, $10^5$, and $10^6$ statements and reports elapsed time plus statements/second. The RDF1.2 dataset includes default-graph triples, named-graph quads, IRI objects, string literals, language-tagged literals, integer/decimal/boolean literals, and triple terms. EasyRDF and ARC2 comparisons are limited to a plain RDF1.0-compatible N-Triples dataset.
 
 ```bash
-# Run the default comparison (Hardf vs N3.js)
-php perf/compare-hardf-n3js.php
+# Quick benchmark, useful before committing
+npm run bench:rdf:quick
 
-# Also include EasyRDF and ARC2
-php perf/compare-hardf-n3js.php --all
+# Full benchmark
+npm run bench:rdf
 ```
 
-The script generates synthetic N-Triples datasets at `/tmp/hardf-perf/` and reports parse time and memory for each framework.
+CLI benchmarks run with `opcache.enable_cli=1` and JIT disabled (`opcache.jit_buffer_size=0`) for reproducibility.
 
-That expectation does show up in the results, but the interesting part is the size of the gap: Hardf remains within a single-digit factor of N3.js across the whole range and scales roughly linearly from $10^5$ to $10^7$ triples. CLI opcache helps Hardf modestly on runtime and significantly on reported PHP memory. EasyRDF and ARC2 fall further behind as the data grows.
+The measurements below were taken on 2026-06-06 with PHP 8.3.6 CLI by running `npm run bench:rdf`.
 
-We report on the findings for increasing number of triples.
+| dataset | parser | statements | elapsed ms | statements/sec |
+|---------|--------|-----------:|-----------:|---------------:|
+| RDF1.2 mixed N-Quads | Hardf strict | 10,000 | 68.21 | 146,602 |
+| RDF1.2 mixed N-Quads | Hardf relax | 10,000 | 25.72 | 388,876 |
+| Plain RDF1.0 N-Triples | Hardf strict | 10,000 | 48.97 | 204,216 |
+| Plain RDF1.0 N-Triples | EasyRDF | 10,000 | 30.48 | 328,126 |
+| Plain RDF1.0 N-Triples | ARC2 | 10,000 | 125.48 | 79,691 |
+| RDF1.2 mixed N-Quads | Hardf strict | 100,000 | 664.83 | 150,415 |
+| RDF1.2 mixed N-Quads | Hardf relax | 100,000 | 223.27 | 447,882 |
+| Plain RDF1.0 N-Triples | Hardf strict | 100,000 | 461.03 | 216,905 |
+| Plain RDF1.0 N-Triples | EasyRDF | 100,000 | 354.94 | 281,738 |
+| Plain RDF1.0 N-Triples | ARC2 | 100,000 | 1,287.55 | 77,667 |
+| RDF1.2 mixed N-Quads | Hardf strict | 1,000,000 | 6,647.96 | 150,422 |
+| RDF1.2 mixed N-Quads | Hardf relax | 1,000,000 | 2,226.82 | 449,072 |
+| Plain RDF1.0 N-Triples | Hardf strict | 1,000,000 | 4,770.10 | 209,639 |
+| Plain RDF1.0 N-Triples | EasyRDF | 1,000,000 | 4,639.85 | 215,524 |
+| Plain RDF1.0 N-Triples | ARC2 | 1,000,000 | 13,689.83 | 73,047 |
 
-Note that the memory figures are runtime-specific and therefore not perfectly comparable across languages: PHP reports `memory_get_usage()`, while Node.js reports V8 `heapUsed`. The timing results are the more meaningful cross-runtime comparison.
+The main result is that strict RDF1.2 parsing remains stable and linear while preserving conformance. On the mixed RDF1.2 N-Quads dataset, Hardf strict reaches about $1.5 \times 10^5$ statements/second at $10^6$ statements. The relaxed scanner reaches about $4.5 \times 10^5$ statements/second on the same generated dataset, roughly `3.0x` faster than strict mode.
 
+The plain RDF1.0 N-Triples benchmark isolates simple line-based triples. In that dataset, Hardf strict reaches about $2.1 \times 10^5$ statements/second at $10^6$ statements, close to EasyRDF on the same RDF1.0-only input and about `2.9x` faster than ARC2. This comparison should not be extrapolated to RDF1.2 support, because the RDF1.2 benchmark includes named graphs and triple terms that EasyRDF and ARC2 do not cover here.
 
-For __100,000 triples__:
-
-| framework | time (ms) | memory (MB) | slower than N3.js |
-|-----------|----------:|------------:|------------------:|
-| __Hardf__ without opcache | 382 | 1.849 | 3.41x |
-| __Hardf__ with opcache | 372 | 0.540 | 3.32x |
-| [EasyRDF](https://github.com/easyrdf/easyrdf) with opcache | 303 | 181.346 | 2.71x |
-| [ARC2](https://github.com/semsol/arc2) with opcache | 1,133 | 83.435 | 10.12x |
-| [N3.js](https://github.com/rdfjs/N3.js) | 112 | 6.328 | 1.00x |
-
-For __1,000,000 triples__:
-
-| framework | time (ms) | memory (MB) | slower than N3.js |
-|-----------|----------:|------------:|------------------:|
-| __Hardf__ without opcache | 3,961 | 1.849 | 4.62x |
-| __Hardf__ with opcache | 3,880 | 0.540 | 4.52x |
-| [EasyRDF](https://github.com/easyrdf/easyrdf) with opcache | 4,247 | 1,788.624 | 4.95x |
-| [ARC2](https://github.com/semsol/arc2) with opcache | 12,463 | 826.056 | 14.53x |
-| [N3.js](https://github.com/rdfjs/N3.js) | 858 | 9.263 | 1.00x |
-
-For __10,000,000 triples__:
-
-| framework | time (ms) | memory (MB) | slower than N3.js |
-|-----------|----------:|------------:|------------------:|
-| __Hardf__ without opcache | 41,607 | 1.849 | 5.19x |
-| __Hardf__ with opcache | 39,098 | 0.540 | 4.88x |
-| [EasyRDF](https://github.com/easyrdf/easyrdf) with opcache | 125,834 | 18,041.405 | 15.70x |
-| [ARC2](https://github.com/semsol/arc2) with opcache | 147,273 | 8,352.265 | 18.37x |
-| [N3.js](https://github.com/rdfjs/N3.js) | 8,017 | 30.336 | 1.00x |
-
-
-1. N3.js on Node.js 25 is faster, which is expected, but Hardf stays surprisingly close for a native PHP parser: about `3.32x` to `4.88x` slower with opcache enabled, and about `3.41x` to `5.19x` slower without it.
-2. Hardf remains effective over the tested range and is substantially faster than ARC2 at every size, while also overtaking EasyRDF on the larger datasets.
+Across all measured sizes, throughput is roughly linear. Strict mode favors correctness and broad syntax support; relaxed mode is the high-throughput path for trusted generated line-format data.
 
 ## License, status and contributions
 

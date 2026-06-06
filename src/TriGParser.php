@@ -106,6 +106,15 @@ class TriGParser
     private $supportsNamedGraphs;
     private $supportsMessages;
     private $supportsQuads;
+    private $lineMode;
+    private $relax;
+    private $lineBuffer;
+    private $pendingFastLineCount;
+    private $namedNodeCacheMax;
+    private $predicateCache;
+    private $datatypeCache;
+    private $graphCache;
+    private $iriTermCache;
     private $supportsReifiedTriples;
     private $triple;
     private $tripleCallback;
@@ -154,6 +163,15 @@ class TriGParser
         $isN3 = str_contains($format, 'n3') ? true : false;
         $this->n3Mode = $isN3;
         $isLineMode = $isNTriples || $isNQuads;
+        $this->lineMode = $isLineMode;
+        $this->relax = !empty($options['relax']);
+        $this->lineBuffer = '';
+        $this->pendingFastLineCount = 0;
+        $this->namedNodeCacheMax = isset($options['namedNodeCacheSize']) ? max(16, (int) $options['namedNodeCacheSize']) : 2048;
+        $this->predicateCache = [];
+        $this->datatypeCache = [];
+        $this->graphCache = [];
+        $this->iriTermCache = [];
         if (!($this->supportsNamedGraphs = !($isTurtle || $isN3))) {
             $this->readPredicateOrNamedGraph = $this->readPredicate;
         }
@@ -1929,6 +1947,436 @@ class TriGParser
 
     // ## Public methods
 
+    private function parseChunkInternal(string $input, bool $finalize): void
+    {
+        if ($this->canUseFastLineScanner()) {
+            $this->parseChunkWithFastLineScanner($input, $finalize);
+
+            return;
+        }
+
+        $this->syncFastLineCount();
+        $this->parseChunkWithLexer($input, $finalize);
+    }
+
+    private function canUseFastLineScanner(): bool
+    {
+        return $this->relax && $this->lineMode && !$this->supportsMessages && null === $this->messageCounter && !$this->collectMessages;
+    }
+
+    private function parseChunkWithLexer(string $input, bool $finalize): void
+    {
+        $tokens = $this->lexer->tokenize($input, $finalize);
+        foreach ($tokens as $token) {
+            if (isset($this->readCallback)) {
+                $this->readCallback = \call_user_func($this->readCallback, $token);
+            } else {
+                break;
+            }
+        }
+    }
+
+    private function parseChunkWithFastLineScanner(string $input, bool $finalize): void
+    {
+        $this->lineBuffer .= $input;
+        $length = \strlen($this->lineBuffer);
+        $offset = 0;
+
+        while ($offset < $length) {
+            $lineEnd = $offset + strcspn($this->lineBuffer, "\r\n", $offset);
+            if ($lineEnd >= $length) {
+                break;
+            }
+            $nextOffset = $lineEnd + 1;
+            if ("\r" === $this->lineBuffer[$lineEnd] && $nextOffset < $length && "\n" === $this->lineBuffer[$nextOffset]) {
+                ++$nextOffset;
+            }
+            $line = substr($this->lineBuffer, $offset, $lineEnd - $offset);
+            if (!$this->tryEmitFastLine($line)) {
+                $this->syncFastLineCount();
+                $this->parseChunkWithLexer(substr($this->lineBuffer, $offset, $nextOffset - $offset), false);
+                if (!$this->canUseFastLineScanner()) {
+                    $this->lineBuffer = substr($this->lineBuffer, $nextOffset);
+                    if ('' !== $this->lineBuffer) {
+                        $rest = $this->lineBuffer;
+                        $this->lineBuffer = '';
+                        $this->parseChunkWithLexer($rest, $finalize);
+                    } elseif ($finalize) {
+                        $this->parseChunkWithLexer('', true);
+                    }
+
+                    return;
+                }
+            } else {
+                ++$this->pendingFastLineCount;
+            }
+            $offset = $nextOffset;
+        }
+
+        $this->lineBuffer = substr($this->lineBuffer, $offset);
+
+        if ($finalize) {
+            if ('' !== $this->lineBuffer) {
+                if (!$this->tryEmitFastLine($this->lineBuffer)) {
+                    $this->syncFastLineCount();
+                    $this->parseChunkWithLexer($this->lineBuffer, false);
+                }
+                $this->lineBuffer = '';
+            }
+            $this->parseChunkWithLexer('', true);
+        }
+    }
+
+    private function syncFastLineCount(): void
+    {
+        while ($this->pendingFastLineCount > 0) {
+            $chunkLineCount = min($this->pendingFastLineCount, 8192);
+            $this->parseChunkWithLexer(str_repeat("\n", $chunkLineCount), false);
+            $this->pendingFastLineCount -= $chunkLineCount;
+        }
+    }
+
+    private function tryEmitFastLine(string $line): bool
+    {
+        $quad = null;
+        if (!$this->tryParseFastLine($line, $quad)) {
+            return false;
+        }
+        if (null !== $quad) {
+            \call_user_func($this->triple, $quad['subject'], $quad['predicate'], $quad['object'], $quad['graph']);
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed>|null $quad
+     */
+    private function tryParseFastLine(string $line, ?array &$quad): bool
+    {
+        $quad = null;
+        if ('' === $line) {
+            return true;
+        }
+        if (str_contains($line, "\t") || str_contains($line, '\\')) {
+            return false;
+        }
+
+        $length = \strlen($line);
+        $i = 0;
+        $this->skipFastSpaces($line, $i, $length);
+        if ($i >= $length || '#' === $line[$i]) {
+            return true;
+        }
+
+        $subject = $this->parseFastNode($line, $i, true);
+        if (null === $subject || !$this->requireFastSpace($line, $i, $length)) {
+            return false;
+        }
+
+        $predicate = $this->parseFastIri($line, $i, 'predicate');
+        if (null === $predicate || !$this->requireFastSpace($line, $i, $length)) {
+            return false;
+        }
+
+        $object = $this->parseFastObject($line, $i);
+        if (null === $object) {
+            return false;
+        }
+
+        $this->skipFastSpaces($line, $i, $length);
+        $graph = '';
+        if ($this->supportsQuads && $i < $length && '.' !== $line[$i]) {
+            $graph = $this->parseFastNode($line, $i, true);
+            if (null === $graph) {
+                return false;
+            }
+            $this->skipFastSpaces($line, $i, $length);
+        }
+
+        if ($i >= $length || '.' !== $line[$i]) {
+            return false;
+        }
+        ++$i;
+        $this->skipFastSpaces($line, $i, $length);
+        if ($i !== $length) {
+            return false;
+        }
+
+        $quad = [
+            'subject' => $subject,
+            'predicate' => $predicate,
+            'object' => $object,
+            'graph' => $graph,
+        ];
+
+        return true;
+    }
+
+    private function requireFastSpace(string $line, int &$i, int $length): bool
+    {
+        if ($i >= $length || ' ' !== $line[$i]) {
+            return false;
+        }
+        $this->skipFastSpaces($line, $i, $length);
+
+        return true;
+    }
+
+    private function skipFastSpaces(string $line, int &$i, int $length): void
+    {
+        while ($i < $length && ' ' === $line[$i]) {
+            ++$i;
+        }
+    }
+
+    private function parseFastNode(string $line, int &$i, bool $allowBlank): ?string
+    {
+        if (!isset($line[$i])) {
+            return null;
+        }
+        if ('<' === $line[$i]) {
+            return $this->parseFastIri($line, $i, 'iri');
+        }
+        if ($allowBlank && '_' === $line[$i] && isset($line[$i + 1]) && ':' === $line[$i + 1]) {
+            return $this->parseFastBlankNode($line, $i);
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, mixed>|string|null
+     */
+    private function parseFastObject(string $line, int &$i)
+    {
+        if (!isset($line[$i])) {
+            return null;
+        }
+        if ('"' === $line[$i]) {
+            return $this->parseFastLiteral($line, $i);
+        }
+        if ('<' === $line[$i] && isset($line[$i + 1], $line[$i + 2]) && '<' === $line[$i + 1] && '(' === $line[$i + 2]) {
+            return $this->parseFastTripleTerm($line, $i);
+        }
+
+        return $this->parseFastNode($line, $i, true);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function parseFastTripleTerm(string $line, int &$i): ?array
+    {
+        $length = \strlen($line);
+        $i += 3;
+
+        $subject = $this->parseFastNode($line, $i, true);
+        if (null === $subject || !$this->requireFastSpace($line, $i, $length)) {
+            return null;
+        }
+
+        $predicate = $this->parseFastIri($line, $i, 'predicate');
+        if (null === $predicate || !$this->requireFastSpace($line, $i, $length)) {
+            return null;
+        }
+
+        $object = $this->parseFastObject($line, $i);
+        if (null === $object) {
+            return null;
+        }
+
+        if (!isset($line[$i], $line[$i + 1], $line[$i + 2]) || ')' !== $line[$i] || '>' !== $line[$i + 1] || '>' !== $line[$i + 2]) {
+            return null;
+        }
+        $i += 3;
+
+        return [
+            'type' => 'TripleTerm',
+            'subject' => $subject,
+            'predicate' => $predicate,
+            'object' => $object,
+        ];
+    }
+
+    private function parseFastIri(string $line, int &$i, string $cacheType): ?string
+    {
+        $start = $i + 1;
+        $end = strpos($line, '>', $start);
+        if (false === $end) {
+            return null;
+        }
+        if (!$this->relax && !$this->isValidFastIri($line, $start, $end)) {
+            return null;
+        }
+        $iri = substr($line, $start, $end - $start);
+        $i = $end + 1;
+
+        if ('iri' === $cacheType) {
+            return $iri;
+        }
+
+        return $this->cacheNamedNode($iri, $cacheType);
+    }
+
+    private function isValidFastIri(string $line, int $start, int $end): bool
+    {
+        if ($start >= $end) {
+            return false;
+        }
+
+        $hasScheme = false;
+        for ($i = $start; $i < $end; ++$i) {
+            $code = ord($line[$i]);
+            if ($code <= 32 || 34 === $code || 60 === $code || 62 === $code || 94 === $code || 96 === $code || 123 === $code || 124 === $code || 125 === $code) {
+                return false;
+            }
+            if (!$hasScheme && 58 === $code) {
+                $hasScheme = $i > $start;
+            }
+        }
+
+        return $hasScheme;
+    }
+
+    private function parseFastBlankNode(string $line, int &$i): ?string
+    {
+        $length = \strlen($line);
+        $start = $i + 2;
+        $i = $start;
+        while ($i < $length) {
+            $code = ord($line[$i]);
+            $isAlpha = ($code >= 65 && $code <= 90) || ($code >= 97 && $code <= 122);
+            $isDigit = $code >= 48 && $code <= 57;
+            if (!$isAlpha && !$isDigit && 95 !== $code && 45 !== $code && 46 !== $code) {
+                break;
+            }
+            ++$i;
+        }
+        if ($i === $start || (!$this->relax && '.' === $line[$i - 1])) {
+            return null;
+        }
+
+        return $this->prefixes['_'].substr($line, $start, $i - $start);
+    }
+
+    private function parseFastLiteral(string $line, int &$i): ?string
+    {
+        $start = ++$i;
+        $end = strpos($line, '"', $start);
+        if (false === $end) {
+            return null;
+        }
+        if (!$this->relax) {
+            for ($j = $start; $j < $end; ++$j) {
+                if (ord($line[$j]) < 32) {
+                    return null;
+                }
+            }
+        }
+        $literal = '"'.substr($line, $start, $end - $start).'"';
+        $i = $end + 1;
+
+        if (isset($line[$i]) && '@' === $line[$i]) {
+            $languageStart = ++$i;
+            while (isset($line[$i])) {
+                $code = ord($line[$i]);
+                $isAlpha = ($code >= 65 && $code <= 90) || ($code >= 97 && $code <= 122);
+                $isDigit = $code >= 48 && $code <= 57;
+                if (!$isAlpha && !$isDigit && 45 !== $code) {
+                    break;
+                }
+                ++$i;
+            }
+            if ($languageStart === $i) {
+                return null;
+            }
+            $rawLanguage = substr($line, $languageStart, $i - $languageStart);
+            if (!$this->relax && !$this->isValidFastLanguageTag($rawLanguage)) {
+                return null;
+            }
+
+            return $literal.'@'.strtolower($rawLanguage);
+        }
+
+        if (isset($line[$i], $line[$i + 1]) && '^' === $line[$i] && '^' === $line[$i + 1]) {
+            $i += 2;
+            $datatype = $this->parseFastIri($line, $i, 'datatype');
+            if (null === $datatype) {
+                return null;
+            }
+            if (!$this->relax && (self::RDF_LANG_STRING === $datatype || self::RDF_DIR_LANG_STRING === $datatype)) {
+                return null;
+            }
+
+            return $literal.'^^'.$datatype;
+        }
+
+        return $literal;
+    }
+
+    private function isValidFastLanguageTag(string $language): bool
+    {
+        $length = \strlen($language);
+        if (0 === $length) {
+            return false;
+        }
+        $first = ord($language[0]);
+        if (!(($first >= 65 && $first <= 90) || ($first >= 97 && $first <= 122))) {
+            return false;
+        }
+        if (false !== strpos($language, '--') && !str_ends_with($language, '--ltr') && !str_ends_with($language, '--rtl')) {
+            return false;
+        }
+
+        $subtagLength = 0;
+        for ($i = 0; $i < $length; ++$i) {
+            $code = ord($language[$i]);
+            if (45 === $code) {
+                if (0 === $subtagLength || $subtagLength > 8) {
+                    return false;
+                }
+                $subtagLength = 0;
+                continue;
+            }
+            $isAlpha = ($code >= 65 && $code <= 90) || ($code >= 97 && $code <= 122);
+            $isDigit = $code >= 48 && $code <= 57;
+            if (!$isAlpha && !$isDigit) {
+                return false;
+            }
+            ++$subtagLength;
+        }
+
+        return $subtagLength > 0 && $subtagLength <= 8;
+    }
+
+    private function cacheNamedNode(string $value, string $type): string
+    {
+        switch ($type) {
+            case 'predicate':
+                return $this->cacheString($this->predicateCache, $value);
+            case 'datatype':
+                return $this->cacheString($this->datatypeCache, $value);
+            case 'graph':
+                return $this->cacheString($this->graphCache, $value);
+            default:
+                return $this->cacheString($this->iriTermCache, $value);
+        }
+    }
+
+    private function cacheString(array &$cache, string $value): string
+    {
+        if (isset($cache[$value])) {
+            return $cache[$value];
+        }
+        if (\count($cache) >= $this->namedNodeCacheMax) {
+            $cache = [];
+        }
+        $cache[$value] = $value;
+
+        return $cache[$value];
+    }
+
     // ### `parse` parses the N3 input and emits each parsed triple through the callback
     public function parse($input, $tripleCallback = null, $prefixCallback = null)
     {
@@ -1978,12 +2426,7 @@ class TriGParser
                     $error = $e;
                 }
             };
-            $tokens = $this->lexer->tokenize($input, $finalize);
-            foreach ($tokens as $token) {
-                if (isset($this->readCallback)) {
-                    $this->readCallback = \call_user_func($this->readCallback, $token);
-                }
-            }
+            $this->parseChunkInternal((string) $input, (bool) $finalize);
             if ($error) {
                 throw $error;
             }
@@ -2003,15 +2446,7 @@ class TriGParser
             // Parse asynchronously otherwise, executing the read callback when a token arrives
             $this->callback = $this->tripleCallback;
             try {
-                $tokens = $this->lexer->tokenize($input, $finalize);
-                foreach ($tokens as $token) {
-                    if (isset($this->readCallback)) {
-                        $this->readCallback = \call_user_func($this->readCallback, $token);
-                    } else {
-                        // error occured in parser
-                        break;
-                    }
-                }
+                $this->parseChunkInternal((string) $input, (bool) $finalize);
             } catch (\Exception $e) {
                 if ($this->callback) {
                     \call_user_func($this->callback, $e, null);

@@ -18,6 +18,8 @@
     "rdf12:turtle": "npm run rdf12:turtle:syntax && npm run rdf12:turtle:eval && npm run rdf11:turtle",
     "rdf12:trig": "npm run rdf12:trig:syntax && npm run rdf12:trig:eval && npm run rdf11:trig",
     "rdf12": "npm run rdf12:ntriples && npm run rdf12:nquads && npm run rdf12:turtle && npm run rdf12:trig",
+    "bench:rdf": "php perf/benchmark-rdf.php",
+    "bench:rdf:quick": "php perf/benchmark-rdf.php --quick",
     "rdf11:ntriples:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-n-triples/manifest.ttl -o earl -p spec/earl-metadata.json",
     "rdf11:nquads:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-n-quads/manifest.ttl -o earl -p spec/earl-metadata.json",
     "rdf11:turtle:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-turtle/manifest.ttl -o earl -p spec/earl-metadata.json",
