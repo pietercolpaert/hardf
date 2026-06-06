@@ -84,7 +84,7 @@ try {
     exit(1);
 }
 
-$generatedDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'hardf-rdf-bench';
+$generatedDir = rtrim(sys_get_temp_dir(), \DIRECTORY_SEPARATOR).\DIRECTORY_SEPARATOR.'hardf-rdf-bench';
 if (!is_dir($generatedDir) && !mkdir($generatedDir, 0777, true) && !is_dir($generatedDir)) {
     echo 'Could not create benchmark directory: '.$generatedDir."\n";
     exit(1);
@@ -97,7 +97,7 @@ $easyRdf = __DIR__.'/easyrdf-perf.php';
 $arc2 = __DIR__.'/arc2-perf.php';
 
 // Keep opcache/JIT settings explicit for reproducible CLI measurements.
-$php = escapeshellarg(PHP_BINARY).' -d '.escapeshellarg('opcache.enable_cli=1').' -d '.escapeshellarg('opcache.jit_buffer_size=0');
+$php = escapeshellarg(\PHP_BINARY).' -d '.escapeshellarg('opcache.enable_cli=1').' -d '.escapeshellarg('opcache.jit_buffer_size=0');
 
 echo "| dataset | parser | statements | elapsed ms | statements/sec |\n";
 echo "|---------|--------|-----------:|-----------:|---------------:|\n";

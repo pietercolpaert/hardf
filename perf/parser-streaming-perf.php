@@ -13,7 +13,7 @@ $base = 'file://'.$filename;
 $format = null;
 $relax = false;
 foreach (array_slice($argv, 2) as $arg) {
-    if (0 === strpos($arg, '--format=')) {
+    if (str_starts_with($arg, '--format=')) {
         $format = substr($arg, 9);
     } elseif ('--relax' === $arg) {
         $relax = true;

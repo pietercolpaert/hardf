@@ -2227,7 +2227,7 @@ class TriGParser
 
         $hasScheme = false;
         for ($i = $start; $i < $end; ++$i) {
-            $code = ord($line[$i]);
+            $code = \ord($line[$i]);
             if ($code <= 32 || 34 === $code || 60 === $code || 62 === $code || 94 === $code || 96 === $code || 123 === $code || 124 === $code || 125 === $code) {
                 return false;
             }
@@ -2245,7 +2245,7 @@ class TriGParser
         $start = $i + 2;
         $i = $start;
         while ($i < $length) {
-            $code = ord($line[$i]);
+            $code = \ord($line[$i]);
             $isAlpha = ($code >= 65 && $code <= 90) || ($code >= 97 && $code <= 122);
             $isDigit = $code >= 48 && $code <= 57;
             if (!$isAlpha && !$isDigit && 95 !== $code && 45 !== $code && 46 !== $code) {
@@ -2269,7 +2269,7 @@ class TriGParser
         }
         if (!$this->relax) {
             for ($j = $start; $j < $end; ++$j) {
-                if (ord($line[$j]) < 32) {
+                if (\ord($line[$j]) < 32) {
                     return null;
                 }
             }
@@ -2280,7 +2280,7 @@ class TriGParser
         if (isset($line[$i]) && '@' === $line[$i]) {
             $languageStart = ++$i;
             while (isset($line[$i])) {
-                $code = ord($line[$i]);
+                $code = \ord($line[$i]);
                 $isAlpha = ($code >= 65 && $code <= 90) || ($code >= 97 && $code <= 122);
                 $isDigit = $code >= 48 && $code <= 57;
                 if (!$isAlpha && !$isDigit && 45 !== $code) {
@@ -2321,17 +2321,17 @@ class TriGParser
         if (0 === $length) {
             return false;
         }
-        $first = ord($language[0]);
+        $first = \ord($language[0]);
         if (!(($first >= 65 && $first <= 90) || ($first >= 97 && $first <= 122))) {
             return false;
         }
-        if (false !== strpos($language, '--') && !str_ends_with($language, '--ltr') && !str_ends_with($language, '--rtl')) {
+        if (str_contains($language, '--') && !str_ends_with($language, '--ltr') && !str_ends_with($language, '--rtl')) {
             return false;
         }
 
         $subtagLength = 0;
         for ($i = 0; $i < $length; ++$i) {
-            $code = ord($language[$i]);
+            $code = \ord($language[$i]);
             if (45 === $code) {
                 if (0 === $subtagLength || $subtagLength > 8) {
                     return false;
