@@ -1,0 +1,25 @@
+{
+  "applicationBugsUrl": "https://github.com/pietercolpaert/hardf/issues",
+  "applicationDescription": "A fast parser for RDF serializations such as Turtle, N-Triples, N-Quads, and TriG",
+  "applicationHomepageUrl": "https://github.com/pietercolpaert/hardf",
+  "applicationNameFull": "hardf",
+  "applicationNameNpm": "hardf-spec-tests",
+  "applicationUri": "https://github.com/pietercolpaert/hardf",
+  "authors": [
+    {
+      "homepage": "https://pietercolpaert.be",
+      "name": "Pieter Colpaert",
+      "uri": "https://github.com/pietercolpaert"
+    }
+  ],
+  "licenseUri": "http://opensource.org/licenses/MIT",
+  "reportUri": null,
+  "specificationUris": [
+    "http://www.w3.org/TR/n-triples/",
+    "http://www.w3.org/TR/n-quads/",
+    "http://www.w3.org/TR/turtle/",
+    "http://www.w3.org/TR/trig/",
+    "https://www.w3.org/TR/rdf12-concepts/"
+  ],
+  "version": "dev"
+}

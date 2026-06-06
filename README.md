@@ -419,6 +419,13 @@ npm run rdf12:trig
 npm run rdf12
 ```
 
+Generate machine-readable EARL output by using the scripts with the `:earl` suffix. The metadata is defined in `spec/earl-metadata.json`.
+
+```bash
+npm run rdf12:turtle:eval:earl
+npm run rdf11:trig:earl
+```
+
 All RDF 1.2 compliance commands pass. The RDF 1.2 root manifests also include C14N tests, but `rdf-test-suite.js` does not currently provide handlers for the RDF 1.2 C14N test types.
 
 RDF/XML and RDF semantics manifests are not wired because hardf does not implement RDF/XML parsing or entailment. The compliance scripts in this repository therefore focus on the RDF parser manifests for Turtle, TriG, N-Triples, and N-Quads.

@@ -18,6 +18,16 @@
     "rdf12:turtle": "npm run rdf12:turtle:syntax && npm run rdf12:turtle:eval && npm run rdf11:turtle",
     "rdf12:trig": "npm run rdf12:trig:syntax && npm run rdf12:trig:eval && npm run rdf11:trig",
     "rdf12": "npm run rdf12:ntriples && npm run rdf12:nquads && npm run rdf12:turtle && npm run rdf12:trig",
+    "rdf11:ntriples:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-n-triples/manifest.ttl -o earl -p spec/earl-metadata.json",
+    "rdf11:nquads:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-n-quads/manifest.ttl -o earl -p spec/earl-metadata.json",
+    "rdf11:turtle:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-turtle/manifest.ttl -o earl -p spec/earl-metadata.json",
+    "rdf11:trig:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-trig/manifest.ttl -o earl -p spec/earl-metadata.json",
+    "rdf12:ntriples:syntax:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-n-triples/syntax/manifest.ttl -o earl -p spec/earl-metadata.json",
+    "rdf12:nquads:syntax:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-n-quads/syntax/manifest.ttl -o earl -p spec/earl-metadata.json",
+    "rdf12:turtle:syntax:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-turtle/syntax/manifest.ttl -o earl -p spec/earl-metadata.json",
+    "rdf12:turtle:eval:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-turtle/eval/manifest.ttl -o earl -p spec/earl-metadata.json",
+    "rdf12:trig:syntax:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-trig/syntax/manifest.ttl -o earl -p spec/earl-metadata.json",
+    "rdf12:trig:eval:earl": "rdf-test-suite spec/hardf-rdf-test-engine.js https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-trig/eval/manifest.ttl -o earl -p spec/earl-metadata.json",
     "clean:spec-cache": "node -e \"require('fs').rmSync('.rdf-test-suite-cache', { recursive: true, force: true })\""
   },
   "devDependencies": {
