@@ -2,6 +2,7 @@
 
 namespace Tests\hardf;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use pietercolpaert\hardf\TriGParser;
 use pietercolpaert\hardf\TriGWriter;
@@ -130,8 +131,8 @@ class N3JsCompatibilityTest extends TestCase
         });
 
         $this->assertSame([
-              [0, ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => '']],
-              [1, ['subject' => 'd', 'predicate' => 'e', 'object' => 'f', 'graph' => '']],
+            [0, ['subject' => 'a', 'predicate' => 'b', 'object' => 'c', 'graph' => '']],
+            [1, ['subject' => 'd', 'predicate' => 'e', 'object' => 'f', 'graph' => '']],
         ], $messages);
     }
 
@@ -619,9 +620,7 @@ class N3JsCompatibilityTest extends TestCase
         ], '<<<a> <b> 1>> <b> <c>. <<<a> <b> true>> <b> <c>.');
     }
 
-    /**
-     * @dataProvider invalidTripleTermSyntaxProvider
-     */
+    #[DataProvider('invalidTripleTermSyntaxProvider')]
     public function testParserRejectsInvalidTripleTermSyntax(string $input): void
     {
         $this->expectException(\Exception::class);
@@ -632,7 +631,7 @@ class N3JsCompatibilityTest extends TestCase
     /**
      * @return array<int, array<int, string>>
      */
-    public function invalidTripleTermSyntaxProvider(): array
+    public static function invalidTripleTermSyntaxProvider(): array
     {
         return [
             ['<a> <<<b> <c> <d>>> <e>'],

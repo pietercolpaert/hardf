@@ -13,6 +13,10 @@ return (new PhpCsFixer\Config())
         'phpdoc_summary' => false,
         'protected_to_private' => false,
         'combine_nested_dirname' => true,
+        'declare_strict_types' => false,
+        'static_lambda' => false,
+        'void_return' => false,
+        'no_useless_else' => false,
     ])
     ->setRiskyAllowed(true)
     ->setFinder(

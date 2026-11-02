@@ -5,3 +5,4 @@
 /.rdf-test-suite-cache/
 /.phpunit.result.cache
 /.php_cs.cache
+/.phpunit.cache/

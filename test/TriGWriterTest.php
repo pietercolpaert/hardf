@@ -149,7 +149,7 @@ class TriGWriterTest extends TestCase
         ];
         for ($i = 0; $i <= 31; ++$i) {
             $literal .= \chr($i);
-            $expected .= isset($escapes[$i]) ? $escapes[$i] : sprintf('\\u%04x', $i);
+            $expected .= isset($escapes[$i]) ? $escapes[$i] : \sprintf('\\u%04x', $i);
         }
 
         $writer = new TriGWriter(['format' => 'N-Triples']);

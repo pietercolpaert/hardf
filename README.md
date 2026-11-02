@@ -4,7 +4,7 @@
 [![W3C RDF1.2 spec compliance](https://github.com/pietercolpaert/hardf/actions/workflows/spec-compliance.yml/badge.svg)](https://github.com/pietercolpaert/hardf/actions/workflows/spec-compliance.yml)
 [![Latest stable release](https://img.shields.io/packagist/v/pietercolpaert/hardf)](https://packagist.org/packages/pietercolpaert/hardf)
 
-**Hardf** is a PHP 7.1+ library that lets you handle Linked Data (RDF 1.2). It offers [**parsing**](#parsing) from and [**writing**](#writing) in [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/). Both the parser and the serializer have _streaming_ support.
+**Hardf** is a PHP 8.2+ library that lets you handle Linked Data (RDF1.2). It offers [**parsing**](#parsing) from and [**writing**](#writing) in [Turtle](http://www.w3.org/TR/turtle/), [TriG](http://www.w3.org/TR/trig/), [N-Triples](http://www.w3.org/TR/n-triples/), and [N-Quads](http://www.w3.org/TR/n-quads/). Both the parser and the serializer have _streaming_ support.
 
 Hardf also supports [RDF 1.2](https://www.w3.org/TR/rdf12-concepts/) features that are relevant to this representation, including triple terms, reified triples, annotation syntax, directional language literals, `VERSION` declarations, and [RDF Messages](https://w3c-cg.github.io/rsp/spec/messages). Conformances is [tested using the official test suites](#rdf-working-group-test-suites).
 

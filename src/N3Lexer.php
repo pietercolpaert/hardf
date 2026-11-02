@@ -46,6 +46,8 @@ class N3Lexer
             $this->tripleQuotedString = '/$0^/';
             $this->number = '/$0^/';
             $this->boolean = '/$0^/';
+            // Keywords are case-sensitive in N-Triples and N-Quads
+            $this->sparqlKeyword = '/^(?:VERSION|MESSAGE)(?=[\s#<"]|$)/';
             // Swap the tokenize method for a restricted version
             $this->_oldTokenize = $this->_tokenize;
             $self = $this;

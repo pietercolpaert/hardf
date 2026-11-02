@@ -28,14 +28,14 @@
         }
     },
     "require": {
-        "php": "^7.1|^8.0"
+        "php": "^8.2"
     },
     "require-dev" : {
-        "friendsofphp/php-cs-fixer": "*",
-        "phpunit/phpunit": "^7 || ^8 || ^9",
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "phpunit/phpunit": "^11.5 || ^12.5",
         "easyrdf/easyrdf": "^1.1",
         "semsol/arc2": "^3.1",
-        "phpstan/phpstan": "^2.2"
+        "phpstan/phpstan": "^2.3"
     },
     "scripts": {
         "install-githooks": "@php install-githooks.php",

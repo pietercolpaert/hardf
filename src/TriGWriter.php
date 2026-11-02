@@ -215,7 +215,7 @@ class TriGWriter
             case 12:
                 return '\\f';
             default:
-                return sprintf('\\u%04x', $byte);
+                return \sprintf('\\u%04x', $byte);
         }
     }
 
@@ -280,7 +280,7 @@ class TriGWriter
             } elseif (0xC2 === $byte && $i + 1 < $length) {
                 $nextByte = \ord($value[$i + 1]);
                 if ($nextByte >= 0x80 && $nextByte <= 0x9F) {
-                    $escaped .= sprintf('\\u%04x', $nextByte);
+                    $escaped .= \sprintf('\\u%04x', $nextByte);
                     ++$i;
                 } else {
                     $sequenceLength = $this->getValidUtf8SequenceLength($value, $i, $byte);
